@@ -2,6 +2,7 @@
 It's how I wish Autogen worked:  quickly, simply, and automatically.
 
 FREE online beta:  https://autogroq-9dylrah8dfyukd4q8phea7.streamlit.app/
+
 1 MINUTE video tutorial:  https://www.youtube.com/watch?v=CzMdqZ83eBk 
 
 Autogroq creates your team of agent assistants on the fly.  Just type in your request!
