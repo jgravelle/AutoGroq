@@ -1,4 +1,5 @@
 # AutoGroq
+FREE online beta:  https://autogroq-9dylrah8dfyukd4q8phea7.streamlit.app/ 
 
 **AutoGroq** is an AI-powered conversational assistant designed to revolutionize the way users interact with AI tools. Built with the goal of addressing the limitations of existing solutions, AutoGroq offers a user-friendly, powerful, and configuration-free experience. Our platform focuses on providing immediate and relevant assistance by automatically generating expert agents tailored to help you with any question, problem, or project, regardless of its complexity.
 
