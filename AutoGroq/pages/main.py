@@ -1,6 +1,5 @@
 import streamlit as st
 from agent_management import add_or_update_agent, delete_agent, display_agents, process_agent_interaction
-from api_utils import extract_code_from_response
 from ui_utils import display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input, handle_begin
 
 def main():
