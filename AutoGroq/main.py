@@ -4,6 +4,7 @@ from ui_utils import display_discussion_and_whiteboard, display_user_input, disp
 
 def main():
     st.title("AutoGroq")
+    st.text("[ Periodic maintenance.  If things get weird, please try again in a few minutes. ]")
 
     # Default values for session state
     if "discussion" not in st.session_state:
