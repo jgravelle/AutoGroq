@@ -1,5 +1,5 @@
 import streamlit as st
-from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response
+from .api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response
 
 def display_discussion_and_whiteboard():
     col1, col2 = st.columns(2)
