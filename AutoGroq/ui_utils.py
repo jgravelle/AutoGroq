@@ -1,11 +1,5 @@
 import streamlit as st
-import pyperclip
 from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response
-
-def copy_whiteboard_to_clipboard():
-    whiteboard_content = st.session_state.whiteboard
-    pyperclip.copy(whiteboard_content)
-    st.success("Whiteboard content copied to clipboard!")
 
 def display_discussion_and_whiteboard():
     col1, col2 = st.columns(2)
@@ -13,8 +7,6 @@ def display_discussion_and_whiteboard():
         st.text_area("Discussion", value=st.session_state.discussion, height=400, key="discussion")
     with col2:
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
-        if st.button("📋 Copy the whiteboard contents", key="copy_whiteboard, "):
-            copy_whiteboard_to_clipboard()
 
 def display_user_input():
     user_input = st.text_area("Additional Input:", key="user_input", height=100)
