@@ -38,9 +38,9 @@ def get_agents_from_text(text):
 def send_request_to_groq_api(expert_name, request):
     url = "https://j.gravelle.us/APIs/Groq/groqAPI.php"
     data = {
-        "model": "mixtral-8x7b-32768",
+        "model": st.session_state.model,
         "temperature": 0.5,
-        "max_tokens": 32768,
+        "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [
