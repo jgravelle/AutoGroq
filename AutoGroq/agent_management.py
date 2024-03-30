@@ -1,6 +1,6 @@
 import streamlit as st
-from .api_utils import send_request_to_groq_api
-from .ui_utils import update_discussion_and_whiteboard
+from api_utils import send_request_to_groq_api
+from ui_utils import update_discussion_and_whiteboard
 
 def add_or_update_agent(index, expert_name, description):
     agent = {"expert_name": expert_name, "description": description}
