@@ -1,7 +1,7 @@
 # AutoGroq
 It's how I wish Autogen worked:  quickly, simply, and automatically.
 
-FREE online beta:  https://autogroq-9dylrah8dfyukd4q8phea7.streamlit.app/
+FREE online beta:  https://mainpy-nqpwrgraefz76xeuykxuse.streamlit.app
 
 1 MINUTE video tutorial:  https://www.youtube.com/watch?v=CzMdqZ83eBk 
 
