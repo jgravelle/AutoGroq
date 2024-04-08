@@ -1,9 +1,12 @@
+# NOTE:
+This revised beta does file writes that are restricted on Streamlit.app so it can only be run/tested locally (currently).  If you've got a workaround, I'll add you to my Xmas list.
+
 # AutoGroq
 It's how I wish Autogen worked:  quickly, simply, and automatically.
  
 FREE online beta:  https://mainpy-nqpwrgraefz76xeuykxuse.streamlit.app
 
-1 MINUTE video tutorial:  https://www.youtube.com/watch?v=CzMdqZ83eBk 
+UPDATED video tutorial:  https://www.youtube.com/watch?v=CzMdqZ83eBk 
 
 Autogroq creates your team of agent assistants on the fly.  Just type in your request! 
 
