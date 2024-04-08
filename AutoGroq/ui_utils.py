@@ -3,29 +3,6 @@ import streamlit as st
 from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 from file_utils import write_workflow_file
 
-def check_streamlit_host():
-    """Check if the Streamlit app is running on streamlit.app or locally.
-
-    Returns:
-        str: 'streamlit.app' if running on Streamlit sharing,
-             'local' if running locally,
-             'unknown' otherwise.
-    """
-    try:
-        from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
-        if get_script_run_ctx() is not None:
-            print(get_script_run_ctx())
-            # The app is running on streamlit.app
-            print(f"DING!")
-            return 'streamlit.app'
-        else:
-            # The app is running locally
-            print(f"DONG!")
-            return 'local'
-    except ModuleNotFoundError:
-        # The context could not be determined
-        return 'unknown'
-
 def display_discussion_and_whiteboard(): 
     col1, col2 = st.columns(2) 
     with col1: 
