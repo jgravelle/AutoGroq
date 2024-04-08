@@ -6,9 +6,10 @@ from ui_utils import check_streamlit_host, display_discussion_and_whiteboard, di
 
 def main(): 
     host_context = check_streamlit_host()
-    if host_context.__contains__() == 'streamlit.app':
+    if host_context != 'local':
         # Alert the user
         st.warning('This app has to be run locally, since Streamlit restricts certain file-writing operations.  See our GitHub README for more info...')
+        return
     
     with open("styles.css") as f: 
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True) 

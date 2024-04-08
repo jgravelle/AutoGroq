@@ -14,10 +14,13 @@ def check_streamlit_host():
     try:
         from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
         if get_script_run_ctx() is not None:
+            print(get_script_run_ctx())
             # The app is running on streamlit.app
+            print(f"DING!")
             return 'streamlit.app'
         else:
             # The app is running locally
+            print(f"DONG!")
             return 'local'
     except ModuleNotFoundError:
         # The context could not be determined
