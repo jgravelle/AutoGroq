@@ -3,8 +3,9 @@ from agent_management import add_or_update_agent, delete_agent, display_agents, 
 from ui_utils import display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input, handle_begin 
 
 def main(): 
-    if "streamlit.app" in st.experimental_get_query_params().get("origin", [""])[0]:
-        st.error("This software writes files to the hard drive and cannot be run on streamlit.app. Please run it on a local development machine.  See our GitHub README for more info.")
+    host = st.query_params().get("host", [""])[0]
+    if "streamlit.app" in host:
+        st.error("This software writes files to the hard drive and cannot be run on streamlit.app. Please run it on a local development machine. See our GitHub README for more info...")
         return
     
     with open("styles.css") as f: 
