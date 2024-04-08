@@ -3,6 +3,26 @@ import streamlit as st
 from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 from file_utils import write_workflow_file
 
+def check_streamlit_host():
+    """Check if the Streamlit app is running on streamlit.app or locally.
+
+    Returns:
+        str: 'streamlit.app' if running on Streamlit sharing,
+             'local' if running locally,
+             'unknown' otherwise.
+    """
+    try:
+        from streamlit.script_run_context import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            # The app is running on streamlit.app
+            return 'streamlit.app'
+        else:
+            # The app is running locally
+            return 'local'
+    except ModuleNotFoundError:
+        # The context could not be determined
+        return 'unknown'
+
 def display_discussion_and_whiteboard(): 
     col1, col2 = st.columns(2) 
     with col1: 
@@ -68,6 +88,6 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
 
     response_text = f"{response}\n\n===\n\n" 
     st.session_state.discussion += response_text 
-    
+
     code_blocks = extract_code_from_response(response) 
     st.session_state.whiteboard = code_blocks

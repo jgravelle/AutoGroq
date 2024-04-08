@@ -1,12 +1,14 @@
 import streamlit as st 
+import urllib.request
 from agent_management import add_or_update_agent, delete_agent, display_agents, display_file_management_sidebar, process_agent_interaction 
-from ui_utils import display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input, handle_begin 
+from ui_utils import check_streamlit_host, display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input, handle_begin 
+
 
 def main(): 
-    host = st.experimental_get_query_params().get("host", [""])[0]
-    if "streamlit.app" in host:
-        st.error("This software writes files to the hard drive and cannot be run on streamlit.app. Please run it on a local development machine.")
-        return
+    host_context = check_streamlit_host()
+    if host_context == 'streamlit.app':
+        # Alert the user
+        st.warning('This app has to be run locally, since Streamlit restricts certain file-writing operations.  See our GitHub README for more info...')
     
     with open("styles.css") as f: 
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True) 
