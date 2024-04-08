@@ -202,4 +202,4 @@ def extract_code_from_response(response):
     all_code_blocks = code_blocks + html_blocks + js_blocks + css_blocks
     unique_code_blocks = list(set(all_code_blocks))
 
-    return "\n\n".join(unique_code_blocks)
+    return "\n\n".join(unique_code_blocks) 

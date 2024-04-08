@@ -1,0 +1,26 @@
+{
+  "type": "assistant",
+  "config": {
+    "name": "e-commerce_specialist",
+    "llm_config": {
+      "config_list": [
+        {
+          "model": "gpt-4-1106-preview"
+        }
+      ],
+      "temperature": 0.1,
+      "timeout": 600,
+      "cache_seed": 42
+    },
+    "human_input_mode": "NEVER",
+    "max_consecutive_auto_reply": 8,
+    "system_message": "You are a helpful assistant that can act as E-commerce Specialist who Provides expertise in showcasing and selling products online, optimizing for conversions.."
+  },
+  "description": "Provides expertise in showcasing and selling products online, optimizing for conversions.",
+  "skills": [],
+  "tools": [
+    "e-commerceplatforms",
+    "analyticstools",
+    "advertisingplatforms"
+  ]
+}

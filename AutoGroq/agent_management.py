@@ -169,4 +169,3 @@ def process_agent_interaction(agent_index):
     st.session_state['form_agent_name'] = expert_name
     st.session_state['form_agent_description'] = description
     st.session_state['selected_agent_index'] = agent_index  # Keep track of the selected agent for potential updates/deletes
-
