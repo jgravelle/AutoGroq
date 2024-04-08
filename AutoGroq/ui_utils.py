@@ -45,6 +45,9 @@ def display_reset_button():
                 
 def display_user_request_input(): 
     user_request = st.text_input("Enter your request:", key="user_request", on_change=handle_begin, args=(st.session_state,)) 
+    # if user_request is empty
+    if not user_request:
+        st.warning('This app has to be run locally, since Streamlit restricts certain file-writing operations.  \n\r\n\rSee our GitHub README for more info.\n\r\n\r  Click RESET to clear out old files and begin a new session...')
     return user_request 
 
 def handle_begin(session_state): 

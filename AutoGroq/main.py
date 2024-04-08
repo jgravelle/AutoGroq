@@ -4,8 +4,6 @@ from ui_utils import    display_discussion_and_whiteboard, display_user_input, d
 
 
 def main(): 
-    st.warning('This app has to be run locally, since Streamlit restricts certain file-writing operations.  See our GitHub README for more info...')
-    
     with open("styles.css") as f: 
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True) 
     
