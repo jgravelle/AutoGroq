@@ -12,7 +12,7 @@ def check_streamlit_host():
              'unknown' otherwise.
     """
     try:
-        from streamlit.script_run_context import get_script_run_ctx
+        from streamlit.runtime.scriptrunner.script_run_context import get_script_run_ctx
         if get_script_run_ctx() is not None:
             # The app is running on streamlit.app
             return 'streamlit.app'
