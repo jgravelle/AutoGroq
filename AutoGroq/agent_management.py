@@ -45,58 +45,6 @@ def display_agents():
             # Use callback for button click
             st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
 
-
-def display_file_management_sidebar():
-    agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
-    workflows_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "workflows"))
-    
-    # Get the list of files in the "agents" folder
-    agent_files = [file for file in os.listdir(agents_dir) if os.path.isfile(os.path.join(agents_dir, file))]
-    
-    if agent_files:
-        st.sidebar.title("Download Agents")
-        st.sidebar.subheader("for import into AutoGen")
-        
-        for file in agent_files:
-            file_path = os.path.join(agents_dir, file)
-            
-            # Read the file content
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-            
-            # Encode the file content as base64
-            file_content_base64 = base64.b64encode(file_content).decode("utf-8")
-            
-            # Create a data URL for the file
-            data_url = f"data:application/json;base64,{file_content_base64}"
-            
-            # Display the file name as a hyperlink
-            st.sidebar.markdown(f'<a href="{data_url}" download="{file}" target="_blank">{file}</a>', unsafe_allow_html=True)
-    
-    # Get the list of files in the "workflows" folder
-    workflow_files = [file for file in os.listdir(workflows_dir) if os.path.isfile(os.path.join(workflows_dir, file))]
-    
-    if workflow_files:
-        st.sidebar.title("Download Workflow")
-        st.sidebar.subheader("for import into AutoGen")
-        
-        for file in workflow_files:
-            file_path = os.path.join(workflows_dir, file)
-            
-            # Read the file content
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-            
-            # Encode the file content as base64
-            file_content_base64 = base64.b64encode(file_content).decode("utf-8")
-            
-            # Create a data URL for the file
-            data_url = f"data:application/json;base64,{file_content_base64}"
-            
-            # Display the file name as a hyperlink
-            st.sidebar.markdown(f'<a href="{data_url}" download="{file}" target="_blank">{file}</a>', unsafe_allow_html=True)
-            
-
 def download_agent_file(expert_name):
     # Format the expert_name
     formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name)  # Remove non-alphanumeric characters

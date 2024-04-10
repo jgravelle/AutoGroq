@@ -1,5 +1,5 @@
 import streamlit as st 
-from agent_management import display_agents, display_file_management_sidebar
+from agent_management import display_agents
 from ui_utils import    display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input
 
 
@@ -136,7 +136,6 @@ def main():
     with st.sidebar: 
         st.markdown('<div class="sidebar">', unsafe_allow_html=True) 
         display_agents() 
-        display_file_management_sidebar() 
         st.markdown('</div>', unsafe_allow_html=True) 
     
     with st.container(): 
