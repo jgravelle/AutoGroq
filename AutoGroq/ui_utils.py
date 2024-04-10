@@ -1,7 +1,11 @@
+import io
+import json
 import os
 import streamlit as st
+import zipfile
 from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
-from file_utils import write_workflow_file
+from file_utils import create_agent_data, sanitize_text
+
 
 def display_discussion_and_whiteboard(): 
     col1, col2 = st.columns(2) 
@@ -45,24 +49,34 @@ def display_reset_button():
                 
 def display_user_request_input(): 
     user_request = st.text_input("Enter your request:", key="user_request", on_change=handle_begin, args=(st.session_state,)) 
-    # if user_request is empty
-    if not user_request:
-        st.warning('This app has to be run locally, since Streamlit restricts certain file-writing operations.  \n\r\n\rSee our GitHub README for more info.\n\r\n\r  Click RESET to clear out old files and begin a new session...')
-    return user_request 
 
-def handle_begin(session_state): 
-    user_request = session_state.user_request 
-    try: 
-        rephrased_text = rephrase_prompt(user_request) 
-        if rephrased_text: 
-            session_state.rephrased_request = rephrased_text 
-            agents = get_agents_from_text(rephrased_text) 
-            workflow = get_workflow_from_agents(agents) 
-            write_workflow_file(workflow) # Write the workflow to a JSON file 
-            session_state.agents = agents 
-        else: 
-            raise ValueError("Failed to extract a valid rephrased prompt.") 
-    except Exception as e: st.error(f"Error: {str(e)}") 
+
+def handle_begin(session_state):
+    user_request = session_state.user_request
+    try:
+        rephrased_text = rephrase_prompt(user_request)
+        if rephrased_text:
+            session_state.rephrased_request = rephrased_text
+            agents = get_agents_from_text(rephrased_text)
+            agents_data = {agent["expert_name"]: create_agent_data(agent["expert_name"], agent["description"], agent.get("skills"), agent.get("tools")) for agent in agents}
+            workflow_data = get_workflow_from_agents(agents)
+
+            zip_buffer = zip_files_in_memory(agents_data, workflow_data)
+
+            st.download_button(
+                label="Download Files",
+                data=zip_buffer,
+                file_name="autogroq_files.zip",
+                mime="application/zip"
+            )
+
+            session_state.agents = agents
+        else:
+            raise ValueError("Failed to extract a valid rephrased prompt.")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+
     
 def update_discussion_and_whiteboard(expert_name, response, user_input): 
     if user_input: 
@@ -74,3 +88,26 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
 
     code_blocks = extract_code_from_response(response) 
     st.session_state.whiteboard = code_blocks
+
+
+def zip_files_in_memory(agents_data, workflow_data):
+    # Create a BytesIO object to hold the ZIP data
+    zip_buffer = io.BytesIO()
+
+    # Create a ZIP file in memory
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Write agent files to the ZIP
+        for agent_name, agent_data in agents_data.items():
+            agent_file_name = f"{agent_name}.json"
+            agent_file_data = json.dumps(agent_data, indent=2)
+            zip_file.writestr(f"agents/{agent_file_name}", agent_file_data)
+
+        # Write workflow file to the ZIP
+        workflow_file_name = f"{sanitize_text(workflow_data['name'])}.json"
+        workflow_file_data = json.dumps(workflow_data, indent=2)
+        zip_file.writestr(f"workflows/{workflow_file_name}", workflow_file_data)
+
+    # Move the ZIP file pointer to the beginning
+    zip_buffer.seek(0)
+
+    return zip_buffer

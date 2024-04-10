@@ -4,27 +4,9 @@ import json
 import os
 import re
 
-from api_utils import send_request_to_groq_api
-from file_utils import write_agent_file
+from api_utils import send_request_to_groq_api      
+from file_utils import create_agent_data                
 from ui_utils import update_discussion_and_whiteboard
-
-def add_or_update_agent(index, expert_name, description):
-    if index is None:  # Add new agent
-        st.session_state.agents.append({"expert_name": expert_name, "description": description})
-    else:  # Update existing agent
-        st.session_state.agents[index] = {"expert_name": expert_name, "description": description}
-
-    # Write the agent file
-    write_agent_file(expert_name, description)
-
-    # Create a directory for the agents if it doesn't exist
-    if not os.path.exists("agents"):
-        os.makedirs("agents")
-
-    # Write the JSON file
-    with open(f"agents/{expert_name}.json", "w") as f:
-        json.dump(agent_data, f, indent=2)
-
 
 def agent_button_callback(agent_index):
     # Callback function to handle state update and logic execution
@@ -56,7 +38,7 @@ def delete_agent(index):
 
 def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
-        st.sidebar.title("Test Agents")
+        st.sidebar.title("Your Agents")
         st.sidebar.subheader("click to interact")
         for index, agent in enumerate(st.session_state.agents):
             expert_name = agent["expert_name"]

@@ -4,7 +4,7 @@ import json
 import streamlit as st
 import re
 
-from file_utils import write_agent_file, sanitize_text
+from file_utils import create_agent_data, sanitize_text
 
 def make_api_request(url, data, headers):
     try:
@@ -40,7 +40,7 @@ def get_agents_from_text(text):
             description = agent["description"]
             skills = agent.get("skills", [])
             tools = agent.get("tools", [])
-            write_agent_file(expert_name, description, skills, tools)
+            create_agent_data(expert_name, description, skills, tools)
         return response_data
     return []
 
