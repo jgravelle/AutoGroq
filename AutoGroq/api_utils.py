@@ -3,22 +3,43 @@ import requests
 import json
 import streamlit as st
 import re
+import time
 
 from file_utils import create_agent_data, sanitize_text
 
+
+
 def make_api_request(url, data, headers):
-    try:
-        response = requests.post(url, data=json.dumps(data), headers=headers)
-        print(f"Debug: API request sent: {json.dumps(data)}")
-        print(f"Debug: API response received: {response.text}")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"Error: API request failed with status code {response.status_code}")
-            return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error: {str(e)}")
-        return None
+    max_retries = 3
+    retry_delay = 1  # in seconds
+    
+    for retry in range(max_retries):
+        try:
+            response = requests.post(url, data=json.dumps(data), headers=headers)
+            print(f"Debug: API request sent: {json.dumps(data)}")
+            print(f"Debug: API response received: {response.text}")
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                st.error(f"Error: API request failed with status code {response.status_code}  Retrying...")
+                
+                if retry < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    return None
+                
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error: {str(e)}  Retrying...")
+            
+            if retry < max_retries - 1:
+                time.sleep(retry_delay)
+                continue
+            else:
+                return None
+    
+    return None
 
 def rephrase_prompt(user_request):
     url = "https://j.gravelle.us/APIs/Groq/groqApiRephrasePrompt.php"
