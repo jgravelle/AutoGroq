@@ -28,22 +28,6 @@ def display_reset_button():
             if key in st.session_state:
                 del st.session_state[key]
 
-        # Delete all files in the 'agents' directory
-        agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
-        for file_name in os.listdir(agents_dir):
-            file_path = os.path.join(agents_dir, file_name)
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-                print(f"Deleted file: {file_path}")
-
-        # Delete all files in the 'workflows' directory
-        workflows_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "workflows"))
-        for file_name in os.listdir(workflows_dir):
-            file_path = os.path.join(workflows_dir, file_name)
-            if os.path.isfile(file_path):
-                os.remove(file_path)
-                print(f"Deleted file: {file_path}")
-
         st.session_state.show_begin_button = True
         st.experimental_rerun()
                 
