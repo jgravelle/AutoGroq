@@ -1,17 +1,19 @@
+# NOTE:
+This revised beta does file writes that are restricted on Streamlit.app so it can only be run/tested locally (currently).  If you've got a workaround, I'll add you to my Xmas list.
+
 # AutoGroq
-It's how I wish Autogen worked:  quickly, simply, and automatically.
- 
-FREE online beta:  https://mainpy-nqpwrgraefz76xeuykxuse.streamlit.app
+It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
 
-1 MINUTE video tutorial:  https://www.youtube.com/watch?v=CzMdqZ83eBk 
+**UPDATED** video tutorial:  [https://www.youtube.com/watch?v=CzMdqZ83eBk ](https://www.youtube.com/watch?v=Jm4UYVTwgBI)
 
-Autogroq creates your team of agent assistants on the fly.  Just type in your request! 
+Autogroq creates your team of AutoGen compatible agent assistants AND workflows on the fly.  Just type in your request! 
 
 **AutoGroq** is an AI-powered conversational assistant designed to revolutionize the way users interact with AI tools. Built with the goal of addressing the limitations of existing solutions, AutoGroq offers a user-friendly, powerful, and configuration-free experience. Our platform focuses on providing immediate and relevant assistance by automatically generating expert agents tailored to help you with any question, problem, or project, regardless of its complexity.
 
 ## Key Features
 
 - **Dynamic Expert Agent Generation**: AutoGroq's core functionality lies in its ability to dynamically create expert agents specialized in various domains or topics, ensuring you receive the most relevant support for your inquiries.
+- **Dynamic Workflow Generation**: Watch the video.  With Autogroq, you're about ten minutes away from having a custom team of experts hammering out a project for you.  But don't take my word for it.  Try it yourself!
 - **Natural Conversation Flow**: Engage in intuitive and contextually aware conversations with AutoGroq's expert agents, facilitating a seamless exchange of information.
 - **Code Snippet Extraction**: AutoGroq intelligently extracts and presents code snippets within a dedicated "Whiteboard" section, making it convenient to reference, copy, or modify code during your interaction.
 - **Flexible Agent Management**: Customize your panel of expert agents according to your evolving project needs. Add new agents, modify their expertise, or remove them as required.
