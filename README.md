@@ -1,10 +1,9 @@
-# NOTE:
-This revised beta does file writes that are restricted on Streamlit.app so it can only be run/tested locally (currently).  If you've got a workaround, I'll add you to my Xmas list.
-
 # AutoGroq
 It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
 
-**UPDATED** video tutorial:  [https://www.youtube.com/watch?v=CzMdqZ83eBk ](https://www.youtube.com/watch?v=Jm4UYVTwgBI)
+**FREE, WORKING, HANDS-ON LIVE DEMO:**  https://autogroq.streamlit.app/
+
+**UPDATED** video tutorial:  https://www.youtube.com/watch?v=Jm4UYVTwgBI 
 
 Autogroq creates your team of AutoGen compatible agent assistants AND workflows on the fly.  Just type in your request! 
 
@@ -21,7 +20,7 @@ Autogroq creates your team of AutoGen compatible agent assistants AND workflows 
 
 ## Getting Started
 
-Experience AutoGroq's capabilities firsthand by accessing our online beta version: https://autogroq-9dylrah8dfyukd4q8phea7.streamlit.app/ 
+Experience AutoGroq's capabilities firsthand by accessing our online beta version: https://autogroq.streamlit.app/
 
 Please note that AutoGroq is currently under active development, and you may encounter occasional instability as we continue to refine our platform.
 
