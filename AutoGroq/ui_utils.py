@@ -27,7 +27,8 @@ def display_reset_button():
         for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents"]:
             if key in st.session_state:
                 del st.session_state[key]
-
+        
+        st.session_state.user_request = ""
         st.session_state.show_begin_button = True
         st.experimental_rerun()
                 
