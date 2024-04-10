@@ -20,15 +20,25 @@ def display_user_input():
 
 def display_rephrased_request(): 
     st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
-    
+
+def display_download_button():
+    if "zip_buffer" in st.session_state:
+        st.download_button(
+            label="Download Files",
+            data=st.session_state.zip_buffer,
+            file_name="autogroq_files.zip",
+            mime="application/zip"
+        )
+
 def display_reset_button():
     if st.button("Reset", key="reset_button"):
         # Reset specific elements without clearing entire session state
-        for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents"]:
+        for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer"]:
             if key in st.session_state:
                 del st.session_state[key]
         
         st.session_state.user_request = ""
+        
         st.session_state.show_begin_button = True
         st.experimental_rerun()
                 
@@ -47,15 +57,9 @@ def handle_begin(session_state):
             workflow_data = get_workflow_from_agents(agents)
 
             zip_buffer = zip_files_in_memory(agents_data, workflow_data)
-
-            st.download_button(
-                label="Download Files",
-                data=zip_buffer,
-                file_name="autogroq_files.zip",
-                mime="application/zip"
-            )
-
+            session_state.zip_buffer = zip_buffer
             session_state.agents = agents
+            display_download_button()            
         else:
             raise ValueError("Failed to extract a valid rephrased prompt.")
     except Exception as e:
@@ -73,6 +77,7 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
 
     code_blocks = extract_code_from_response(response) 
     st.session_state.whiteboard = code_blocks
+    display_download_button() 
 
 
 def zip_files_in_memory(agents_data, workflow_data):

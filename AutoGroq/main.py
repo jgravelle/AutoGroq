@@ -1,6 +1,6 @@
 import streamlit as st 
 from agent_management import display_agents
-from ui_utils import    display_discussion_and_whiteboard, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input
+from ui_utils import    display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_button, display_user_request_input
 
 
 def main(): 
