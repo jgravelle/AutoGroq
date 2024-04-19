@@ -36,14 +36,27 @@ def delete_agent(index):
         
         st.experimental_rerun()
 
+
 def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("click to interact")
         for index, agent in enumerate(st.session_state.agents):
             expert_name = agent["expert_name"]
-            # Use callback for button click
-            st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+            if "next_agent" in st.session_state and st.session_state.next_agent == expert_name:
+                button_style = """
+                    <style>
+                    div[data-testid*="stButton"] > button[kind="secondary"] {
+                        background-color: green !important;
+                        color: white !important;
+                    }
+                    </style>
+                """
+                st.sidebar.markdown(button_style, unsafe_allow_html=True)
+                st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+            else:
+                st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+
 
 def download_agent_file(expert_name):
     # Format the expert_name

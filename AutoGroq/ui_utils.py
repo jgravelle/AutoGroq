@@ -3,7 +3,7 @@ import json
 import os
 import streamlit as st
 import zipfile
-from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
+from api_utils import call_coordinating_agent_api, rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 from file_utils import create_agent_data, sanitize_text
 
 
@@ -46,38 +46,93 @@ def display_user_request_input():
     user_request = st.text_input("Enter your request:", key="user_request", on_change=handle_begin, args=(st.session_state,)) 
 
 
+import time
+
 def handle_begin(session_state):
     user_request = session_state.user_request
-    try:
-        rephrased_text = rephrase_prompt(user_request)
-        if rephrased_text:
-            session_state.rephrased_request = rephrased_text
-            agents = get_agents_from_text(rephrased_text)
-            agents_data = {agent["expert_name"]: create_agent_data(agent["expert_name"], agent["description"], agent.get("skills"), agent.get("tools")) for agent in agents}
-            workflow_data = get_workflow_from_agents(agents)
+    max_retries = 3
+    retry_delay = 1  # in seconds
+    
+    for retry in range(max_retries):
+        try:
+            rephrased_text = rephrase_prompt(user_request)
+            print(f"Debug: Rephrased text: {rephrased_text}")
+            if rephrased_text:
+                session_state.rephrased_request = rephrased_text
+                agents = get_agents_from_text(rephrased_text)
+                print(f"Debug: Agents: {agents}")
+                agents_data = {agent["expert_name"]: create_agent_data(agent["expert_name"], agent["description"], agent.get("skills"), agent.get("tools")) for agent in agents}
+                print(f"Debug: Agents data: {agents_data}")
+                workflow_data = get_workflow_from_agents(agents)
+                print(f"Debug: Workflow data: {workflow_data}")
 
-            zip_buffer = zip_files_in_memory(agents_data, workflow_data)
-            session_state.zip_buffer = zip_buffer
-            session_state.agents = agents
-            display_download_button()            
-        else:
-            raise ValueError("Failed to extract a valid rephrased prompt.")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+                zip_buffer = zip_files_in_memory(agents_data, workflow_data)
+                session_state.zip_buffer = zip_buffer
+                session_state.agents = agents
+                display_download_button()
+                break  # Exit the loop if successful
+            else:
+                print("Error: Failed to extract a valid rephrased prompt.")
+                break  # Exit the loop if rephrasing fails
+        except Exception as e:
+            if "string indices must be integers" in str(e):
+                if retry < max_retries - 1:
+                    print(f"Error occurred in handle_begin: {str(e)}. Retrying in {retry_delay} second(s)...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"Error occurred in handle_begin: {str(e)}. Max retries exceeded.")
+                    break  # Exit the loop if max retries exceeded
+            else:
+                print(f"Error occurred in handle_begin: {str(e)}")
+                break  # Exit the loop for other errors
 
 
     
-def update_discussion_and_whiteboard(expert_name, response, user_input): 
-    if user_input: 
-        user_input_text = f"\n\nAdditional Input:\n\n{user_input}\n\n" 
-        st.session_state.discussion += user_input_text 
+def update_discussion_and_whiteboard(expert_name, response, user_input):
+    print("Updating discussion and whiteboard...")
+    print(f"Expert Name: {expert_name}")
+    print(f"Response: {response}")
+    print(f"User Input: {user_input}")
 
-    response_text = f"{response}\n\n===\n\n" 
-    st.session_state.discussion += response_text 
+    if user_input:
+        user_input_text = f"\n\nAdditional Input:\n\n{user_input}\n\n"
+        st.session_state.discussion += user_input_text
 
-    code_blocks = extract_code_from_response(response) 
+    response_text = f"{response}\n\n===\n\n"
+    st.session_state.discussion += response_text
+
+    code_blocks = extract_code_from_response(response)
     st.session_state.whiteboard = code_blocks
-    display_download_button() 
+    display_download_button()
+
+    # Store the last agent and their comment in session variables
+    st.session_state.last_agent = expert_name
+    st.session_state.last_comment = response
+
+    print(f"Last Agent: {st.session_state.last_agent}")
+    print(f"Last Comment: {st.session_state.last_comment}")
+
+    # Check if there are at least two agents in the discussion
+    if len(st.session_state.agents) >= 2:
+        print("Sufficient agents in the discussion. Calling coordinating agent API...")
+        print(f"Agents: {st.session_state.agents}")
+        print(f"Enhanced Prompt: {st.session_state.rephrased_request}")
+
+        # Call the internal coordinating agent API
+        coordinating_agent_response = call_coordinating_agent_api(
+            st.session_state.last_agent,
+            st.session_state.last_comment,
+            st.session_state.agents,
+            st.session_state.rephrased_request
+        )
+        print(coordinating_agent_response)
+
+        print(f"Coordinating Agent Response: {coordinating_agent_response}")
+
+        # Append the coordinating agent's response to the discussion
+        st.session_state.discussion += f"\n\n{coordinating_agent_response}\n\n"
+    else:
+        print("Insufficient agents in the discussion. Skipping coordinating agent API call.")
 
 
 def zip_files_in_memory(agents_data, workflow_data):

@@ -6,7 +6,70 @@ import re
 import time
 
 from file_utils import create_agent_data, sanitize_text
+from skills.stock_info_skill import GetStockInfo
 
+
+def call_coordinating_agent_api(last_agent, last_comment, agents, enhanced_prompt):
+    return get_next_agent(last_agent, last_comment, agents, enhanced_prompt)
+    # extract_tasks(last_comment, agents)
+
+def get_next_agent(last_agent, last_comment, agents, enhanced_prompt):
+    url = "https://j.gravelle.us/APIs/Groq/groqApiChatCoordinator.php"
+    data = {
+        "last_agent": last_agent,
+        "last_contribution": last_comment,
+        "agents": agents,
+        "enhanced_prompt": enhanced_prompt
+    }
+    headers = {"Content-Type": "application/json"}
+
+    print("Payload:")
+    print(json.dumps(data, indent=2))
+
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        print(f"Debug: RESPONSE: {response.text}")
+        response.raise_for_status()
+        response_data = response.json()
+        print(f"Debug: RESPONSE DATA: {response_data}") 
+
+        next_agent = response_data["next_agent"].strip()
+        assignment = response_data["assignment"].strip()
+
+        return f"Next Suggested Agent: {next_agent}\n\nAssignment: {assignment}\n"
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred while making the request:")
+        print(f"Request URL: {url}")
+        print(f"Request Headers: {headers}")
+        print(f"Request Payload: {json.dumps(data, indent=2)}")
+        print(f"Error Details: {str(e)}")
+        return "Error occurred while coordinating agents."
+
+    except (KeyError, ValueError) as e:
+        print(f"Error occurred while parsing the response:")
+        print(f"Response Content: {response.text}")
+        print(f"Error Details: {str(e)}")
+        return "Error occurred while coordinating agents."
+
+    except Exception as e:
+        print(f"An unexpected error occurred:")
+        print(f"Error Details: {str(e)}")
+        return "Error occurred while coordinating agents."    
+
+
+def extract_tasks(comment, agents):
+    url = "https://j.gravelle.us/APIs/Groq/groqApiTaskExtractor.php"
+    data = {
+        "comment": comment,
+        "agents": agents
+    }
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(url, json=data, headers=headers)
+    response.raise_for_status()
+    response_data = response.json()
+
+    return response_data
 
 
 def make_api_request(url, data, headers):
@@ -180,7 +243,44 @@ def get_workflow_from_agents(agents):
     return workflow
 
 
+# api_utils.py
 def send_request_to_groq_api(expert_name, request):
+    url = "https://j.gravelle.us/APIs/Groq/groqApiStockDiscerner.php"
+    
+    # Extract the text that follows "Additional input:" from the request
+    additional_input_index = request.find("Additional input:")
+    if additional_input_index != -1:
+        additional_input = request[additional_input_index + len("Additional input:"):].strip()
+    else:
+        additional_input = ""
+    
+    if additional_input:
+        data = {"user_request": additional_input}
+        headers = {"Content-Type": "application/json"}
+        
+        try:
+            response = requests.post(url, json=data, headers=headers)
+            response.raise_for_status()
+            
+            try:
+                response_data = response.json()
+                if "summary" in response_data:
+                    summary = response_data["summary"].strip()
+                else:
+                    summary = ""
+            except ValueError:
+                summary = response.text.strip()
+            
+            if summary.startswith("LOOKUP"):
+                ticker = summary.split("LOOKUP")[1].strip()
+                stock_info = GetStockInfo(ticker)
+                request += f"\n\nStock info: {stock_info}"
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Error occurred while making the request: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
     url = "https://j.gravelle.us/APIs/Groq/groqAPI.php"
     data = {
         "model": st.session_state.model,

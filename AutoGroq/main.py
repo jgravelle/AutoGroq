@@ -110,7 +110,7 @@ def main():
     
     model_token_limits = { 
         'mixtral-8x7b-32768': 32768, 
-        'llama2-70b-4096': 4096, 
+        'llama3-70b-8192': 8192, 
         'gemma-7b-it': 8192 
     } 
     
@@ -129,7 +129,7 @@ def main():
         
     # Ensure default values for session state are set     
     if "discussion" not in st.session_state: 
-        st.session_state.discussion = "" 
+        st.session_state.discussion = ""
     if "whiteboard" not in st.session_state: 
         st.session_state.whiteboard = "" # Apply CSS classes to elements 
     
