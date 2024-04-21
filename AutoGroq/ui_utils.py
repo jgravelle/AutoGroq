@@ -2,8 +2,9 @@ import io
 import json
 import os
 import streamlit as st
+import time
 import zipfile
-from api_utils import call_coordinating_agent_api, rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
+from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 from file_utils import create_agent_data, sanitize_text
 
 
@@ -21,14 +22,29 @@ def display_user_input():
 def display_rephrased_request(): 
     st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
 
+
 def display_download_button():
-    if "zip_buffer" in st.session_state:
-        st.download_button(
-            label="Download Files",
-            data=st.session_state.zip_buffer,
-            file_name="autogroq_files.zip",
-            mime="application/zip"
-        )
+    if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="Download Autogen Files",
+                data=st.session_state.autogen_zip_buffer,
+                file_name="autogen_files.zip",
+                mime="application/zip",
+                key=f"autogen_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+            )
+        with col2:
+            st.download_button(
+                label="Download CrewAI Files",
+                data=st.session_state.crewai_zip_buffer,
+                file_name="crewai_files.zip",
+                mime="application/zip",
+                key=f"crewai_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+            )
+    else:
+        st.warning("No files available for download.")
+
 
 def display_reset_button():
     if st.button("Reset", key="reset_button"):
@@ -42,49 +58,74 @@ def display_reset_button():
         st.session_state.show_begin_button = True
         st.experimental_rerun()
                 
-def display_user_request_input(): 
-    user_request = st.text_input("Enter your request:", key="user_request", on_change=handle_begin, args=(st.session_state,)) 
 
 
-import time
+def display_user_request_input():
+    user_request = st.text_input("Enter your request:", key="user_request")
+    if user_request and user_request != st.session_state.get("previous_user_request"):
+        st.session_state.previous_user_request = user_request
+        handle_begin(st.session_state)
+        st.experimental_rerun()
+
+
 
 def handle_begin(session_state):
     user_request = session_state.user_request
     max_retries = 3
     retry_delay = 1  # in seconds
-    
+
     for retry in range(max_retries):
         try:
             rephrased_text = rephrase_prompt(user_request)
             print(f"Debug: Rephrased text: {rephrased_text}")
+            
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
-                agents = get_agents_from_text(rephrased_text)
-                print(f"Debug: Agents: {agents}")
-                agents_data = {agent["expert_name"]: create_agent_data(agent["expert_name"], agent["description"], agent.get("skills"), agent.get("tools")) for agent in agents}
+                autogen_agents, crewai_agents = get_agents_from_text(rephrased_text)
+                print(f"Debug: AutoGen Agents: {autogen_agents}")
+                print(f"Debug: CrewAI Agents: {crewai_agents}")
+                
+                if not autogen_agents:
+                    print("Error: No agents created. Retrying...")
+                    if retry < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        print("Error: Failed to create agents after maximum retries.")
+                        st.warning("Failed to create agents. Please try again.")
+                        return
+                
+                agents_data = {}
+                for agent in autogen_agents:
+                    agent_name = agent['config']['name']
+                    agents_data[agent_name] = agent
                 print(f"Debug: Agents data: {agents_data}")
-                workflow_data = get_workflow_from_agents(agents)
+                
+                workflow_data, _ = get_workflow_from_agents(autogen_agents)
                 print(f"Debug: Workflow data: {workflow_data}")
-
-                zip_buffer = zip_files_in_memory(agents_data, workflow_data)
-                session_state.zip_buffer = zip_buffer
-                session_state.agents = agents
-                display_download_button()
+                print(f"Debug: CrewAI agents: {crewai_agents}")
+                
+                autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(agents_data, workflow_data, crewai_agents)
+                session_state.autogen_zip_buffer = autogen_zip_buffer
+                session_state.crewai_zip_buffer = crewai_zip_buffer
+                
+                session_state.agents = autogen_agents
                 break  # Exit the loop if successful
+            
             else:
-                print("Error: Failed to extract a valid rephrased prompt.")
-                break  # Exit the loop if rephrasing fails
+                print("Error: Failed to rephrase the user request.")
+                st.warning("Failed to rephrase the user request. Please try again.")
+                return  # Exit the function if rephrasing fails
+        
         except Exception as e:
-            if "string indices must be integers" in str(e):
-                if retry < max_retries - 1:
-                    print(f"Error occurred in handle_begin: {str(e)}. Retrying in {retry_delay} second(s)...")
-                    time.sleep(retry_delay)
-                else:
-                    print(f"Error occurred in handle_begin: {str(e)}. Max retries exceeded.")
-                    break  # Exit the loop if max retries exceeded
+            print(f"Error occurred in handle_begin: {str(e)}")
+            if retry < max_retries - 1:
+                print(f"Retrying in {retry_delay} second(s)...")
+                time.sleep(retry_delay)
             else:
-                print(f"Error occurred in handle_begin: {str(e)}")
-                break  # Exit the loop for other errors
+                print("Max retries exceeded.")
+                st.warning("An error occurred. Please try again.")
+                return  # Exit the function if max retries are exceeded
 
 
     
@@ -103,44 +144,22 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
 
     code_blocks = extract_code_from_response(response)
     st.session_state.whiteboard = code_blocks
-    display_download_button()
 
     # Store the last agent and their comment in session variables
     st.session_state.last_agent = expert_name
     st.session_state.last_comment = response
-
     print(f"Last Agent: {st.session_state.last_agent}")
     print(f"Last Comment: {st.session_state.last_comment}")
-
-    # Check if there are at least two agents in the discussion
-    if len(st.session_state.agents) >= 2:
-        print("Sufficient agents in the discussion. Calling coordinating agent API...")
-        print(f"Agents: {st.session_state.agents}")
-        print(f"Enhanced Prompt: {st.session_state.rephrased_request}")
-
-        # Call the internal coordinating agent API
-        coordinating_agent_response = call_coordinating_agent_api(
-            st.session_state.last_agent,
-            st.session_state.last_comment,
-            st.session_state.agents,
-            st.session_state.rephrased_request
-        )
-        print(coordinating_agent_response)
-
-        print(f"Coordinating Agent Response: {coordinating_agent_response}")
-
-        # Append the coordinating agent's response to the discussion
-        st.session_state.discussion += f"\n\n{coordinating_agent_response}\n\n"
-    else:
-        print("Insufficient agents in the discussion. Skipping coordinating agent API call.")
+    
 
 
-def zip_files_in_memory(agents_data, workflow_data):
-    # Create a BytesIO object to hold the ZIP data
-    zip_buffer = io.BytesIO()
+def zip_files_in_memory(agents_data, workflow_data, crewai_agents):
+    # Create separate ZIP buffers for Autogen and CrewAI
+    autogen_zip_buffer = io.BytesIO()
+    crewai_zip_buffer = io.BytesIO()
 
     # Create a ZIP file in memory
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(autogen_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         # Write agent files to the ZIP
         for agent_name, agent_data in agents_data.items():
             agent_file_name = f"{agent_name}.json"
@@ -152,7 +171,14 @@ def zip_files_in_memory(agents_data, workflow_data):
         workflow_file_data = json.dumps(workflow_data, indent=2)
         zip_file.writestr(f"workflows/{workflow_file_name}", workflow_file_data)
 
-    # Move the ZIP file pointer to the beginning
-    zip_buffer.seek(0)
+    with zipfile.ZipFile(crewai_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for index, agent_data in enumerate(crewai_agents):
+            agent_file_name = f"agent_{index}.json"
+            agent_file_data = json.dumps(agent_data, indent=2)
+            zip_file.writestr(f"agents/{agent_file_name}", agent_file_data)
 
-    return zip_buffer
+    # Move the ZIP file pointers to the beginning
+    autogen_zip_buffer.seek(0)
+    crewai_zip_buffer.seek(0)
+
+    return autogen_zip_buffer, crewai_zip_buffer

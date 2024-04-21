@@ -8,15 +8,19 @@ from api_utils import send_request_to_groq_api
 from file_utils import create_agent_data                
 from ui_utils import update_discussion_and_whiteboard
 
+
 def agent_button_callback(agent_index):
     # Callback function to handle state update and logic execution
     def callback():
         st.session_state['selected_agent_index'] = agent_index
-        st.session_state['form_agent_name'] = st.session_state.agents[agent_index]['expert_name']
-        st.session_state['form_agent_description'] = st.session_state.agents[agent_index]['description']
+        agent = st.session_state.agents[agent_index]
+        agent_name = agent['config']['name'] if 'config' in agent and 'name' in agent['config'] else ''
+        st.session_state['form_agent_name'] = agent_name
+        st.session_state['form_agent_description'] = agent['description'] if 'description' in agent else ''
         # Directly call process_agent_interaction here if appropriate
         process_agent_interaction(agent_index)
     return callback
+
 
 def delete_agent(index):
     if 0 <= index < len(st.session_state.agents):
@@ -42,20 +46,20 @@ def display_agents():
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("click to interact")
         for index, agent in enumerate(st.session_state.agents):
-            expert_name = agent["expert_name"]
-            if "next_agent" in st.session_state and st.session_state.next_agent == expert_name:
+            agent_name = agent["config"]["name"]
+            if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
                 button_style = """
-                    <style>
-                    div[data-testid*="stButton"] > button[kind="secondary"] {
-                        background-color: green !important;
-                        color: white !important;
-                    }
-                    </style>
+                <style>
+                div[data-testid*="stButton"] > button[kind="secondary"] {
+                    background-color: green !important;
+                    color: white !important;
+                }
+                </style>
                 """
                 st.sidebar.markdown(button_style, unsafe_allow_html=True)
-                st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
-            else:
-                st.sidebar.button(expert_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+            st.sidebar.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+    else:
+        st.sidebar.warning("No agents created. Please enter a new request.")
 
 
 def download_agent_file(expert_name):
@@ -88,13 +92,13 @@ def process_agent_interaction(agent_index):
     agent = st.session_state.agents[agent_index]
 
     # Preserve the original "Act as" functionality
-    expert_name = agent["expert_name"]
+    agent_name = agent["config"]["name"]
     description = agent["description"]
     user_request = st.session_state.get('user_request', '')
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
 
-    request = f"Act as the {expert_name} who {description}."
+    request = f"Act as the {agent_name} who {description}."
     if user_request:
         request += f" Original request was: {user_request}."
     if rephrased_request:
@@ -104,11 +108,11 @@ def process_agent_interaction(agent_index):
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
 
-    response = send_request_to_groq_api(expert_name, request)
+    response = send_request_to_groq_api(agent_name, request)
     if response:
-        update_discussion_and_whiteboard(expert_name, response, user_input)
+        update_discussion_and_whiteboard(agent_name, response, user_input)
 
     # Additionally, populate the sidebar form with the agent's information
-    st.session_state['form_agent_name'] = expert_name
+    st.session_state['form_agent_name'] = agent_name
     st.session_state['form_agent_description'] = description
     st.session_state['selected_agent_index'] = agent_index  # Keep track of the selected agent for potential updates/deletes

@@ -9,16 +9,12 @@ from file_utils import create_agent_data, sanitize_text
 from skills.stock_info_skill import GetStockInfo
 
 
-def call_coordinating_agent_api(last_agent, last_comment, agents, enhanced_prompt):
-    return get_next_agent(last_agent, last_comment, agents, enhanced_prompt)
-    # extract_tasks(last_comment, agents)
-
-def get_next_agent(last_agent, last_comment, agents, enhanced_prompt):
+def get_next_agent(last_agent, last_comment, expert_names, enhanced_prompt):
     url = "https://j.gravelle.us/APIs/Groq/groqApiChatCoordinator.php"
     data = {
         "last_agent": last_agent,
         "last_contribution": last_comment,
-        "agents": agents,
+        "agents": expert_names,  # Pass the expert names instead of the entire agent objects
         "enhanced_prompt": enhanced_prompt
     }
     headers = {"Content-Type": "application/json"}
@@ -31,31 +27,29 @@ def get_next_agent(last_agent, last_comment, agents, enhanced_prompt):
         print(f"Debug: RESPONSE: {response.text}")
         response.raise_for_status()
         response_data = response.json()
-        print(f"Debug: RESPONSE DATA: {response_data}") 
-
+        print(f"Debug: RESPONSE DATA: {response_data}")
         next_agent = response_data["next_agent"].strip()
         assignment = response_data["assignment"].strip()
 
-        return f"Next Suggested Agent: {next_agent}\n\nAssignment: {assignment}\n"
+        if next_agent not in expert_names:
+            print(f"Warning: The returned next agent '{next_agent}' is not one of the provided expert names: {expert_names}")
+            print("Falling back to the last agent.")
+            next_agent = last_agent
+            assignment = "Please continue working on the task based on the previous assignment and the enhanced prompt."
 
-    except requests.exceptions.RequestException as e:
-        print(f"Error occurred while making the request:")
+        return f"Next Suggested Agent: {next_agent}\n\nAssignment: {assignment}\n"
+    except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+        print(f"Error occurred while coordinating agents:")
         print(f"Request URL: {url}")
         print(f"Request Headers: {headers}")
         print(f"Request Payload: {json.dumps(data, indent=2)}")
-        print(f"Error Details: {str(e)}")
-        return "Error occurred while coordinating agents."
-
-    except (KeyError, ValueError) as e:
-        print(f"Error occurred while parsing the response:")
         print(f"Response Content: {response.text}")
         print(f"Error Details: {str(e)}")
         return "Error occurred while coordinating agents."
-
     except Exception as e:
         print(f"An unexpected error occurred:")
         print(f"Error Details: {str(e)}")
-        return "Error occurred while coordinating agents."    
+        return "Error occurred while coordinating agents."
 
 
 def extract_tasks(comment, agents):
@@ -75,27 +69,29 @@ def extract_tasks(comment, agents):
 def make_api_request(url, data, headers):
     max_retries = 3
     retry_delay = 1  # in seconds
-    
+
     for retry in range(max_retries):
         try:
+            time.sleep(1)
             response = requests.post(url, data=json.dumps(data), headers=headers)
             print(f"Debug: API request sent: {json.dumps(data)}")
             print(f"Debug: API response received: {response.text}")
             
             if response.status_code == 200:
-                return response.json()
+                try:
+                    return response.json()
+                except json.JSONDecodeError:
+                    print(f"Error: Unexpected response format: {response.text}")
+                    return None
             else:
-                st.error(f"Error: API request failed with status code {response.status_code}  Retrying...")
-                
+                st.error(f"Error: API request failed with status code {response.status_code}. Retrying...")
                 if retry < max_retries - 1:
                     time.sleep(retry_delay)
                     continue
                 else:
                     return None
-                
         except requests.exceptions.RequestException as e:
-            st.error(f"Error: {str(e)}  Retrying...")
-            
+            st.error(f"Error: {str(e)}. Retrying...")
             if retry < max_retries - 1:
                 time.sleep(retry_delay)
                 continue
@@ -104,14 +100,21 @@ def make_api_request(url, data, headers):
     
     return None
 
+
 def rephrase_prompt(user_request):
     url = "https://j.gravelle.us/APIs/Groq/groqApiRephrasePrompt.php"
     data = {"user_request": user_request}
     headers = {"Content-Type": "application/json"}
     response_data = make_api_request(url, data, headers)
     if response_data:
-        return response_data.get("rephrased", "")
-    return ""
+        rephrased = response_data.get("rephrased", "")
+        if rephrased:
+            return rephrased
+        else:
+            print("Error: Empty response received from the API.")
+    return None
+
+
 
 def get_agents_from_text(text):
     url = "https://j.gravelle.us/APIs/Groq/groqApiGetAgentsFromPrompt.php"
@@ -119,14 +122,33 @@ def get_agents_from_text(text):
     headers = {"Content-Type": "application/json"}
     response_data = make_api_request(url, data, headers)
     if response_data:
-        for agent in response_data:
-            expert_name = agent["expert_name"]
-            description = agent["description"]
-            skills = agent.get("skills", [])
-            tools = agent.get("tools", [])
-            create_agent_data(expert_name, description, skills, tools)
-        return response_data
-    return []
+        autogen_agents = []
+        crewai_agents = []
+        
+        if isinstance(response_data, dict):
+            for expert_name, agent_data in response_data.items():
+                expert_name = agent_data.get("expert_name", "")
+                description = agent_data.get("description", "")
+                skills = agent_data.get("skills", [])
+                tools = agent_data.get("tools", [])
+                autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
+                autogen_agents.append(autogen_agent_data)
+                crewai_agents.append(crewai_agent_data)
+        elif isinstance(response_data, list):
+            for agent_data in response_data:
+                expert_name = agent_data.get("expert_name", "")
+                description = agent_data.get("description", "")
+                skills = agent_data.get("skills", [])
+                tools = agent_data.get("tools", [])
+                autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
+                autogen_agents.append(autogen_agent_data)
+                crewai_agents.append(crewai_agent_data)
+        else:
+            print("Error: Unexpected response format from the API.")
+            
+        return autogen_agents, crewai_agents
+    
+    return [], []
 
 
 
@@ -199,21 +221,20 @@ def get_workflow_from_agents(agents):
     }
 
     for index, agent in enumerate(agents):
-        expert_name = agent["expert_name"]
+        agent_name = agent["config"]["name"]
         description = agent["description"]
-        formatted_expert_name = sanitize_text(expert_name).lower().replace(' ', '_')
+        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         sanitized_description = sanitize_text(description)
+        system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
 
-        system_message = f"You are a helpful assistant that can act as {expert_name} who {sanitized_description}."
-        
         if index == 0:
-            other_agent_names = [sanitize_text(a['expert_name']).lower().replace(' ', '_') for a in agents[1:]]
-            system_message += f" You are the primary cordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
-        
+            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:]]
+            system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
+
         agent_config = {
             "type": "assistant",
             "config": {
-                "name": formatted_expert_name,
+                "name": formatted_agent_name,
                 "llm_config": {
                     "config_list": [
                         {
@@ -240,7 +261,14 @@ def get_workflow_from_agents(agents):
         }
         workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
 
-    return workflow
+    crewai_agents = []
+    for index, agent in enumerate(agents):
+        agent_name = agent["config"]["name"]
+        description = agent["description"]
+        _, crewai_agent_data = create_agent_data(agent_name, description, agent.get("skills"), agent.get("tools"))
+        crewai_agents.append(crewai_agent_data)
+
+    return workflow, crewai_agents
 
 
 # api_utils.py
@@ -302,8 +330,13 @@ def send_request_to_groq_api(expert_name, request):
     headers = {"Content-Type": "application/json"}
     response_data = make_api_request(url, data, headers)
     if response_data:
-        message_content = response_data["choices"][0]["message"]["content"]
-        return message_content
+        if "choices" in response_data and len(response_data["choices"]) > 0:
+            message_content = response_data["choices"][0]["message"]["content"]
+            return message_content
+        else:
+            print("Error: Unexpected response format from the Groq API.")
+            print("Response data:", response_data)
+            return None
     return ""
 
 

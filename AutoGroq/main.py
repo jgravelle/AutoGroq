@@ -135,8 +135,9 @@ def main():
     
     with st.sidebar: 
         st.markdown('<div class="sidebar">', unsafe_allow_html=True) 
-        display_agents() 
         st.markdown('</div>', unsafe_allow_html=True) 
+
+    display_agents() 
     
     with st.container(): 
         st.markdown('<div class="main">', unsafe_allow_html=True) 
@@ -150,6 +151,8 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True) 
         display_reset_button() 
         st.markdown('</div>', unsafe_allow_html=True) 
+
+    display_download_button()        
     
 if __name__ == "__main__": 
     main()

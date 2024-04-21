@@ -48,7 +48,16 @@ def create_agent_data(expert_name, description, skills=None, tools=None):
         "tools": sanitized_tools
     }
 
-    return agent_data
+    crewai_agent_data = {
+        "name": expert_name,  # Use 'name' instead of 'expert_name'
+        "description": description,  # Use 'description' instead of 'goal'
+        "skills": skills,  # Add 'skills' key
+        "tools": sanitized_tools,
+        "verbose": True,
+        "allow_delegation": True
+    }
+
+    return agent_data, crewai_agent_data
 
         
 def create_workflow_data(workflow):
