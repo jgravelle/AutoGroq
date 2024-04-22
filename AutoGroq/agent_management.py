@@ -59,7 +59,7 @@ def display_agents():
                 st.sidebar.markdown(button_style, unsafe_allow_html=True)
             st.sidebar.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
     else:
-        st.sidebar.warning("No agents created. Please enter a new request.")
+        st.sidebar.warning("AutoGroq creates your entire team of Autogen and CrewAI agents from a simple task request, including an Autogen workflow file.<br><br/>You can test your agents with this interface.<br><br/>No agents have yet been created. Please enter a new request.")
 
 
 def download_agent_file(expert_name):
