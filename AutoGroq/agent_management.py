@@ -59,7 +59,7 @@ def display_agents():
                 st.sidebar.markdown(button_style, unsafe_allow_html=True)
             st.sidebar.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
     else:
-        st.sidebar.warning("AutoGroq creates your entire team of Autogen and CrewAI agents from a simple task request, including an Autogen workflow file.\n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.")
+        st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo:  https://www.youtube.com/watch?v=Jm4UYVTwgBI&t=84s")
 
 
 def download_agent_file(expert_name):
