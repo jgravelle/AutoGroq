@@ -24,6 +24,53 @@ Experience AutoGroq's capabilities firsthand by accessing our online beta versio
 
 Please note that AutoGroq is currently under active development, and you may encounter occasional instability as we continue to refine our platform.
 
+Or install it locally:
+
+Here's a step-by-step guide on how to install and set up AutoGroq based on the provided codebase:
+
+## Prerequisites:
+
+Python 3.x installed on your system
+An API key for the Groq API (replace the placeholder in the code with your actual API key)
+
+
+Clone the AutoGroq repository or download the source code files.
+Open a terminal or command prompt and navigate to the AutoGroq project directory.
+Create a virtual environment (optional but recommended):
+Copy codepython -m venv autogroq_venv
+
+## Activate the virtual environment:
+
+For Windows:
+Copy codeautogroq_venv\Scripts\activate
+
+For macOS and Linux:
+Copy codesource autogroq_venv/bin/activate
+
+
+
+## Install the required dependencies:
+Copy codepip install -r requirements.txt
+
+Set up the necessary environment variables:
+
+Replace the placeholder API key in the code with your actual Groq API key.
+Set any other required environment variables mentioned in the code.
+
+
+## Run the AutoGroq application:
+Copy codestreamlit run AutoGroq/main.py
+
+The application will open in your default web browser. If it doesn't open automatically, you can access it by navigating to http://localhost:8501 in your browser.
+Enter your request in the "Enter your request" text input field and press Enter or click outside the field to trigger the processing.
+AutoGroq will generate agents and create workflow files based on your request. The generated files will be available for download as ZIP archives.
+You can interact with the generated agents using the provided user interface. Enter additional input, view the discussion and whiteboard, and reset the application if needed.
+To exit the application, stop the Streamlit server by pressing Ctrl+C in the terminal or command prompt where you started the application.
+
+## Note: 
+Make sure you have the necessary permissions to install packages and run the application. If you encounter any issues during the installation or setup process, please refer to the troubleshooting guide or seek further assistance.
+That's it! You should now have AutoGroq installed and ready to use on your system. Enjoy exploring and utilizing the powerful features of AutoGroq for your projects.
+
 ## How It Works
 
 1. **Initiation**: Begin by entering your query or request in the designated input area.
