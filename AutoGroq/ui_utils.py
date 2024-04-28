@@ -1,6 +1,6 @@
 import io
 import json
-import os
+import pandas as pd
 import streamlit as st
 import time
 import zipfile
@@ -8,12 +8,28 @@ from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_r
 from file_utils import create_agent_data, sanitize_text
 
 
-def display_discussion_and_whiteboard(): 
-    col1, col2 = st.columns(2) 
-    with col1: 
-        st.text_area("Discussion", value=st.session_state.discussion, height=400, key="discussion") 
-    with col2: 
-        st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard") 
+def display_discussion_and_whiteboard():
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if "discussion_history" not in st.session_state:
+            st.session_state.discussion_history = ""
+
+        st.text_area("Most Recent Comment", value=st.session_state.get("last_comment", ""), height=400, key="discussion")
+
+    with col2:
+        st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
+
+    with st.expander("Discussion History"):
+            st.write(st.session_state.discussion_history)        
+
+
+
+
+def display_discussion_modal():
+    with st.expander("Discussion History"):
+        st.write(st.session_state.discussion_history)
+
         
 def display_user_input(): 
     user_input = st.text_area("Additional Input:", key="user_input", height=100) 
@@ -46,26 +62,45 @@ def display_download_button():
         st.warning("No files available for download.")
 
 
-def display_reset_button():
-    if st.button("Reset", key="reset_button"):
-        # Reset specific elements without clearing entire session state
-        for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer"]:
-            if key in st.session_state:
-                del st.session_state[key]
+def display_reset_and_upload_buttons():
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("Reset", key="reset_button"):
+            # Reset specific elements without clearing entire session state
+            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.session_state.user_request = ""
+            st.session_state.show_begin_button = True
+            st.experimental_rerun()
+    
+    with col2:
+        uploaded_file = st.file_uploader("Upload a sample .csv of your data (optional)", type="csv")
         
-        st.session_state.user_request = ""
-        
-        st.session_state.show_begin_button = True
-        st.experimental_rerun()
+        if uploaded_file is not None:
+            try:
+                # Attempt to read the uploaded file as a DataFrame
+                df = pd.read_csv(uploaded_file).head(5)
+                
+                # Display the DataFrame in the app
+                st.write("Data successfully uploaded and read as DataFrame:")
+                st.dataframe(df)
+                
+                # Store the DataFrame in the session state
+                st.session_state.uploaded_data = df
+            except Exception as e:
+                st.error(f"Error reading the file: {e}")
                 
 
 
 def display_user_request_input():
     user_request = st.text_input("Enter your request:", key="user_request")
-    if user_request and user_request != st.session_state.get("previous_user_request"):
+    if st.session_state.get("previous_user_request") != user_request:
         st.session_state.previous_user_request = user_request
-        handle_begin(st.session_state)
-        st.experimental_rerun()
+        if user_request:
+            handle_begin(st.session_state)
+            st.experimental_rerun()
 
 
 
@@ -137,17 +172,16 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
 
     if user_input:
         user_input_text = f"\n\nAdditional Input:\n\n{user_input}\n\n"
-        st.session_state.discussion += user_input_text
+        st.session_state.discussion_history += user_input_text
 
-    response_text = f"{response}\n\n===\n\n"
-    st.session_state.discussion += response_text
+    response_text = f"{expert_name}:\n\n    {response}\n\n===\n\n"
+    st.session_state.discussion_history += response_text
 
     code_blocks = extract_code_from_response(response)
     st.session_state.whiteboard = code_blocks
 
-    # Store the last agent and their comment in session variables
     st.session_state.last_agent = expert_name
-    st.session_state.last_comment = response
+    st.session_state.last_comment = response_text
     print(f"Last Agent: {st.session_state.last_agent}")
     print(f"Last Comment: {st.session_state.last_comment}")
     

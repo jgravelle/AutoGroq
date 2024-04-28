@@ -67,6 +67,7 @@ def extract_tasks(comment, agents):
 
 
 def make_api_request(url, data, headers):
+    print("Executing make_api_request()")
     max_retries = 3
     retry_delay = 1  # in seconds
 
@@ -102,6 +103,7 @@ def make_api_request(url, data, headers):
 
 
 def rephrase_prompt(user_request):
+    print("Executing rephrase_prompt()")
     url = "https://j.gravelle.us/APIs/Groq/groqApiRephrasePrompt.php"
     data = {"user_request": user_request}
     headers = {"Content-Type": "application/json"}
