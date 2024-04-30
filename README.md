@@ -1,6 +1,8 @@
 # AutoGroq
 It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
 
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/0462400b-5584-4ffa-afc4-cd96eed8da77)
+
 **FREE, WORKING, HANDS-ON LIVE DEMO:**  https://autogroq.streamlit.app/
 
 **UPDATED** video tutorial:  https://www.youtube.com/watch?v=Jm4UYVTwgBI 
