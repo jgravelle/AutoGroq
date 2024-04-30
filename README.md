@@ -37,20 +37,20 @@ An API key for the Groq API (replace the placeholder in the code with your actua
 Clone the AutoGroq repository or download the source code files.
 Open a terminal or command prompt and navigate to the AutoGroq project directory.
 Create a virtual environment (optional but recommended):
-Copy codepython -m venv autogroq_venv
+python -m venv autogroq_venv
 
 ## Activate the virtual environment:
 
 For Windows:
-Copy codeautogroq_venv\Scripts\activate
+autogroq_venv\Scripts\activate
 
 For macOS and Linux:
-Copy codesource autogroq_venv/bin/activate
+source autogroq_venv/bin/activate
 
 
 
 ## Install the required dependencies:
-Copy codepip install -r requirements.txt
+pip install -r requirements.txt
 
 Set up the necessary environment variables:
 
@@ -59,7 +59,7 @@ Set any other required environment variables mentioned in the code.
 
 
 ## Run the AutoGroq application:
-Copy codestreamlit run AutoGroq/main.py
+streamlit run AutoGroq/main.py
 
 The application will open in your default web browser. If it doesn't open automatically, you can access it by navigating to http://localhost:8501 in your browser.
 Enter your request in the "Enter your request" text input field and press Enter or click outside the field to trigger the processing.
