@@ -1,8 +1,8 @@
 ## A NOTE ON OUR NEW URL CAPABILITY
 The good news is, AutoGroq can read URLs and incorporate their content into the discussion.  Point to a page on 'How to calculate BMI' and your agents can use that info to generate an online BMI calculator.
-## BUT
+**BUT**
 (do not ignore my big 'but') ... you can easily bump up against Grog's developer limits and end up getting throttled.
-## USE URLs AT YOUR OWN RISK
+**USE URL CAPABILITY AT YOUR OWN RISK**
 
 # AutoGroq
 It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
