@@ -31,9 +31,16 @@ def display_discussion_modal():
         st.write(st.session_state.discussion_history)
 
         
-def display_user_input(): 
-    user_input = st.text_area("Additional Input:", key="user_input", height=100) 
-    return user_input 
+def display_user_input():
+    user_input = st.text_area("Additional Input:", key="user_input", height=100)
+    
+    def update_reference_url():
+        st.session_state.reference_url = st.session_state.reference_url_input
+
+    st.text_input("Reference URL:", key="reference_url_input", on_change=update_reference_url)
+    
+    return user_input
+
 
 def display_rephrased_request(): 
     st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 

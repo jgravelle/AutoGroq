@@ -1,6 +1,7 @@
 import base64
 import streamlit as st
-import json
+import requests
+from bs4 import BeautifulSoup
 import os
 import re
 
@@ -98,6 +99,18 @@ def process_agent_interaction(agent_index):
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
 
+    reference_url = st.session_state.get('reference_url', '')
+    url_content = ""
+    if reference_url:
+        try:
+            response = requests.get(reference_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            url_content = soup.get_text()
+        except requests.exceptions.RequestException as e:
+            print(f"Error occurred while retrieving content from {reference_url}: {e}")
+    
+
     request = f"Act as the {agent_name} who {description}."
     if user_request:
         request += f" Original request was: {user_request}."
@@ -105,8 +118,12 @@ def process_agent_interaction(agent_index):
         request += f" You are helping a team work on satisfying {rephrased_request}."
     if user_input:
         request += f" Additional input: {user_input}."
+    if url_content:
+        print(f"URL Content: {url_content}") 
+        request += f"\n\nReference URL content:\n{url_content}"
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
+
 
     response = send_request_to_groq_api(agent_name, request)
     if response:
