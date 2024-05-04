@@ -101,7 +101,7 @@ def rephrase_prompt(user_request):
 
 def get_agents_from_text(text):
     try:
-        api_key = os.environ["GROQ_API_KEY"]
+        api_key = st.session_state.groq_api_key
     except KeyError:
         st.error("GROQ_API_KEY not found. Please enter your API key.")
         return [], []

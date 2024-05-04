@@ -14,21 +14,21 @@ def display_api_key_input():
         api_key = os.environ["GROQ_API_KEY"]
         print(f"API Key from environment variable: {api_key}")
         st.success("GROQ_API_KEY found in environment variables.")
-        st.session_state.groq_api_key = api_key
+        st.session_state.setdefault("groq_api_key", api_key)
     else:
-        if "groq_api_key" not in st.session_state:
-            st.session_state.groq_api_key = ""
+        api_key = st.session_state.setdefault("groq_api_key", "")
         
-        if st.session_state.groq_api_key:
-            api_key = st.session_state.groq_api_key
+        if api_key:
             print(f"API Key from session state: {api_key}")
             st.success("API key found in session state.")
         else:
             api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", key="groq_api_key")
-            st.session_state.groq_api_key = api_key
-            print(f"API Key entered by user: {api_key}")
+            if api_key:
+                st.session_state.groq_api_key = api_key
+                print(f"API Key entered by user: {api_key}")
     
-    print(f"API Key stored in session state: {st.session_state.groq_api_key}")
+    print(f"API Key: {st.session_state.groq_api_key}")
+    return st.session_state.groq_api_key
 
 
 def display_discussion_and_whiteboard():
