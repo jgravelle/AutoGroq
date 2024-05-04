@@ -123,6 +123,10 @@ def process_agent_interaction(agent_index):
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
 
+    #api_key = st.session_state.groq_api_key
+    #if not api_key:
+    #    st.error("API key not found. Please enter your API key.")
+    #    return
 
     response = send_request_to_groq_api(agent_name, request)
     if response:

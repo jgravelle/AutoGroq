@@ -11,12 +11,25 @@ from file_utils import create_agent_data, sanitize_text
 
 def display_api_key_input():
     if "GROQ_API_KEY" in os.environ:
-        # print("Environment variable GROQ_API_KEY:", os.environ["GROQ_API_KEY"])
         api_key = os.environ["GROQ_API_KEY"]
-        # st.success("GROQ_API_KEY found in environment variables.")
+        print(f"API Key from environment variable: {api_key}")
+        st.success("GROQ_API_KEY found in environment variables.")
+        st.session_state.groq_api_key = api_key
     else:
-        api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", key="user_api_key")
-    return api_key
+        if "groq_api_key" not in st.session_state:
+            st.session_state.groq_api_key = ""
+        
+        if st.session_state.groq_api_key:
+            api_key = st.session_state.groq_api_key
+            print(f"API Key from session state: {api_key}")
+            st.success("API key found in session state.")
+        else:
+            api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", key="groq_api_key")
+            st.session_state.groq_api_key = api_key
+            print(f"API Key entered by user: {api_key}")
+    
+    print(f"API Key stored in session state: {st.session_state.groq_api_key}")
+
 
 def display_discussion_and_whiteboard():
     col1, col2 = st.columns(2)
@@ -92,7 +105,7 @@ def display_reset_and_upload_buttons():
     with col1:
         if st.button("Reset", key="reset_button"):
             # Reset specific elements without clearing entire session state
-            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer", "crewai_zip_buffer", "autogen_zip_buffer", "uploaded_file_content", "discussion_history", "last_comment","api_key", "user_api_key"]:
+            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer", "crewai_zip_buffer", "autogen_zip_buffer", "uploaded_file_content", "discussion_history", "last_comment","user_api_key"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.session_state.user_request = ""
@@ -161,7 +174,7 @@ def handle_begin(session_state):
     user_request = session_state.user_request
     
     max_retries = 3
-    retry_delay = 1  # in seconds
+    retry_delay = 2   # in seconds
     
     for retry in range(max_retries):
         try:

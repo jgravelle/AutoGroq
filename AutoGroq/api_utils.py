@@ -29,10 +29,10 @@ def make_api_request(url, data, headers):
 
 def rephrase_prompt(user_request):
     print("Executing rephrase_prompt()")
-    try:
-        api_key = os.environ["GROQ_API_KEY"]
-    except KeyError:
-        st.error("GROQ_API_KEY not found. Please enter your API key.")
+    api_key = st.session_state.groq_api_key
+    print(f"API Key: {api_key}")
+    if not api_key:
+        st.error("API key not found. Please enter your API key.")
         return None
     
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -40,11 +40,12 @@ def rephrase_prompt(user_request):
     Refactor the following user request into an optimized prompt for an LLM,
     focusing on clarity, conciseness, and effectiveness. Provide specific details
     and examples where relevant. Do NOT reply with a direct response to the request;
-    instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased prompt.\n\nUser request: \"{user_request}\"\n\nrephrased:
+    instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased 
+    prompt.\n\nUser request: \"{user_request}\"\n\nrephrased:
     """
-
+    
     groq_request = {
-        "model": st.session_state.model,  # Use the selected model from the session state
+        "model": st.session_state.model,
         "temperature": 0.5,
         "max_tokens": 100,
         "top_p": 1,
@@ -56,30 +57,45 @@ def rephrase_prompt(user_request):
             },
         ],
     }
-
+    
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-
+    
+    print(f"Request URL: {url}")
+    print(f"Request Headers: {headers}")
+    print(f"Request Payload: {json.dumps(groq_request, indent=2)}")
+    
     try:
-        response = requests.post(url, json=groq_request, headers=headers)
-        time.sleep(2)
-        response.raise_for_status()
-        response_data = response.json()
-        if "choices" in response_data and len(response_data["choices"]) > 0:
-            rephrased = response_data["choices"][0]["message"]["content"]
-            return rephrased.strip()
+        print("Sending request to Groq API...")
+        response = requests.post(url, json=groq_request, headers=headers, timeout=10)
+        print(f"Response received. Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            print("Request successful. Parsing response...")
+            response_data = response.json()
+            print(f"Response Data: {json.dumps(response_data, indent=2)}")
+            
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                rephrased = response_data["choices"][0]["message"]["content"]
+                return rephrased.strip()
+            else:
+                print("Error: Unexpected response format. 'choices' field missing or empty.")
+                return None
         else:
-            print("Error: Empty response received from the API.")
+            print(f"Request failed. Status Code: {response.status_code}")
+            print(f"Response Content: {response.text}")
             return None
-    except (requests.exceptions.RequestException, KeyError, ValueError) as e:
-        print(f"Error occurred while rephrasing the prompt:")
-        print(f"Request URL: {url}")
-        print(f"Request Headers: {headers}")
-        print(f"Request Payload: {json.dumps(groq_request, indent=2)}")
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred while sending the request: {str(e)}")
+        return None
+    except (KeyError, ValueError) as e:
+        print(f"Error occurred while parsing the response: {str(e)}")
         print(f"Response Content: {response.text}")
-        print(f"Error Details: {str(e)}")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
         return None
 
 
@@ -324,11 +340,11 @@ def get_workflow_from_agents(agents):
 
 # api_utils.py
 def send_request_to_groq_api(expert_name, request):
-    try:
-        api_key = os.environ["GROQ_API_KEY"]
-    except KeyError:
-        st.error("GROQ_API_KEY not found. Please enter your API key.")
+    api_key = st.session_state.groq_api_key
+    if not api_key:
+        st.error("API key not found. Please enter your API key.")
         return None
+    
     # Extract the text that follows "Additional input:" from the request
     additional_input_index = request.find("Additional input:")
     if additional_input_index != -1:

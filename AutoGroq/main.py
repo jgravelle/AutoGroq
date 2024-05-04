@@ -116,12 +116,10 @@ def main():
         'gemma-7b-it': 8192 
     } 
 
-    user_api_key = display_api_key_input()
-    if not user_api_key:
+    display_api_key_input()
+    if not st.session_state.groq_api_key:
         st.warning("Please enter your GROQ_API_KEY to use the app.")
         return
-
-    os.environ["GROQ_API_KEY"] = user_api_key   
     
     col1, col2, col3 = st.columns([2, 5, 3]) 
     with col3: 
