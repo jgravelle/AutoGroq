@@ -1,12 +1,22 @@
 import io
 import json
 import pandas as pd
+import os
+import re 
 import streamlit as st
 import time
 import zipfile
 from api_utils import rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 from file_utils import create_agent_data, sanitize_text
 
+def display_api_key_input():
+    if "GROQ_API_KEY" in os.environ:
+        # print("Environment variable GROQ_API_KEY:", os.environ["GROQ_API_KEY"])
+        api_key = os.environ["GROQ_API_KEY"]
+        # st.success("GROQ_API_KEY found in environment variables.")
+    else:
+        api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", key="user_api_key")
+    return api_key
 
 def display_discussion_and_whiteboard():
     col1, col2 = st.columns(2)
@@ -31,15 +41,22 @@ def display_discussion_modal():
         st.write(st.session_state.discussion_history)
 
         
+
 def display_user_input():
     user_input = st.text_area("Additional Input:", key="user_input", height=100)
-    
-    def update_reference_url():
-        st.session_state.reference_url = st.session_state.reference_url_input
 
-    st.text_input("Reference URL:", key="reference_url_input", on_change=update_reference_url)
-    
+    if user_input:
+        url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
+        url_match = url_pattern.search(user_input)
+        if url_match:
+            st.session_state.reference_url = url_match.group()
+        else:
+            st.session_state.reference_url = ''
+    else:
+        st.session_state.reference_url = ''
+
     return user_input
+
 
 
 def display_rephrased_request(): 
@@ -103,44 +120,28 @@ def display_reset_and_upload_buttons():
 
 def display_user_request_input():
     user_request = st.text_input("Enter your request:", key="user_request")
+    
     if st.session_state.get("previous_user_request") != user_request:
         st.session_state.previous_user_request = user_request
+        
         if user_request:
-            handle_begin(st.session_state)
-            st.experimental_rerun()
-
-
-
-def handle_begin(session_state):
-    user_request = session_state.user_request
-    max_retries = 3
-    retry_delay = 1  # in seconds
-
-    for retry in range(max_retries):
-        try:
-            rephrased_text = rephrase_prompt(user_request)
-            print(f"Debug: Rephrased text: {rephrased_text}")
-            
-            if rephrased_text:
-                session_state.rephrased_request = rephrased_text
-                autogen_agents, crewai_agents = get_agents_from_text(rephrased_text)
+            if not st.session_state.get('rephrased_request'):
+                handle_begin(st.session_state)
+            else:
+                autogen_agents, crewai_agents = get_agents_from_text(st.session_state.rephrased_request)
                 print(f"Debug: AutoGen Agents: {autogen_agents}")
                 print(f"Debug: CrewAI Agents: {crewai_agents}")
                 
                 if not autogen_agents:
-                    print("Error: No agents created. Retrying...")
-                    if retry < max_retries - 1:
-                        time.sleep(retry_delay)
-                        continue
-                    else:
-                        print("Error: Failed to create agents after maximum retries.")
-                        st.warning("Failed to create agents. Please try again.")
-                        return
+                    print("Error: No agents created.")
+                    st.warning("Failed to create agents. Please try again.")
+                    return
                 
                 agents_data = {}
                 for agent in autogen_agents:
                     agent_name = agent['config']['name']
                     agents_data[agent_name] = agent
+                
                 print(f"Debug: Agents data: {agents_data}")
                 
                 workflow_data, _ = get_workflow_from_agents(autogen_agents)
@@ -148,17 +149,32 @@ def handle_begin(session_state):
                 print(f"Debug: CrewAI agents: {crewai_agents}")
                 
                 autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(agents_data, workflow_data, crewai_agents)
-                session_state.autogen_zip_buffer = autogen_zip_buffer
-                session_state.crewai_zip_buffer = crewai_zip_buffer
+                st.session_state.autogen_zip_buffer = autogen_zip_buffer
+                st.session_state.crewai_zip_buffer = crewai_zip_buffer
+                st.session_state.agents = autogen_agents
                 
-                session_state.agents = autogen_agents
-                break  # Exit the loop if successful
+            st.experimental_rerun()
+
+
+
+def handle_begin(session_state):
+    user_request = session_state.user_request
+    
+    max_retries = 3
+    retry_delay = 1  # in seconds
+    
+    for retry in range(max_retries):
+        try:
+            rephrased_text = rephrase_prompt(user_request)
+            print(f"Debug: Rephrased text: {rephrased_text}")
             
+            if rephrased_text:
+                session_state.rephrased_request = rephrased_text
+                break  # Exit the loop if successful
             else:
                 print("Error: Failed to rephrase the user request.")
                 st.warning("Failed to rephrase the user request. Please try again.")
                 return  # Exit the function if rephrasing fails
-        
         except Exception as e:
             print(f"Error occurred in handle_begin: {str(e)}")
             if retry < max_retries - 1:
@@ -168,6 +184,33 @@ def handle_begin(session_state):
                 print("Max retries exceeded.")
                 st.warning("An error occurred. Please try again.")
                 return  # Exit the function if max retries are exceeded
+    
+    rephrased_text = session_state.rephrased_request
+    
+    autogen_agents, crewai_agents = get_agents_from_text(rephrased_text)
+    print(f"Debug: AutoGen Agents: {autogen_agents}")
+    print(f"Debug: CrewAI Agents: {crewai_agents}")
+    
+    if not autogen_agents:
+        print("Error: No agents created.")
+        st.warning("Failed to create agents. Please try again.")
+        return
+    
+    agents_data = {}
+    for agent in autogen_agents:
+        agent_name = agent['config']['name']
+        agents_data[agent_name] = agent
+    
+    print(f"Debug: Agents data: {agents_data}")
+    
+    workflow_data, _ = get_workflow_from_agents(autogen_agents)
+    print(f"Debug: Workflow data: {workflow_data}")
+    print(f"Debug: CrewAI agents: {crewai_agents}")
+    
+    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(agents_data, workflow_data, crewai_agents)
+    session_state.autogen_zip_buffer = autogen_zip_buffer 
+    session_state.crewai_zip_buffer = crewai_zip_buffer
+    session_state.agents = autogen_agents
 
 
     

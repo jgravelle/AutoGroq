@@ -15,6 +15,7 @@ def agent_button_callback(agent_index):
     def callback():
         st.session_state['selected_agent_index'] = agent_index
         agent = st.session_state.agents[agent_index]
+
         agent_name = agent['config']['name'] if 'config' in agent and 'name' in agent['config'] else ''
         st.session_state['form_agent_name'] = agent_name
         st.session_state['form_agent_description'] = agent['description'] if 'description' in agent else ''
@@ -45,9 +46,11 @@ def delete_agent(index):
 def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
         st.sidebar.title("Your Agents")
-        st.sidebar.subheader("click to interact")
+        st.sidebar.subheader("Click to interact")
         for index, agent in enumerate(st.session_state.agents):
             agent_name = agent["config"]["name"]
+            if not agent_name:
+                agent_name = f"Unnamed Agent {index + 1}"
             if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
                 button_style = """
                 <style>
@@ -60,8 +63,7 @@ def display_agents():
                 st.sidebar.markdown(button_style, unsafe_allow_html=True)
             st.sidebar.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
     else:
-        st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo:  https://www.youtube.com/watch?v=SgYTGD7BqHk&t=38s")
-
+        st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo: https://www.youtube.com/watch?v=Jm4UYVTwgBI&t=84s")
 
 def download_agent_file(expert_name):
     # Format the expert_name
@@ -117,10 +119,7 @@ def process_agent_interaction(agent_index):
     if rephrased_request:
         request += f" You are helping a team work on satisfying {rephrased_request}."
     if user_input:
-        request += f" Additional input: {user_input}."
-    if url_content:
-        print(f"URL Content: {url_content}") 
-        request += f"\n\nReference URL content:\n{url_content}"
+        request += f" Additional input: {user_input}.  Reference URL content: {url_content}."
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
 

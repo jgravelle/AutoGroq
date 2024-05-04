@@ -1,6 +1,7 @@
+import os
 import streamlit as st 
 from agent_management import display_agents
-from ui_utils import    display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input
+from ui_utils import    display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, display_api_key_input
 
 
 def main(): 
@@ -114,6 +115,13 @@ def main():
         'llama3-8b-8192': 8192, 
         'gemma-7b-it': 8192 
     } 
+
+    user_api_key = display_api_key_input()
+    if not user_api_key:
+        st.warning("Please enter your GROQ_API_KEY to use the app.")
+        return
+
+    os.environ["GROQ_API_KEY"] = user_api_key   
     
     col1, col2, col3 = st.columns([2, 5, 3]) 
     with col3: 

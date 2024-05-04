@@ -1,156 +1,205 @@
 import datetime
 import requests
 import json
+import os
 import streamlit as st
 import re
 import time
-
 from file_utils import create_agent_data, sanitize_text
-from skills.stock_info_skill import GetStockInfo
-
-
-def get_next_agent(last_agent, last_comment, expert_names, enhanced_prompt):
-    url = "https://j.gravelle.us/APIs/Groq/groqApiChatCoordinator.php"
-    data = {
-        "last_agent": last_agent,
-        "last_contribution": last_comment,
-        "agents": expert_names,  # Pass the expert names instead of the entire agent objects
-        "enhanced_prompt": enhanced_prompt
-    }
-    headers = {"Content-Type": "application/json"}
-
-    print("Payload:")
-    print(json.dumps(data, indent=2))
-
-    try:
-        response = requests.post(url, json=data, headers=headers)
-        print(f"Debug: RESPONSE: {response.text}")
-        response.raise_for_status()
-        response_data = response.json()
-        print(f"Debug: RESPONSE DATA: {response_data}")
-        next_agent = response_data["next_agent"].strip()
-        assignment = response_data["assignment"].strip()
-
-        if next_agent not in expert_names:
-            print(f"Warning: The returned next agent '{next_agent}' is not one of the provided expert names: {expert_names}")
-            print("Falling back to the last agent.")
-            next_agent = last_agent
-            assignment = "Please continue working on the task based on the previous assignment and the enhanced prompt."
-
-        return f"Next Suggested Agent: {next_agent}\n\nAssignment: {assignment}\n"
-    except (requests.exceptions.RequestException, KeyError, ValueError) as e:
-        print(f"Error occurred while coordinating agents:")
-        print(f"Request URL: {url}")
-        print(f"Request Headers: {headers}")
-        print(f"Request Payload: {json.dumps(data, indent=2)}")
-        print(f"Response Content: {response.text}")
-        print(f"Error Details: {str(e)}")
-        return "Error occurred while coordinating agents."
-    except Exception as e:
-        print(f"An unexpected error occurred:")
-        print(f"Error Details: {str(e)}")
-        return "Error occurred while coordinating agents."
-
-
-def extract_tasks(comment, agents):
-    url = "https://j.gravelle.us/APIs/Groq/groqApiTaskExtractor.php"
-    data = {
-        "comment": comment,
-        "agents": agents
-    }
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(url, json=data, headers=headers)
-    response.raise_for_status()
-    response_data = response.json()
-
-    return response_data
 
 
 def make_api_request(url, data, headers):
-    print("Executing make_api_request()")
-    max_retries = 3
-    retry_delay = 1  # in seconds
-
-    for retry in range(max_retries):
-        try:
-            time.sleep(1)
-            response = requests.post(url, data=json.dumps(data), headers=headers)
-            print(f"Debug: API request sent: {json.dumps(data)}")
-            print(f"Debug: API response received: {response.text}")
-            
-            if response.status_code == 200:
-                try:
-                    return response.json()
-                except json.JSONDecodeError:
-                    print(f"Error: Unexpected response format: {response.text}")
-                    return None
-            else:
-                st.error(f"Error: API request failed with status code {response.status_code}. Retrying...")
-                if retry < max_retries - 1:
-                    time.sleep(retry_delay)
-                    continue
-                else:
-                    return None
-        except requests.exceptions.RequestException as e:
-            st.error(f"Error: {str(e)}. Retrying...")
-            if retry < max_retries - 1:
-                time.sleep(retry_delay)
-                continue
-            else:
-                return None
+    time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
+    try:
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY not found. Please enter your API key.")
     
-    return None
+        headers["Authorization"] = f"Bearer {api_key}"
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"Error: API request failed with status {response.status_code}, response: {response.text}")
+            return None
+    except requests.RequestException as e:
+        print(f"Error: Request failed {e}")
+        return None
 
 
 def rephrase_prompt(user_request):
     print("Executing rephrase_prompt()")
-    url = "https://j.gravelle.us/APIs/Groq/groqApiRephrasePrompt.php"
-    data = {"user_request": user_request}
-    headers = {"Content-Type": "application/json"}
-    response_data = make_api_request(url, data, headers)
-    if response_data:
-        rephrased = response_data.get("rephrased", "")
-        if rephrased:
-            return rephrased
+    try:
+        api_key = os.environ["GROQ_API_KEY"]
+    except KeyError:
+        st.error("GROQ_API_KEY not found. Please enter your API key.")
+        return None
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    refactoring_prompt = f"""
+    Refactor the following user request into an optimized prompt for an LLM,
+    focusing on clarity, conciseness, and effectiveness. Provide specific details
+    and examples where relevant. Do NOT reply with a direct response to the request;
+    instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased prompt.\n\nUser request: \"{user_request}\"\n\nrephrased:
+    """
+
+    groq_request = {
+        "model": st.session_state.model,  # Use the selected model from the session state
+        "temperature": 0.5,
+        "max_tokens": 100,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": refactoring_prompt,
+            },
+        ],
+    }
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(url, json=groq_request, headers=headers)
+        time.sleep(2)
+        response.raise_for_status()
+        response_data = response.json()
+        if "choices" in response_data and len(response_data["choices"]) > 0:
+            rephrased = response_data["choices"][0]["message"]["content"]
+            return rephrased.strip()
         else:
             print("Error: Empty response received from the API.")
-    return None
-
+            return None
+    except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+        print(f"Error occurred while rephrasing the prompt:")
+        print(f"Request URL: {url}")
+        print(f"Request Headers: {headers}")
+        print(f"Request Payload: {json.dumps(groq_request, indent=2)}")
+        print(f"Response Content: {response.text}")
+        print(f"Error Details: {str(e)}")
+        return None
 
 
 def get_agents_from_text(text):
-    url = "https://j.gravelle.us/APIs/Groq/groqApiGetAgentsFromPrompt.php"
-    data = {"user_request": text}
-    headers = {"Content-Type": "application/json"}
-    response_data = make_api_request(url, data, headers)
-    if response_data:
-        autogen_agents = []
-        crewai_agents = []
-        
-        if isinstance(response_data, dict):
-            for expert_name, agent_data in response_data.items():
-                expert_name = agent_data.get("expert_name", "")
-                description = agent_data.get("description", "")
-                skills = agent_data.get("skills", [])
-                tools = agent_data.get("tools", [])
-                autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
-                autogen_agents.append(autogen_agent_data)
-                crewai_agents.append(crewai_agent_data)
-        elif isinstance(response_data, list):
-            for agent_data in response_data:
-                expert_name = agent_data.get("expert_name", "")
-                description = agent_data.get("description", "")
-                skills = agent_data.get("skills", [])
-                tools = agent_data.get("tools", [])
-                autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
-                autogen_agents.append(autogen_agent_data)
-                crewai_agents.append(crewai_agent_data)
+    try:
+        api_key = os.environ["GROQ_API_KEY"]
+    except KeyError:
+        st.error("GROQ_API_KEY not found. Please enter your API key.")
+        return [], []
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    groq_request = {
+        "model": st.session_state.model,
+        "temperature": 0.5,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "system",
+                "content": f"""
+                You are an expert system designed to identify and recommend the optimal team of experts
+                required to fulfill this specific user's request: $userRequest Your analysis should
+                consider the complexity, domain, and specific needs of the request to assemble
+                a multidisciplinary team of experts. Each recommended expert should come with a defined role,
+                a brief description of their expertise, their skill set, and the tools they would utilize
+                to achieve the user's goal. The first agent must be qualified to manage the entire project,
+                aggregate the work done by all the other agents, and produce a robust, complete,
+                and reliable solution. Return the results in JSON values labeled as expert_name, description,
+                skills, and tools. Their 'expert_name' is their title, not their given name.
+                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
+                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
+                or superfluous remarks/text of any kind. Tools should be single-purpose methods,
+                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
+                would be good, but simply 'do_math' would be bad) Skills and tools should be all lower case
+                with underscores instead of spaces, and they should be named per their functionality,
+                e.g.: calculate_surface_area, or search_web
+                """
+            },
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+    }
+
+    response_data = make_api_request(url, groq_request, headers)
+    if response_data and "choices" in response_data and response_data["choices"]:
+        content_json_string = response_data["choices"][0].get("message", {}).get("content", "")
+        try:
+            content_json = json.loads(content_json_string)
+            autogen_agents = []
+            crewai_agents = []
+            if isinstance(content_json, list):
+                for agent_data in content_json:
+                    if isinstance(agent_data, dict):
+                        expert_name = agent_data.get("expert_name", "")
+                        description = agent_data.get("description", "")
+                        skills = agent_data.get("skills", [])
+                        tools = agent_data.get("tools", [])
+                    else:
+                        expert_name = ""
+                        description = ""
+                        skills = []
+                        tools = []
+                    autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
+                    autogen_agents.append(autogen_agent_data)
+                    crewai_agents.append(crewai_agent_data)
+            elif isinstance(content_json, dict):
+                for expert_name, agent_data in content_json.items():
+                    description = agent_data.get("description", "")
+                    skills = agent_data.get("skills", [])
+                    tools = agent_data.get("tools", [])
+                    autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
+                    autogen_agents.append(autogen_agent_data)
+                    crewai_agents.append(crewai_agent_data)
+            return autogen_agents, crewai_agents
+        except json.JSONDecodeError as e:
+            print(f"Error: Failed to parse JSON response: {e}, Response content: {content_json_string}")
+    else:
+        if response_data is not None:
+            print("Error: Unexpected response format from the API. Full response: ", response_data)
         else:
-            print("Error: Unexpected response format from the API.")
-            
-        return autogen_agents, crewai_agents
-    
+            print("Error: No response data received from API.")
     return [], []
+
+
+def create_agent_data(expert_name, description, skills, tools):
+    autogen_agent_data = {
+        "type": "assistant",
+        "config": {
+            "name": expert_name,
+            "llm_config": {
+                "config_list": [{"model": "gpt-4-1106-preview"}],
+                "temperature": 0.1,
+                "timeout": 600,
+                "cache_seed": 42
+            },
+            "human_input_mode": "NEVER",
+            "max_consecutive_auto_reply": 8,
+            "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
+        },
+        "description": description,
+        "skills": skills,
+        "tools": tools
+    }
+    crewai_agent_data = {
+        "name": expert_name,
+        "description": description,
+        "skills": skills,
+        "tools": tools,
+        "verbose": True,
+        "allow_delegation": True
+    }
+    return autogen_agent_data, crewai_agent_data
 
 
 
@@ -275,23 +324,25 @@ def get_workflow_from_agents(agents):
 
 # api_utils.py
 def send_request_to_groq_api(expert_name, request):
-    url = "https://j.gravelle.us/APIs/Groq/groqApiStockDiscerner.php"
-    
+    try:
+        api_key = os.environ["GROQ_API_KEY"]
+    except KeyError:
+        st.error("GROQ_API_KEY not found. Please enter your API key.")
+        return None
     # Extract the text that follows "Additional input:" from the request
     additional_input_index = request.find("Additional input:")
     if additional_input_index != -1:
         additional_input = request[additional_input_index + len("Additional input:"):].strip()
     else:
         additional_input = ""
-    
+
     if additional_input:
         data = {"user_request": additional_input}
         headers = {"Content-Type": "application/json"}
-        
         try:
             response = requests.post(url, json=data, headers=headers)
+            time.sleep(2)
             response.raise_for_status()
-            
             try:
                 response_data = response.json()
                 if "summary" in response_data:
@@ -300,18 +351,18 @@ def send_request_to_groq_api(expert_name, request):
                     summary = ""
             except ValueError:
                 summary = response.text.strip()
-            
-            if summary.startswith("LOOKUP"):
-                ticker = summary.split("LOOKUP")[1].strip()
-                stock_info = GetStockInfo(ticker)
-                request += f"\n\nStock info: {stock_info}"
-            
         except requests.exceptions.RequestException as e:
             print(f"Error occurred while making the request: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
 
-    url = "https://j.gravelle.us/APIs/Groq/groqAPI.php"
+    api_key = os.environ.get("GROQ_API_KEY")  # Get the Groq API key from environment variables
+    
+    if not api_key:
+        raise ValueError("Groq API key not found in environment variables.")
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    
     data = {
         "model": st.session_state.model,
         "temperature": 0.5,
@@ -329,9 +380,18 @@ def send_request_to_groq_api(expert_name, request):
             }
         ]
     }
-    headers = {"Content-Type": "application/json"}
-    response_data = make_api_request(url, data, headers)
-    if response_data:
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        time.sleep(2)
+        response.raise_for_status()
+        response_data = response.json()
+        
         if "choices" in response_data and len(response_data["choices"]) > 0:
             message_content = response_data["choices"][0]["message"]["content"]
             return message_content
@@ -339,6 +399,15 @@ def send_request_to_groq_api(expert_name, request):
             print("Error: Unexpected response format from the Groq API.")
             print("Response data:", response_data)
             return None
+    except (requests.exceptions.RequestException, KeyError, ValueError) as e:
+        print(f"Error occurred while making the request to Groq API:")
+        print(f"Request URL: {url}")
+        print(f"Request Headers: {headers}")
+        print(f"Request Data: {json.dumps(data, indent=2)}")
+        print(f"Response Content: {response.text}")
+        print(f"Error Details: {str(e)}")
+        return None
+
     return ""
 
 
