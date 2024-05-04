@@ -92,7 +92,7 @@ def display_reset_and_upload_buttons():
     with col1:
         if st.button("Reset", key="reset_button"):
             # Reset specific elements without clearing entire session state
-            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer", "crewai_zip_buffer", "autogen_zip_buffer", "uploaded_file_content", "discussion_history", "last_comment"]:
+            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer", "crewai_zip_buffer", "autogen_zip_buffer", "uploaded_file_content", "discussion_history", "last_comment", "user_api_key"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.session_state.user_request = ""
