@@ -122,6 +122,9 @@ def main():
         if api_key is None:
             st.warning("Please enter your GROQ_API_KEY to use the app.")
             return
+        else:
+            st.session_state.api_key = api_key  # Store the manually entered API key in the session state
+
     
     col1, col2, col3 = st.columns([2, 5, 3]) 
     with col3: 

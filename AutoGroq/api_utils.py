@@ -53,8 +53,10 @@ def create_agent_data(expert_name, description, skills, tools):
 # api_utils.py
 def send_request_to_groq_api(expert_name, request, api_key):
     if api_key is None:
-        st.error("API key not found. Please enter your API key.")
-        return None
+        api_key = st.session_state.get("api_key")  # Retrieve the API key from the session state
+        if api_key is None:
+            st.error("API key not found. Please enter your API key.")
+            return None
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     data = {
