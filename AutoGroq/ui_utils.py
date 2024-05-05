@@ -2,7 +2,7 @@ import streamlit as st
 import os
 
 def get_api_key():
-    if 'api_key' in st.session_state:
+    if 'api_key' in st.session_state and st.session_state.api_key:
         api_key = st.session_state.api_key
         print(f"API Key from session state: {api_key}")
         return api_key
@@ -15,15 +15,16 @@ def get_api_key():
     
     
 def display_api_key_input():
-    api_key = get_api_key()
-    if api_key is None:
-        if 'api_key' not in st.session_state:
-            st.session_state.api_key = ''
-        api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
-        if api_key:
-            st.session_state.api_key = api_key
-            st.success("API key entered successfully.")
-            print(f"API Key: {api_key}")
+    if 'api_key' not in st.session_state:
+        st.session_state.api_key = ''
+    
+    api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
+    
+    if api_key:
+        st.session_state.api_key = api_key
+        st.success("API key entered successfully.")
+        print(f"API Key: {api_key}")
+    
     return api_key
 
 import io

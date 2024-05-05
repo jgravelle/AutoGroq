@@ -52,7 +52,7 @@ def create_agent_data(expert_name, description, skills, tools):
 
 def send_request_to_groq_api(expert_name, request, api_key):
     if api_key is None:
-        if 'api_key' in st.session_state:
+        if 'api_key' in st.session_state and st.session_state.api_key:
             api_key = st.session_state.api_key
         else:
             st.error("API key not found. Please enter your API key.")
