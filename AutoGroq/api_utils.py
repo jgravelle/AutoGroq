@@ -50,11 +50,11 @@ def create_agent_data(expert_name, description, skills, tools):
     return autogen_agent_data, crewai_agent_data
 
 
-# api_utils.py
 def send_request_to_groq_api(expert_name, request, api_key):
     if api_key is None:
-        api_key = st.session_state.get("api_key")  # Retrieve the API key from the session state
-        if api_key is None:
+        if 'api_key' in st.session_state:
+            api_key = st.session_state.api_key
+        else:
             st.error("API key not found. Please enter your API key.")
             return None
 
