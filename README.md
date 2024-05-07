@@ -10,7 +10,7 @@ It's how I wish Autogen worked:  quickly, simply, and automatically.  In the tim
 
 **FREE, WORKING, HANDS-ON LIVE DEMO:**  https://autogroq.streamlit.app/
 
-**UPDATED** video tutorial:  https://www.youtube.com/watch?v=Jm4UYVTwgBI 
+**UPDATED** video tutorial:  https://www.youtube.com/watch?v=JkYzuL8V_4g
 
 Autogroq creates your team of AutoGen compatible agent assistants AND workflows on the fly.  Just type in your request! 
 
