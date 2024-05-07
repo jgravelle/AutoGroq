@@ -39,19 +39,22 @@ import datetime
 import requests
 
 def display_discussion_and_whiteboard():
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if "discussion_history" not in st.session_state:
+    if "discussion_history" not in st.session_state:
             st.session_state.discussion_history = ""
+            
+    tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
 
+    with tab1:
+        # Display the most recent comment in the first tab
         st.text_area("Most Recent Comment", value=st.session_state.get("last_comment", ""), height=400, key="discussion")
 
-    with col2:
+    with tab2:
+        # Display the whiteboard in the second tab
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
 
-    with st.expander("Discussion History"):
-            st.write(st.session_state.discussion_history)        
+    with tab3:
+        # Display the full discussion history in the third tab
+        st.write(st.session_state.discussion_history)       
 
 
 
