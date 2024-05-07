@@ -42,7 +42,6 @@ def delete_agent(index):
         
         st.experimental_rerun()
 
-
 def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
         st.sidebar.title("Your Agents")
@@ -51,19 +50,46 @@ def display_agents():
             agent_name = agent["config"]["name"]
             if not agent_name:
                 agent_name = f"Unnamed Agent {index + 1}"
-            if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
-                button_style = """
-                <style>
-                div[data-testid*="stButton"] > button[kind="secondary"] {
-                    background-color: green !important;
-                    color: white !important;
-                }
-                </style>
-                """
-                st.sidebar.markdown(button_style, unsafe_allow_html=True)
-            st.sidebar.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+
+            # Create a row for each agent with a gear icon and an agent button
+            col1, col2 = st.sidebar.columns([1, 4])
+            with col1:
+                if st.button("⚙️", key=f"gear_{index}"):
+                    # Trigger the expander to open for editing
+                    st.session_state['edit_agent_index'] = index
+                    st.session_state['show_edit'] = True
+
+            with col2:
+                if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
+                    button_style = """
+                    <style>
+                    div[data-testid*="stButton"] > button[kind="secondary"] {
+                        background-color: green !important;
+                        color: white !important;
+                    }
+                    </style>
+                    """
+                    st.markdown(button_style, unsafe_allow_html=True)
+                st.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+
+        # Edit expander logic
+        if st.session_state.get('show_edit'):
+            edit_index = st.session_state.get('edit_agent_index')
+            agent = st.session_state.agents[edit_index]
+            with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
+                new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
+                new_description = st.text_area("Description", value=agent.get('description', ''), key=f"desc_{edit_index}")
+                if st.button("Save Changes", key=f"save_{edit_index}"):
+                    agent['config']['name'] = new_name
+                    agent['description'] = new_description
+                    # Reset the editing flags to close the expander
+                    st.session_state['show_edit'] = False
+                    if 'edit_agent_index' in st.session_state:
+                        del st.session_state['edit_agent_index']
+
     else:
         st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo: https://www.youtube.com/watch?v=JkYzuL8V_4g")
+
 
 def download_agent_file(expert_name):
     # Format the expert_name
