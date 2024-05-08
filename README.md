@@ -2,7 +2,11 @@
 ...contains all the code for this project.  It's handy for uploading to Claude.AI or ChatGPT if you want to make your own modifications.
 I create those sorts of PDFs with:  https://github.com/jgravelle/GetCodeAsPdf  
 
-## What the heck is...
+## What's new?
+**Customizable agents!**  They're now manually editable, and soon, they'll 'evolve' with your project!
+**Temperature control**  Careful setting it too low.  It can hose up your agent generations.
+
+**What the heck is...**
 # AutoGroq?
 It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
 
