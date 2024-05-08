@@ -21,13 +21,14 @@ def make_api_request(url, data, headers, api_key):
 
 
 def create_agent_data(expert_name, description, skills, tools):
+    temperature_value = st.session_state.get('temperature', 0.1)
     autogen_agent_data = {
         "type": "assistant",
         "config": {
             "name": expert_name,
             "llm_config": {
                 "config_list": [{"model": "gpt-4-1106-preview"}],
-                "temperature": 0.1,
+                "temperature": temperature_value,
                 "timeout": 600,
                 "cache_seed": 42
             },
@@ -51,6 +52,7 @@ def create_agent_data(expert_name, description, skills, tools):
 
 
 def send_request_to_groq_api(expert_name, request, api_key):
+    temperature_value = st.session_state.get('temperature', 0.1)
     if api_key is None:
         if 'api_key' in st.session_state and st.session_state.api_key:
             api_key = st.session_state.api_key
@@ -61,7 +63,7 @@ def send_request_to_groq_api(expert_name, request, api_key):
     url = "https://api.groq.com/openai/v1/chat/completions"
     data = {
         "model": st.session_state.model,
-        "temperature": 0.5,
+        "temperature": temperature_value,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",

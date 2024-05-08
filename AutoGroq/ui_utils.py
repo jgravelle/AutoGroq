@@ -209,6 +209,7 @@ def extract_code_from_response(response):
 
 def get_workflow_from_agents(agents):
     current_timestamp = datetime.datetime.now().isoformat()
+    temperature_value = st.session_state.get('temperature', 0.5)
 
     workflow = {
         "name": "AutoGroq Workflow",
@@ -243,7 +244,7 @@ def get_workflow_from_agents(agents):
                             "model": "gpt-4-1106-preview"
                         }
                     ],
-                    "temperature": 0.1,
+                    "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": None,
@@ -296,7 +297,7 @@ def get_workflow_from_agents(agents):
                             "model": "gpt-4-1106-preview"
                         }
                     ],
-                    "temperature": 0.1,
+                    "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": None,
@@ -383,11 +384,8 @@ def handle_begin(session_state):
 
 
 def get_agents_from_text(text):
-    try:
-        api_key = get_api_key()
-    except KeyError:
-        st.error("GROQ_API_KEY not found. Please enter your API key.")
-        return [], []
+    api_key = get_api_key()
+    temperature_value = st.session_state.get('temperature', 0.5)  # default temperature
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -397,7 +395,7 @@ def get_agents_from_text(text):
 
     groq_request = {
         "model": st.session_state.model,
-        "temperature": 0.5,
+        "temperature": temperature_value,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -430,54 +428,37 @@ def get_agents_from_text(text):
         ]
     }
 
-    response_data = make_api_request(url, groq_request, headers, api_key)
-
-    if response_data and "choices" in response_data and response_data["choices"]:
-        content_json_string = response_data["choices"][0].get("message", {}).get("content", "")
-        try:
-            content_json = json.loads(content_json_string)
-            autogen_agents = []
-            crewai_agents = []
-
-            if isinstance(content_json, list):
-                for agent_data in content_json:
-                    if isinstance(agent_data, dict):
-                        expert_name = agent_data.get("expert_name", "")
-                        description = agent_data.get("description", "")
-                        skills = agent_data.get("skills", [])
-                        tools = agent_data.get("tools", [])
-                    else:
-                        expert_name = ""
-                        description = ""
-                        skills = []
-                        tools = []
-
-                    autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
-                    autogen_agents.append(autogen_agent_data)
-                    crewai_agents.append(crewai_agent_data)
-            elif isinstance(content_json, dict):
-                for expert_name, agent_data in content_json.items():
+    try:
+        response = requests.post(url, json=groq_request, headers=headers)
+        if response.status_code == 200:
+            response_data = response.json()
+            if "choices" in response_data and response_data["choices"]:
+                content_json = response_data["choices"][0]["message"]["content"]
+                agent_list = json.loads(content_json)
+                autogen_agents = []
+                crewai_agents = []
+                for agent_data in agent_list:
+                    expert_name = agent_data.get("expert_name", "")
                     description = agent_data.get("description", "")
                     skills = agent_data.get("skills", [])
                     tools = agent_data.get("tools", [])
-                    autogen_agent_data, crewai_agent_data = create_agent_data(expert_name, description, skills, tools)
-                    autogen_agents.append(autogen_agent_data)
-                    crewai_agents.append(crewai_agent_data)
-
-            return autogen_agents, crewai_agents
-        except json.JSONDecodeError as e:
-            print(f"Error: Failed to parse JSON response: {e}, Response content: {content_json_string}")
-    else:
-        if response_data is not None:
-            print("Error: Unexpected response format from the API. Full response: ", response_data)
+                    autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
+                    autogen_agents.append(autogen_agent)
+                    crewai_agents.append(crewai_agent)
+                return autogen_agents, crewai_agents
+            else:
+                print("No agents data found in response")
         else:
-            print("Error: No response data received from API.")
+            print(f"API request failed with status code {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"Error making API request: {e}")
 
-    return [], []
+    return [], []  # Return empty lists if no agents or an error occurs
 
 
 
 def rephrase_prompt(user_request):
+    temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
     api_key = get_api_key()
     if not api_key:
@@ -495,7 +476,7 @@ def rephrase_prompt(user_request):
     
     groq_request = {
         "model": st.session_state.model,
-        "temperature": 0.5,
+        "temperature": temperature_value,
         "max_tokens": 100,
         "top_p": 1,
         "stop": "TERMINATE",

@@ -134,6 +134,14 @@ def main():
         ) 
         st.session_state.model = selected_model 
         st.session_state.max_tokens = model_token_limits[selected_model] 
+        temperature = st.slider(
+            "Set Temperature",
+            min_value=0.0,
+            max_value=1.0,
+            value=st.session_state.get('temperature', 0.5),  # Default value or the last set value
+            step=0.01,
+            key='temperature'
+        )
         
     st.title("AutoGroq") 
         
