@@ -1,9 +1,13 @@
-## YOU GUYS...
-...have been hammering the online demo (https://autogroq.streamlit.app) and, as a result, burning through my Groq™ developer credits.
-So now there's a field for you to enter in your own damn key.  Vultures.  :)  When you install AutoGroq™ locally, you can either keep using that field or populate an environment variable.
-If you do that, you should never be prompted to enter a key.  The keys on the Streamlit site are session specific.  You can also destroy them with the Reset button, or just by closing your browser window.
+## The PDF file...
+...contains all the code for this project.  It's handy for uploading to Claude.AI or ChatGPT if you want to make your own modifications.
+I create those sorts of PDFs with:  https://github.com/jgravelle/GetCodeAsPdf  
 
-# AutoGroq
+## What's new?
+**Customizable agents!**  They're now manually editable, and soon, they'll 'evolve' with your project!
+**Temperature control**  Careful setting it too low.  It can hose up your agent generations.
+
+**What the heck is...**
+# AutoGroq?
 It's how I wish Autogen worked:  quickly, simply, and automatically.  In the time it takes you to read this file, AutoGroq could have made dozens (if not hundreds) of specialized Autogen agents for you!
 
 ![image](https://github.com/jgravelle/AutoGroq/assets/3400540/0462400b-5584-4ffa-afc4-cd96eed8da77)
