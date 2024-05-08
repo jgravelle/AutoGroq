@@ -79,9 +79,15 @@ def display_agents():
             with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
                 new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
                 new_description = st.text_area("Description", value=agent.get('description', ''), key=f"desc_{edit_index}")
+                new_skills = st.text_area("Skills", value=", ".join(agent.get('skills', [])), key=f"skills_{edit_index}")
+                new_tools = st.text_area("Tools", value=", ".join(agent.get('tools', [])), key=f"tools_{edit_index}")
+                
                 if st.button("Save Changes", key=f"save_{edit_index}"):
                     agent['config']['name'] = new_name
                     agent['description'] = new_description
+                    # Parse the comma-separated list back into a list
+                    agent['skills'] = [skill.strip() for skill in new_skills.split(",") if skill.strip()]
+                    agent['tools'] = [tool.strip() for tool in new_tools.split(",") if tool.strip()]
                     # Reset the editing flags to close the expander
                     st.session_state['show_edit'] = False
                     if 'edit_agent_index' in st.session_state:

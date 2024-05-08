@@ -41,7 +41,7 @@ import requests
 def display_discussion_and_whiteboard():
     if "discussion_history" not in st.session_state:
             st.session_state.discussion_history = ""
-            
+
     tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
 
     with tab1:
@@ -111,14 +111,23 @@ def display_download_button():
 
 def display_reset_and_upload_buttons():
     col1, col2 = st.columns(2)
-    
+
     with col1:
         if st.button("Reset", key="reset_button"):
-            # Reset specific elements without clearing entire session state
-            for key in ["rephrased_request", "discussion", "whiteboard", "user_request", "user_input", "agents", "zip_buffer", "crewai_zip_buffer", "autogen_zip_buffer", "uploaded_file_content", "discussion_history", "last_comment","user_api_key"]:
+            # Define the keys of session state variables to clear
+            keys_to_reset = [
+                "rephrased_request", "discussion", "whiteboard", "user_request",
+                "user_input", "agents", "zip_buffer", "crewai_zip_buffer",
+                "autogen_zip_buffer", "uploaded_file_content", "discussion_history",
+                "last_comment", "user_api_key", "reference_url"
+            ]
+            # Reset each specified key
+            for key in keys_to_reset:
                 if key in st.session_state:
                     del st.session_state[key]
-            st.session_state.user_request = ""
+
+            # Additionally, explicitly reset user_input to an empty string
+            st.session_state.user_input = ""
             st.session_state.show_begin_button = True
             st.experimental_rerun()
     
@@ -546,7 +555,7 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
     print(f"User Input: {user_input}")
 
     if user_input:
-        user_input_text = f"\n\nAdditional Input:\n\n{user_input}\n\n"
+        user_input_text = f"\n\n\n\n{user_input}\n\n"
         st.session_state.discussion_history += user_input_text
 
     response_text = f"{expert_name}:\n\n    {response}\n\n===\n\n"
