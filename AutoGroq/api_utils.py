@@ -2,7 +2,6 @@ import requests
 import streamlit as st
 import time
 
-
 def make_api_request(url, data, headers, api_key):
     time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
     try:
@@ -18,7 +17,7 @@ def make_api_request(url, data, headers, api_key):
     except requests.RequestException as e:
         print(f"Error: Request failed {e}")
         return None
-
+    
 
 def create_agent_data(expert_name, description, skills, tools):
     temperature_value = st.session_state.get('temperature', 0.1)

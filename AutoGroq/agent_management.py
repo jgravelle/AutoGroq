@@ -42,15 +42,14 @@ def delete_agent(index):
         
         st.experimental_rerun()
 
+
 def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("Click to interact")
-        for index, agent in enumerate(st.session_state.agents):
-            agent_name = agent["config"]["name"]
-            if not agent_name:
-                agent_name = f"Unnamed Agent {index + 1}"
 
+        for index, agent in enumerate(st.session_state.agents):
+            agent_name = agent["config"]["name"] if agent["config"].get("name") else f"Unnamed Agent {index + 1}"
             # Create a row for each agent with a gear icon and an agent button
             col1, col2 = st.sidebar.columns([1, 4])
             with col1:
@@ -58,7 +57,6 @@ def display_agents():
                     # Trigger the expander to open for editing
                     st.session_state['edit_agent_index'] = index
                     st.session_state['show_edit'] = True
-
             with col2:
                 if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
                     button_style = """
@@ -72,29 +70,78 @@ def display_agents():
                     st.markdown(button_style, unsafe_allow_html=True)
                 st.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
 
-        # Edit expander logic
         if st.session_state.get('show_edit'):
             edit_index = st.session_state.get('edit_agent_index')
-            agent = st.session_state.agents[edit_index]
-            with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
-                new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
-                new_description = st.text_area("Description", value=agent.get('description', ''), key=f"desc_{edit_index}")
-                new_skills = st.text_area("Skills", value=", ".join(agent.get('skills', [])), key=f"skills_{edit_index}")
-                new_tools = st.text_area("Tools", value=", ".join(agent.get('tools', [])), key=f"tools_{edit_index}")
-                
-                if st.button("Save Changes", key=f"save_{edit_index}"):
-                    agent['config']['name'] = new_name
-                    agent['description'] = new_description
-                    # Parse the comma-separated list back into a list
-                    agent['skills'] = [skill.strip() for skill in new_skills.split(",") if skill.strip()]
-                    agent['tools'] = [tool.strip() for tool in new_tools.split(",") if tool.strip()]
-                    # Reset the editing flags to close the expander
-                    st.session_state['show_edit'] = False
-                    if 'edit_agent_index' in st.session_state:
-                        del st.session_state['edit_agent_index']
+            if edit_index is not None and 0 <= edit_index < len(st.session_state.agents):
+                agent = st.session_state.agents[edit_index]
+                with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
+                    new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
+                    
+                    # Use the updated description if available, otherwise use the original description
+                    description_value = agent.get('new_description', agent.get('description', ''))
+                    new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
 
+                    if st.button("🎲 Regenerate", key=f"regenerate_{edit_index}"):
+                        print(f"Regenerate button clicked for agent {edit_index}")
+                        new_description = regenerate_agent_description(agent)
+                        if new_description:
+                            agent['new_description'] = new_description  # Store the new description separately
+                            print(f"Description regenerated for {agent['config']['name']}: {new_description}")
+                            st.experimental_rerun()  # Rerun the app to update the description text area
+                        else:
+                            print(f"Failed to regenerate description for {agent['config']['name']}")
+
+                    if st.button("Save Changes", key=f"save_{edit_index}"):
+                        agent['config']['name'] = new_name
+                        agent['description'] = agent.get('new_description', new_description)
+                        # Reset the editing flags to close the expander
+                        st.session_state['show_edit'] = False
+                        if 'edit_agent_index' in st.session_state:
+                            del st.session_state['edit_agent_index']
+                        if 'new_description' in agent:
+                            del agent['new_description']  # Remove the temporary new description
+                        st.success("Agent properties updated!")
+            else:
+                st.warning("Invalid agent selected for editing.")
     else:
         st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo: https://www.youtube.com/watch?v=JkYzuL8V_4g")
+
+
+def regenerate_agent_description(agent):
+    agent_name = agent['config']['name']
+    print(f"agent_name: {agent_name}")
+    agent_description = agent['description']
+    print(f"agent_description: {agent_description}")
+    user_request = st.session_state.get('user_request', '')
+    print(f"user_request: {user_request}")
+    discussion_history = st.session_state.get('discussion_history', '')
+
+    prompt = f"""
+    You are an AI assistant helping to improve an agent's description. The agent's current details are:
+    Name: {agent_name}
+    Description: {agent_description}
+
+    The current user request is: {user_request}
+
+    The discussion history so far is: {discussion_history}
+
+    Please generate a revised description for this agent that defines it in the best manner possible to address the current user request, taking into account the discussion thus far. Return only the revised description, without any additional commentary or narrative.  It is imperative that you return ONLY the text of the new description.  No preamble, no narrative, no superfluous commentary whatsoever.  Just the description, unlabeled, please.
+    """
+
+    api_key = get_api_key()
+    if api_key is None:
+        st.error("API key not found. Please enter your API key.")
+        return None
+
+    print(f"regenerate_agent_description called with agent_name: {agent_name}")
+    print(f"regenerate_agent_description called with prompt: {prompt}")
+
+    response = send_request_to_groq_api(agent_name, prompt, api_key)
+    if response:
+        return response.strip()
+    else:
+        return None
+
 
 
 def download_agent_file(expert_name):

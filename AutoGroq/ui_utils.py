@@ -33,7 +33,6 @@ import pandas as pd
 import re
 import time
 import zipfile
-from api_utils import make_api_request
 from file_utils import create_agent_data, sanitize_text
 import datetime
 import requests
@@ -384,6 +383,8 @@ def handle_begin(session_state):
 
 
 def get_agents_from_text(text):
+    time.sleep(2)
+
     api_key = get_api_key()
     temperature_value = st.session_state.get('temperature', 0.5)  # default temperature
 
@@ -408,7 +409,7 @@ def get_agents_from_text(text):
                 consider the complexity, domain, and specific needs of the request to assemble
                 a multidisciplinary team of experts. Each recommended expert should come with a defined role,
                 a brief description of their expertise, their skill set, and the tools they would utilize
-                to achieve the user's goal. The first agent must be qualified to manage the entire project,
+                to achieve the user's goal. The first agent must be qualified to manage the entire ,
                 aggregate the work done by all the other agents, and produce a robust, complete,
                 and reliable solution. Return the results in JSON values labeled as expert_name, description,
                 skills, and tools. Their 'expert_name' is their title, not their given name.
