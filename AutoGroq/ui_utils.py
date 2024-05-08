@@ -110,7 +110,6 @@ def display_download_button():
 
 def display_reset_and_upload_buttons():
     col1, col2 = st.columns(2)
-
     with col1:
         if st.button("Reset", key="reset_button"):
             # Define the keys of session state variables to clear
@@ -124,7 +123,6 @@ def display_reset_and_upload_buttons():
             for key in keys_to_reset:
                 if key in st.session_state:
                     del st.session_state[key]
-
             # Additionally, explicitly reset user_input to an empty string
             st.session_state.user_input = ""
             st.session_state.show_begin_button = True
@@ -150,11 +148,9 @@ def display_reset_and_upload_buttons():
 
 
 def display_user_request_input():
-    user_request = st.text_input("Enter your request:", key="user_request")
-    
+    user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""))
     if st.session_state.get("previous_user_request") != user_request:
         st.session_state.previous_user_request = user_request
-        
         if user_request:
             if not st.session_state.get('rephrased_request'):
                 handle_begin(st.session_state)
@@ -383,17 +379,13 @@ def handle_begin(session_state):
 
 
 def get_agents_from_text(text):
-    time.sleep(2)
-
     api_key = get_api_key()
-    temperature_value = st.session_state.get('temperature', 0.5)  # default temperature
-
+    temperature_value = st.session_state.get('temperature', 0.5)
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-
     groq_request = {
         "model": st.session_state.model,
         "temperature": temperature_value,
@@ -404,23 +396,23 @@ def get_agents_from_text(text):
             {
                 "role": "system",
                 "content": f"""
-                You are an expert system designed to identify and recommend the optimal team of experts
-                required to fulfill this specific user's request: $userRequest Your analysis should
-                consider the complexity, domain, and specific needs of the request to assemble
-                a multidisciplinary team of experts. Each recommended expert should come with a defined role,
-                a brief description of their expertise, their skill set, and the tools they would utilize
-                to achieve the user's goal. The first agent must be qualified to manage the entire ,
-                aggregate the work done by all the other agents, and produce a robust, complete,
-                and reliable solution. Return the results in JSON values labeled as expert_name, description,
-                skills, and tools. Their 'expert_name' is their title, not their given name.
-                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
-                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
-                or superfluous remarks/text of any kind. Tools should be single-purpose methods,
-                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
-                would be good, but simply 'do_math' would be bad) Skills and tools should be all lower case
-                with underscores instead of spaces, and they should be named per their functionality,
-                e.g.: calculate_surface_area, or search_web
-                """
+You are an expert system designed to identify and recommend the optimal team of experts
+required to fulfill this specific user's request: $userRequest Your analysis should
+consider the complexity, domain, and specific needs of the request to assemble
+a multidisciplinary team of experts. Each recommended expert should come with a defined role,
+a brief description of their expertise, their skill set, and the tools they would utilize
+to achieve the user's goal. The first agent must be qualified to manage the entire ,
+aggregate the work done by all the other agents, and produce a robust, complete,
+and reliable solution. Return the results in JSON values labeled as expert_name, description,
+skills, and tools. Their 'expert_name' is their title, not their given name.
+Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
+Return ONLY this JSON response, with no other narrative, commentary, synopsis,
+or superfluous remarks/text of any kind. Tools should be single-purpose methods,
+very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
+would be good, but simply 'do_math' would be bad) Skills and tools should be all lower case
+with underscores instead of spaces, and they should be named per their functionality,
+e.g.: calculate_surface_area, or search_web
+"""
             },
             {
                 "role": "user",
@@ -428,14 +420,24 @@ def get_agents_from_text(text):
             }
         ]
     }
-
     try:
         response = requests.post(url, json=groq_request, headers=headers)
         if response.status_code == 200:
             response_data = response.json()
             if "choices" in response_data and response_data["choices"]:
-                content_json = response_data["choices"][0]["message"]["content"]
-                agent_list = json.loads(content_json)
+                content = response_data["choices"][0]["message"]["content"]
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                try:
+                    if isinstance(content, str):
+                        content = json.loads(content)
+                    agent_list = content
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"Error parsing JSON response: {e}")
+                    print(f"Response content: {content}")
+                    return [], []
                 autogen_agents = []
                 crewai_agents = []
                 for agent_data in agent_list:
@@ -453,8 +455,7 @@ def get_agents_from_text(text):
             print(f"API request failed with status code {response.status_code}: {response.text}")
     except Exception as e:
         print(f"Error making API request: {e}")
-
-    return [], []  # Return empty lists if no agents or an error occurs
+    return [], []
 
 
 
