@@ -3,7 +3,7 @@
 I create those sorts of PDFs with:  https://github.com/jgravelle/GetCodeAsPdf  
 
 ## What's new?
-**Customizable agents!**  They're now manually editable, and soon, they'll 'evolve' with your project!
+**Customizable agents!**  They're now manually editable, and **NOW**, they can 'evolve' with your project!  We'll have a new video out soon!
 **Temperature control**  Careful setting it too low.  It can hose up your agent generations.
 
 **What the heck is...**
