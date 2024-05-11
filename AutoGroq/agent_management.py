@@ -46,65 +46,64 @@ def display_agents():
     if "agents" in st.session_state and st.session_state.agents:
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("Click to interact")
-
-        for index, agent in enumerate(st.session_state.agents):
-            agent_name = agent["config"]["name"] if agent["config"].get("name") else f"Unnamed Agent {index + 1}"
-            # Create a row for each agent with a gear icon and an agent button
-            col1, col2 = st.sidebar.columns([1, 4])
-            with col1:
-                if st.button("⚙️", key=f"gear_{index}"):
-                    # Trigger the expander to open for editing
-                    st.session_state['edit_agent_index'] = index
-                    st.session_state['show_edit'] = True
-            with col2:
-                if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
-                    button_style = """
-                    <style>
-                    div[data-testid*="stButton"] > button[kind="secondary"] {
-                        background-color: green !important;
-                        color: white !important;
-                    }
-                    </style>
-                    """
-                    st.markdown(button_style, unsafe_allow_html=True)
-                st.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
-
+        display_agent_buttons(st.session_state.agents)
         if st.session_state.get('show_edit'):
             edit_index = st.session_state.get('edit_agent_index')
             if edit_index is not None and 0 <= edit_index < len(st.session_state.agents):
                 agent = st.session_state.agents[edit_index]
-                with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
-                    new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
-                    
-                    # Use the updated description if available, otherwise use the original description
-                    description_value = agent.get('new_description', agent.get('description', ''))
-                    new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-
-                    if st.button("🎲 Regenerate", key=f"regenerate_{edit_index}"):
-                        print(f"Regenerate button clicked for agent {edit_index}")
-                        new_description = regenerate_agent_description(agent)
-                        if new_description:
-                            agent['new_description'] = new_description  # Store the new description separately
-                            print(f"Description regenerated for {agent['config']['name']}: {new_description}")
-                            st.experimental_rerun()  # Rerun the app to update the description text area
-                        else:
-                            print(f"Failed to regenerate description for {agent['config']['name']}")
-
-                    if st.button("Save Changes", key=f"save_{edit_index}"):
-                        agent['config']['name'] = new_name
-                        agent['description'] = agent.get('new_description', new_description)
-                        # Reset the editing flags to close the expander
-                        st.session_state['show_edit'] = False
-                        if 'edit_agent_index' in st.session_state:
-                            del st.session_state['edit_agent_index']
-                        if 'new_description' in agent:
-                            del agent['new_description']  # Remove the temporary new description
-                        st.success("Agent properties updated!")
+                display_agent_edit_form(agent, edit_index)
             else:
-                st.warning("Invalid agent selected for editing.")
+                st.sidebar.warning("Invalid agent selected for editing.")
     else:
-        st.sidebar.warning("AutoGroq creates your entire team of downloadable, importable Autogen and CrewAI agents from a simple task request, including an Autogen workflow file! \n\rYou can test your agents with this interface.\n\rNo agents have yet been created. Please enter a new request.\n\r Video demo: https://www.youtube.com/watch?v=JkYzuL8V_4g")
+        st.sidebar.warning("No agents have yet been created. Please enter a new request.")
 
+
+def display_agent_buttons(agents):
+    for index, agent in enumerate(agents):
+        agent_name = agent["config"]["name"] if agent["config"].get("name") else f"Unnamed Agent {index + 1}"
+        col1, col2 = st.sidebar.columns([1, 4])
+        with col1:
+            gear_icon = "⚙️"  # Unicode character for gear icon
+            if st.button(gear_icon, key=f"gear_{index}"):
+                st.session_state['edit_agent_index'] = index
+                st.session_state['show_edit'] = True
+        with col2:
+            if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
+                button_style = """
+                <style>
+                div[data-testid*="stButton"] > button[kind="secondary"] {
+                    background-color: green !important;
+                    color: white !important;
+                }
+                </style>
+                """
+                st.markdown(button_style, unsafe_allow_html=True)
+            st.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
+
+
+def display_agent_edit_form(agent, edit_index):
+    with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
+        new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
+        description_value = agent.get('new_description', agent.get('description', ''))
+        new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
+        if st.button(" Regenerate", key=f"regenerate_{edit_index}"):
+            print(f"Regenerate button clicked for agent {edit_index}")
+            new_description = regenerate_agent_description(agent)
+            if new_description:
+                agent['new_description'] = new_description
+                print(f"Description regenerated for {agent['config']['name']}: {new_description}")
+                st.experimental_rerun()
+            else:
+                print(f"Failed to regenerate description for {agent['config']['name']}")
+        if st.button("Save Changes", key=f"save_{edit_index}"):
+            agent['config']['name'] = new_name
+            agent['description'] = agent.get('new_description', new_description)
+            st.session_state['show_edit'] = False
+            if 'edit_agent_index' in st.session_state:
+                del st.session_state['edit_agent_index']
+            if 'new_description' in agent:
+                del agent['new_description']
+            st.success("Agent properties updated!")            
 
 def regenerate_agent_description(agent):
     agent_name = agent['config']['name']

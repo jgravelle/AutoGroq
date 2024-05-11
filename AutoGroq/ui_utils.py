@@ -381,7 +381,7 @@ def handle_begin(session_state):
 
 def get_agents_from_text(text):
     api_key = get_api_key()
-    temperature_value = st.session_state.get('temperature', 0.3)
+    temperature_value = st.session_state.get('temperature', 0.5)
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -397,23 +397,23 @@ def get_agents_from_text(text):
             {
                 "role": "system",
                 "content": f"""
-You are an expert system designed to identify and recommend the optimal team of experts
-required to fulfill this specific user's request: $userRequest Your analysis should
-consider the complexity, domain, and specific needs of the request to assemble
-a multidisciplinary team of experts. Each recommended expert should come with a defined role,
-a brief description of their expertise, their skill set, and the tools they would utilize
-to achieve the user's goal. The first agent must be qualified to manage the entire ,
-aggregate the work done by all the other agents, and produce a robust, complete,
-and reliable solution. Return the results in JSON values labeled as expert_name, description,
-skills, and tools. Their 'expert_name' is their title, not their given name.
-Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
-Return ONLY this JSON response, with no other narrative, commentary, synopsis,
-or superfluous remarks/text of any kind. Tools should be single-purpose methods,
-very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
-would be good, but simply 'do_math' would be bad) Skills and tools should be all lower case
-with underscores instead of spaces, and they should be named per their functionality,
-e.g.: calculate_surface_area, or search_web
-"""
+                You are an expert system designed to identify and recommend the optimal team of experts
+                required to fulfill this specific user's request: $userRequest Your analysis should
+                consider the complexity, domain, and specific needs of the request to assemble
+                a multidisciplinary team of experts. Each recommended expert should come with a defined role,
+                a brief description of their expertise, their skill set, and the tools they would utilize
+                to achieve the user's goal. The first agent must be qualified to manage the entire project,
+                aggregate the work done by all the other agents, and produce a robust, complete,
+                and reliable solution. Return the results in JSON values labeled as expert_name, description,
+                skills, and tools. Their 'expert_name' is their title, not their given name.
+                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
+                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
+                or superfluous remarks/text of any kind. Tools should be single-purpose methods,
+                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
+                would be good, but simply 'do_math' would be bad) Skills and tools should be all lower case
+                with underscores instead of spaces, and they should be named per their functionality,
+                e.g.: calculate_surface_area, or search_web
+                """
             },
             {
                 "role": "user",
@@ -427,37 +427,36 @@ e.g.: calculate_surface_area, or search_web
             response_data = response.json()
             if "choices" in response_data and response_data["choices"]:
                 content = response_data["choices"][0]["message"]["content"]
-                if content.startswith("```json"):
-                    content = content[7:]
-                if content.endswith("```"):
-                    content = content[:-3]
-                try:
-                    if isinstance(content, str):
-                        content = json.loads(content)
-                    agent_list = content
-                except (json.JSONDecodeError, TypeError) as e:
-                    print(f"Error parsing JSON response: {e}")
-                    print(f"Response content: {content}")
+                print(f"Content: {content}")
+                # Find the starting and ending positions of the JSON array
+                start_index = content.find("[")
+                end_index = content.rfind("]")
+                if start_index != -1 and end_index != -1:
+                    json_string = content[start_index:end_index+1]
+                    try:
+                        agent_list = json.loads(json_string)
+                        print(f"Agent List: {agent_list}")
+                    except json.JSONDecodeError as e:
+                        print(f"Error parsing JSON: {e}")
+                        print(f"JSON string: {json_string}")
+                        return [], []
+                else:
+                    print("JSON data not found in the response")
                     return [], []
-                
                 autogen_agents = []
                 crewai_agents = []
                 for agent_data in agent_list:
-                    if isinstance(agent_data, str):
-                        try:
-                            agent_data = json.loads(agent_data)
-                        except json.JSONDecodeError:
-                            print(f"Error parsing agent data: {agent_data}")
-                            continue
-                    
-                    expert_name = agent_data.get("expert_name", "")
-                    description = agent_data.get("description", "")
-                    skills = agent_data.get("skills", [])
-                    tools = agent_data.get("tools", [])
+                    expert_name = agent_data.get('expert_name', '')
+                    description = agent_data.get('description', '')
+                    skills = agent_data.get('skills', [])
+                    tools = agent_data.get('tools', [])
                     autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
+                    print(f"AutoGen Agent: {autogen_agent}")
+                    print(f"CrewAI Agent: {crewai_agent}")
                     autogen_agents.append(autogen_agent)
                     crewai_agents.append(crewai_agent)
-                
+                print(f"AutoGen Agents: {autogen_agents}")
+                print(f"CrewAI Agents: {crewai_agents}")
                 return autogen_agents, crewai_agents
             else:
                 print("No agents data found in response")
@@ -465,8 +464,8 @@ e.g.: calculate_surface_area, or search_web
             print(f"API request failed with status code {response.status_code}: {response.text}")
     except Exception as e:
         print(f"Error making API request: {e}")
-    
     return [], []
+
 
 
 def rephrase_prompt(user_request):
