@@ -23,6 +23,28 @@ def agent_button_callback(agent_index):
     return callback
 
 
+def construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url):
+    request = f"Act as the {agent_name} who {description}."
+    if user_request:
+        request += f" Original request was: {user_request}."
+    if rephrased_request:
+        request += f" You are helping a team work on satisfying {rephrased_request}."
+    if user_input:
+        request += f" Additional input: {user_input}."
+    if reference_url:
+        try:
+            response = requests.get(reference_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, 'html.parser')
+            url_content = soup.get_text()
+            request += f" Reference URL content: {url_content}."
+        except requests.exceptions.RequestException as e:
+            print(f"Error occurred while retrieving content from {reference_url}: {e}")
+    if st.session_state.discussion:
+        request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
+    return request
+
+
 def delete_agent(index):
     if 0 <= index < len(st.session_state.agents):
         expert_name = st.session_state.agents[index]["expert_name"]
@@ -167,27 +189,28 @@ def download_agent_file(expert_name):
         st.error(f"File not found: {json_file}")
 
 
-def process_agent_interaction(agent_index):
-    # Retrieve agent information using the provided index
+def retrieve_agent_information(agent_index):
     agent = st.session_state.agents[agent_index]
-
-    # Preserve the original "Act as" functionality
     agent_name = agent["config"]["name"]
     description = agent["description"]
+    return agent_name, description
+
+
+def process_agent_interaction(agent_index):
+    agent_name, description = retrieve_agent_information(agent_index)
     user_request = st.session_state.get('user_request', '')
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
-
     reference_url = st.session_state.get('reference_url', '')
-    url_content = ""
-    if reference_url:
-        try:
-            response = requests.get(reference_url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
-            url_content = soup.get_text()
-        except requests.exceptions.RequestException as e:
-            print(f"Error occurred while retrieving content from {reference_url}: {e}")
+
+    request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url)
+    response = send_request(agent_name, request)
+
+    if response:
+        update_discussion_and_whiteboard(agent_name, response, user_input)
+        st.session_state['form_agent_name'] = agent_name
+        st.session_state['form_agent_description'] = description
+        st.session_state['selected_agent_index'] = agent_index
     
 
     request = f"Act as the {agent_name} who {description}."
@@ -214,3 +237,12 @@ def process_agent_interaction(agent_index):
     st.session_state['form_agent_name'] = agent_name
     st.session_state['form_agent_description'] = description
     st.session_state['selected_agent_index'] = agent_index  # Keep track of the selected agent for potential updates/deletes
+
+
+def send_request(agent_name, request):
+    api_key = get_api_key()
+    if api_key is None:
+        st.error("API key not found. Please enter your API key.")
+        return None
+    response = send_request_to_groq_api(agent_name, request, api_key)
+    return response
