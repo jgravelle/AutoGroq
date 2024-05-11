@@ -464,7 +464,7 @@ def get_agents_from_text(text):
             print(f"API request failed with status code {response.status_code}: {response.text}")
     except Exception as e:
         print(f"Error making API request: {e}")
-    return [], []
+    return [], [] 
 
 
 
