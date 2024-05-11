@@ -37,32 +37,25 @@ from file_utils import create_agent_data, sanitize_text
 import datetime
 import requests
 
+
 def display_discussion_and_whiteboard():
-    if "discussion_history" not in st.session_state:
-            st.session_state.discussion_history = ""
-
+    discussion_history = get_discussion_history()
+    
     tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
-
     with tab1:
-        # Display the most recent comment in the first tab
         st.text_area("Most Recent Comment", value=st.session_state.get("last_comment", ""), height=400, key="discussion")
-
     with tab2:
-        # Display the whiteboard in the second tab
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
-
     with tab3:
-        # Display the full discussion history in the third tab
-        st.write(st.session_state.discussion_history)       
-
-
+        st.write(discussion_history)    
 
 
 def display_discussion_modal():
+    discussion_history = get_discussion_history()
+    
     with st.expander("Discussion History"):
-        st.write(st.session_state.discussion_history)
-
-        
+        st.write(discussion_history)
+       
 
 def display_user_input():
     user_input = st.text_area("Additional Input:", key="user_input", height=100)
@@ -80,8 +73,10 @@ def display_user_input():
     return user_input
 
 
-
 def display_rephrased_request(): 
+    if "rephrased_request" not in st.session_state:
+        st.session_state.rephrased_request = "" 
+
     st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
 
 
@@ -202,9 +197,15 @@ def extract_code_from_response(response):
     return "\n\n".join(unique_code_blocks) 
 
 
+def get_discussion_history():
+    if "discussion_history" not in st.session_state:
+        st.session_state.discussion_history = ""
+    return st.session_state.discussion_history
+
+
 def get_workflow_from_agents(agents):
     current_timestamp = datetime.datetime.now().isoformat()
-    temperature_value = st.session_state.get('temperature', 0.5)
+    temperature_value = st.session_state.get('temperature', 0.3)
 
     workflow = {
         "name": "AutoGroq Workflow",
@@ -380,7 +381,7 @@ def handle_begin(session_state):
 
 def get_agents_from_text(text):
     api_key = get_api_key()
-    temperature_value = st.session_state.get('temperature', 0.5)
+    temperature_value = st.session_state.get('temperature', 0.3)
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -438,9 +439,17 @@ e.g.: calculate_surface_area, or search_web
                     print(f"Error parsing JSON response: {e}")
                     print(f"Response content: {content}")
                     return [], []
+                
                 autogen_agents = []
                 crewai_agents = []
                 for agent_data in agent_list:
+                    if isinstance(agent_data, str):
+                        try:
+                            agent_data = json.loads(agent_data)
+                        except json.JSONDecodeError:
+                            print(f"Error parsing agent data: {agent_data}")
+                            continue
+                    
                     expert_name = agent_data.get("expert_name", "")
                     description = agent_data.get("description", "")
                     skills = agent_data.get("skills", [])
@@ -448,6 +457,7 @@ e.g.: calculate_surface_area, or search_web
                     autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
                     autogen_agents.append(autogen_agent)
                     crewai_agents.append(crewai_agent)
+                
                 return autogen_agents, crewai_agents
             else:
                 print("No agents data found in response")
@@ -455,8 +465,8 @@ e.g.: calculate_surface_area, or search_web
             print(f"API request failed with status code {response.status_code}: {response.text}")
     except Exception as e:
         print(f"Error making API request: {e}")
+    
     return [], []
-
 
 
 def rephrase_prompt(user_request):
@@ -473,7 +483,9 @@ def rephrase_prompt(user_request):
     focusing on clarity, conciseness, and effectiveness. Provide specific details
     and examples where relevant. Do NOT reply with a direct response to the request;
     instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased 
-    prompt.\n\nUser request: \"{user_request}\"\n\nrephrased:
+    prompt.  Do not preface the rephrased prompt with any other text or superfluous narrative.
+    Do not enclose the rephrased prompt in quotes.
+    \n\nUser request: \"{user_request}\"\n\nrephrased:
     """
     
     groq_request = {
@@ -553,30 +565,38 @@ def update_discussion_and_whiteboard(expert_name, response, user_input):
     print(f"Last Comment: {st.session_state.last_comment}")
     
 
+def create_zip_file(zip_buffer, file_data):
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for file_name, file_content in file_data.items():
+            zip_file.writestr(file_name, file_content)
+
 
 def zip_files_in_memory(agents_data, workflow_data, crewai_agents):
     # Create separate ZIP buffers for Autogen and CrewAI
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
 
-    # Create a ZIP file in memory
-    with zipfile.ZipFile(autogen_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Write agent files to the ZIP
-        for agent_name, agent_data in agents_data.items():
-            agent_file_name = f"{agent_name}.json"
-            agent_file_data = json.dumps(agent_data, indent=2)
-            zip_file.writestr(f"agents/{agent_file_name}", agent_file_data)
+    # Prepare Autogen file data
+    autogen_file_data = {}
+    for agent_name, agent_data in agents_data.items():
+        agent_file_name = f"{agent_name}.json"
+        agent_file_data = json.dumps(agent_data, indent=2)
+        autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
-        # Write workflow file to the ZIP
-        workflow_file_name = f"{sanitize_text(workflow_data['name'])}.json"
-        workflow_file_data = json.dumps(workflow_data, indent=2)
-        zip_file.writestr(f"workflows/{workflow_file_name}", workflow_file_data)
+    workflow_file_name = f"{sanitize_text(workflow_data['name'])}.json"
+    workflow_file_data = json.dumps(workflow_data, indent=2)
+    autogen_file_data[f"workflows/{workflow_file_name}"] = workflow_file_data
 
-    with zipfile.ZipFile(crewai_zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for index, agent_data in enumerate(crewai_agents):
-            agent_file_name = f"agent_{index}.json"
-            agent_file_data = json.dumps(agent_data, indent=2)
-            zip_file.writestr(f"agents/{agent_file_name}", agent_file_data)
+    # Prepare CrewAI file data
+    crewai_file_data = {}
+    for index, agent_data in enumerate(crewai_agents):
+        agent_file_name = f"agent_{index}.json"
+        agent_file_data = json.dumps(agent_data, indent=2)
+        crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
+
+    # Create ZIP files
+    create_zip_file(autogen_zip_buffer, autogen_file_data)
+    create_zip_file(crewai_zip_buffer, crewai_file_data)
 
     # Move the ZIP file pointers to the beginning
     autogen_zip_buffer.seek(0)

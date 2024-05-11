@@ -1,8 +1,4 @@
-# file_utils.py 
-import os 
-import json 
 import re 
-
 
 def sanitize_text(text): 
     # Remove non-ASCII characters 

@@ -5,8 +5,7 @@ from bs4 import BeautifulSoup
 import os
 import re
 
-from api_utils import send_request_to_groq_api   
-from file_utils import create_agent_data                
+from api_utils import send_request_to_groq_api               
 from ui_utils import get_api_key, update_discussion_and_whiteboard
 
 

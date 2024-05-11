@@ -1,4 +1,3 @@
-import os
 import streamlit as st 
 from agent_management import display_agents
 from ui_utils import get_api_key, display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
@@ -110,9 +109,9 @@ def main():
         """, unsafe_allow_html=True)
     
     model_token_limits = { 
-        'mixtral-8x7b-32768': 32768, 
         'llama3-70b-8192': 8192, 
         'llama3-8b-8192': 8192, 
+        'mixtral-8x7b-32768': 32768,
         'gemma-7b-it': 8192 
     } 
 
@@ -138,7 +137,7 @@ def main():
             "Set Temperature",
             min_value=0.0,
             max_value=1.0,
-            value=st.session_state.get('temperature', 0.5),  # Default value or the last set value
+            value=st.session_state.get('temperature', 0.3),  # Default value or the last set value
             step=0.01,
             key='temperature'
         )
