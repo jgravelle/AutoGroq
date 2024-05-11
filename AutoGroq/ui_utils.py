@@ -197,6 +197,20 @@ def extract_code_from_response(response):
     return "\n\n".join(unique_code_blocks) 
 
 
+def extract_json_objects(json_string):
+    objects = []
+    start_index = json_string.find("{")
+    while start_index != -1:
+        end_index = json_string.find("}", start_index)
+        if end_index != -1:
+            object_str = json_string[start_index:end_index+1]
+            objects.append(object_str)
+            start_index = json_string.find("{", end_index + 1)
+        else:
+            break
+    return objects
+
+
 def get_discussion_history():
     if "discussion_history" not in st.session_state:
         st.session_state.discussion_history = ""
@@ -428,43 +442,36 @@ def get_agents_from_text(text):
             if "choices" in response_data and response_data["choices"]:
                 content = response_data["choices"][0]["message"]["content"]
                 print(f"Content: {content}")
-                # Find the starting and ending positions of the JSON array
-                start_index = content.find("[")
-                end_index = content.rfind("]")
-                if start_index != -1 and end_index != -1:
-                    json_string = content[start_index:end_index+1]
-                    try:
-                        agent_list = json.loads(json_string)
-                        print(f"Agent List: {agent_list}")
-                    except json.JSONDecodeError as e:
-                        print(f"Error parsing JSON: {e}")
-                        print(f"JSON string: {json_string}")
-                        return [], []
+                json_objects = extract_json_objects(content)
+                if json_objects:
+                    autogen_agents = []
+                    crewai_agents = []
+                    for json_str in json_objects:
+                        try:
+                            agent_data = json.loads(json_str)
+                            expert_name = agent_data.get('expert_name', '')
+                            description = agent_data.get('description', '')
+                            skills = agent_data.get('skills', [])
+                            tools = agent_data.get('tools', [])
+                            autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
+                            autogen_agents.append(autogen_agent)
+                            crewai_agents.append(crewai_agent)
+                        except json.JSONDecodeError as e:
+                            print(f"Error parsing JSON object: {e}")
+                            print(f"JSON string: {json_str}")
+                    print(f"AutoGen Agents: {autogen_agents}")
+                    print(f"CrewAI Agents: {crewai_agents}")
+                    return autogen_agents, crewai_agents
                 else:
-                    print("JSON data not found in the response")
+                    print("No valid JSON objects found in the response")
                     return [], []
-                autogen_agents = []
-                crewai_agents = []
-                for agent_data in agent_list:
-                    expert_name = agent_data.get('expert_name', '')
-                    description = agent_data.get('description', '')
-                    skills = agent_data.get('skills', [])
-                    tools = agent_data.get('tools', [])
-                    autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
-                    print(f"AutoGen Agent: {autogen_agent}")
-                    print(f"CrewAI Agent: {crewai_agent}")
-                    autogen_agents.append(autogen_agent)
-                    crewai_agents.append(crewai_agent)
-                print(f"AutoGen Agents: {autogen_agents}")
-                print(f"CrewAI Agents: {crewai_agents}")
-                return autogen_agents, crewai_agents
             else:
                 print("No agents data found in response")
         else:
             print(f"API request failed with status code {response.status_code}: {response.text}")
     except Exception as e:
         print(f"Error making API request: {e}")
-    return [], [] 
+    return [], []
 
 
 
