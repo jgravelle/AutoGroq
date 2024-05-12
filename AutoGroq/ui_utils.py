@@ -203,7 +203,7 @@ def extract_code_from_response(response):
 
     return "\n\n".join(unique_code_blocks) 
 
-
+ 
 def extract_json_objects(json_string):
     objects = []
     start_index = json_string.find("{")
@@ -353,7 +353,7 @@ def get_workflow_from_agents(agents):
                 "llm_config": {
                     "config_list": [
                         {
-                            "model": "gpt-4-1106-preview"
+                            "model": "gpt-4"
                         }
                     ],
                     "temperature": temperature_value,
@@ -406,7 +406,7 @@ def get_workflow_from_agents(agents):
                 "llm_config": {
                     "config_list": [
                         {
-                            "model": "gpt-4-1106-preview"
+                            "model": "gpt-4"
                         }
                     ],
                     "temperature": temperature_value,

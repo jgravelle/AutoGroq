@@ -18,7 +18,7 @@ def create_agent_data(expert_name, description, skills=None, tools=None):
             "llm_config": {
                 "config_list": [
                     {
-                        "model": "gpt-4-1106-preview"
+                        "model": "gpt-4" 
                     }
                 ],
                 "temperature": 0.1,
