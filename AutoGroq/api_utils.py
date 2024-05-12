@@ -1,4 +1,3 @@
-import re
 import requests
 import streamlit as st
 import time
@@ -74,6 +73,7 @@ def send_request_to_groq_api(expert_name, request, api_key):
         print(f"Error occurred while making the request to Groq API: {str(e)}")
         return None
     
+
 def send_request_with_retry(url, data, headers, api_key):
     response = make_api_request(url, data, headers, api_key)
     if response is None:

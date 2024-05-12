@@ -50,14 +50,15 @@ def create_zip_file(zip_buffer, file_data):
 
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
-    
     tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
     with tab1:
         st.text_area("Most Recent Comment", value=st.session_state.get("last_comment", ""), height=400, key="discussion")
     with tab2:
+        if "whiteboard" not in st.session_state:
+            st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
     with tab3:
-        st.write(discussion_history)    
+        st.write(discussion_history) 
 
 
 def display_discussion_modal():
@@ -275,6 +276,7 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                     if json_objects:
                         autogen_agents = []
                         crewai_agents = []
+                        
                         missing_names = False
                         for json_str in json_objects:
                             try:
@@ -286,17 +288,52 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
-                                autogen_agents.append(autogen_agent)
-                                crewai_agents.append(crewai_agent)
+                                
+                                # Create the agent data using the new signature
+                                autogen_agent_data = {
+                                    "type": "assistant",
+                                    "config": {
+                                        "name": expert_name,
+                                        "llm_config": {
+                                            "config_list": [
+                                                {
+                                                    "model": "gpt-4"
+                                                }
+                                            ],
+                                            "temperature": 0.1,
+                                            "timeout": 600,
+                                            "cache_seed": 42
+                                        },
+                                        "human_input_mode": "NEVER",
+                                        "max_consecutive_auto_reply": 8,
+                                        "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
+                                    },
+                                    "description": description,
+                                    "skills": skills,
+                                    "tools": tools
+                                }
+                                
+                                crewai_agent_data = {
+                                    "name": expert_name,
+                                    "description": description,
+                                    "skills": skills,
+                                    "tools": tools,
+                                    "verbose": True,
+                                    "allow_delegation": True
+                                }
+                                
+                                autogen_agents.append(autogen_agent_data)
+                                crewai_agents.append(crewai_agent_data)
                             except json.JSONDecodeError as e:
                                 print(f"Error parsing JSON object: {e}")
                                 print(f"JSON string: {json_str}")
+                        
                         if missing_names:
                             print("Missing agent names. Retrying...")
                             retry_count += 1
                             time.sleep(retry_delay)
                             continue
+                        
                         print(f"AutoGen Agents: {autogen_agents}")
                         print(f"CrewAI Agents: {crewai_agents}")
                         return autogen_agents, crewai_agents
@@ -309,8 +346,10 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                 print(f"API request failed with status code {response.status_code}: {response.text}")
         except Exception as e:
             print(f"Error making API request: {e}")
+        
         retry_count += 1
         time.sleep(retry_delay)
+    
     print(f"Maximum retries ({max_retries}) exceeded. Failed to retrieve valid agent names.")
     return [], []
 
@@ -395,6 +434,7 @@ def get_workflow_from_agents(agents):
         description = agent["description"]
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         sanitized_description = sanitize_text(description)
+
         system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
 
         if index == 0:
@@ -429,13 +469,12 @@ def get_workflow_from_agents(agents):
             "user_id": "default",
             "skills": None  # Set skills to null only in the workflow JSON
         }
+
         workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
 
     crewai_agents = []
-    for index, agent in enumerate(agents):
-        agent_name = agent["config"]["name"]
-        description = agent["description"]
-        _, crewai_agent_data = create_agent_data(agent_name, description, agent.get("skills"), agent.get("tools"))
+    for agent in agents:
+        _, crewai_agent_data = create_agent_data(agent)
         crewai_agents.append(crewai_agent_data)
 
     return workflow, crewai_agents
@@ -443,7 +482,6 @@ def get_workflow_from_agents(agents):
 
 def handle_user_request(session_state):
     user_request = session_state.user_request
-    
     max_retries = MAX_RETRIES
     retry_delay = RETRY_DELAY
     
@@ -451,7 +489,6 @@ def handle_user_request(session_state):
         try:
             rephrased_text = rephrase_prompt(user_request)
             print(f"Debug: Rephrased text: {rephrased_text}")
-            
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
                 break  # Exit the loop if successful
@@ -468,33 +505,40 @@ def handle_user_request(session_state):
                 print("Max retries exceeded.")
                 st.warning("An error occurred. Please try again.")
                 return  # Exit the function if max retries are exceeded
-    
+
     rephrased_text = session_state.rephrased_request
-    
+
     autogen_agents, crewai_agents = get_agents_from_text(rephrased_text)
     print(f"Debug: AutoGen Agents: {autogen_agents}")
     print(f"Debug: CrewAI Agents: {crewai_agents}")
-    
+
     if not autogen_agents:
         print("Error: No agents created.")
         st.warning("Failed to create agents. Please try again.")
         return
-    
-    agents_data = {}
-    for agent in autogen_agents:
-        agent_name = agent['config']['name']
-        agents_data[agent_name] = agent
-    
-    print(f"Debug: Agents data: {agents_data}")
-    
+
+    # Set the agents attribute in the session state
+    session_state.agents = autogen_agents
+
     workflow_data, _ = get_workflow_from_agents(autogen_agents)
     print(f"Debug: Workflow data: {workflow_data}")
     print(f"Debug: CrewAI agents: {crewai_agents}")
-    
-    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(agents_data, workflow_data, crewai_agents)
-    session_state.autogen_zip_buffer = autogen_zip_buffer 
+
+    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+    session_state.autogen_zip_buffer = autogen_zip_buffer
     session_state.crewai_zip_buffer = crewai_zip_buffer
-    session_state.agents = autogen_agents
+
+
+def regenerate_json_files_and_zip():
+    # Get the updated workflow data
+    workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+    
+    # Regenerate the zip files
+    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+    
+    # Update the zip buffers in the session state
+    st.session_state.autogen_zip_buffer = autogen_zip_buffer
+    st.session_state.crewai_zip_buffer = crewai_zip_buffer
 
 
 def rephrase_prompt(user_request):
@@ -583,16 +627,17 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     st.session_state.last_comment = response_text
     
 
-def zip_files_in_memory(agents_data, workflow_data, crewai_agents):
+def zip_files_in_memory(workflow_data):
     # Create separate ZIP buffers for Autogen and CrewAI
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
 
     # Prepare Autogen file data
     autogen_file_data = {}
-    for agent_name, agent_data in agents_data.items():
+    for agent in st.session_state.agents:
+        agent_name = agent['config']['name']
         agent_file_name = f"{agent_name}.json"
-        agent_file_data = json.dumps(agent_data, indent=2)
+        agent_file_data = json.dumps(agent, indent=2)
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
     workflow_file_name = f"{sanitize_text(workflow_data['name'])}.json"
@@ -601,9 +646,10 @@ def zip_files_in_memory(agents_data, workflow_data, crewai_agents):
 
     # Prepare CrewAI file data
     crewai_file_data = {}
-    for index, agent_data in enumerate(crewai_agents):
+    for index, agent in enumerate(st.session_state.agents):
+        _, crewai_agent_data = create_agent_data(agent)
         agent_file_name = f"agent_{index}.json"
-        agent_file_data = json.dumps(agent_data, indent=2)
+        agent_file_data = json.dumps(crewai_agent_data, indent=2)
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
     # Create ZIP files

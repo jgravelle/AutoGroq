@@ -1,12 +1,12 @@
 import base64
-from bs4 import BeautifulSoup
 import os
 import re
 import requests
 import streamlit as st
 
 from api_utils import send_request_to_groq_api               
-from ui_utils import get_api_key, update_discussion_and_whiteboard
+from bs4 import BeautifulSoup
+from ui_utils import get_api_key, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):
@@ -125,7 +125,11 @@ def display_agent_edit_form(agent, edit_index):
                 del st.session_state['edit_agent_index']
             if 'new_description' in agent:
                 del agent['new_description']
-            st.success("Agent properties updated!")            
+            # Update the agent data in the session state
+            st.session_state.agents[edit_index] = agent
+            st.success("Agent properties updated")        
+            print("Contents of st.session_state.agents after saving the regenerated agent:")
+            regenerate_json_files_and_zip()
 
 
 def download_agent_file(expert_name):
