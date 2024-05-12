@@ -1,9 +1,9 @@
 import base64
-import streamlit as st
-import requests
 from bs4 import BeautifulSoup
 import os
 import re
+import requests
+import streamlit as st
 
 from api_utils import send_request_to_groq_api               
 from ui_utils import get_api_key, update_discussion_and_whiteboard
@@ -127,6 +127,79 @@ def display_agent_edit_form(agent, edit_index):
                 del agent['new_description']
             st.success("Agent properties updated!")            
 
+
+def download_agent_file(expert_name):
+    # Format the expert_name
+    formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name)  # Remove non-alphanumeric characters
+    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')  # Convert to lowercase and replace spaces with underscores
+
+    # Get the full path to the agent JSON file
+    agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
+    json_file = os.path.join(agents_dir, f"{formatted_expert_name}.json")
+
+    # Check if the file exists
+    if os.path.exists(json_file):
+        # Read the file content
+        with open(json_file, "r") as f:
+            file_content = f.read()
+
+        # Encode the file content as base64
+        b64_content = base64.b64encode(file_content.encode()).decode()
+
+        # Create a download link
+        href = f'<a href="data:application/json;base64,{b64_content}" download="{formatted_expert_name}.json">Download {formatted_expert_name}.json</a>'
+        st.markdown(href, unsafe_allow_html=True)
+    else:
+        st.error(f"File not found: {json_file}")
+
+
+def process_agent_interaction(agent_index):
+    agent_name, description = retrieve_agent_information(agent_index)
+    user_request = st.session_state.get('user_request', '')
+    user_input = st.session_state.get('user_input', '')
+    rephrased_request = st.session_state.get('rephrased_request', '')
+    reference_url = st.session_state.get('reference_url', '')
+    request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url)
+    response = send_request(agent_name, request)
+    if response:
+        update_discussion_and_whiteboard(agent_name, response, user_input)
+        st.session_state['form_agent_name'] = agent_name
+        st.session_state['form_agent_description'] = description
+        st.session_state['selected_agent_index'] = agent_index
+
+        request = f"Act as the {agent_name} who {description}."
+        if user_request:
+            request += f" Original request was: {user_request}."
+        if rephrased_request:
+            request += f" You are helping a team work on satisfying {rephrased_request}."
+        if user_input:
+            request += f" Additional input: {user_input}."
+        if reference_url:
+            try:
+                response = requests.get(reference_url)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, 'html.parser')
+                url_content = soup.get_text()
+                request += f" Reference URL content: {url_content}."
+            except requests.exceptions.RequestException as e:
+                print(f"Error occurred while retrieving content from {reference_url}: {e}")
+        if st.session_state.discussion:
+            request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
+
+        api_key = get_api_key()
+        if api_key is None:
+            st.error("API key not found. Please enter your API key.")
+            return
+
+        response = send_request_to_groq_api(agent_name, request, api_key)
+        if response:
+            update_discussion_and_whiteboard(agent_name, response, user_input)
+            # Additionally, populate the sidebar form with the agent's information
+            st.session_state['form_agent_name'] = agent_name
+            st.session_state['form_agent_description'] = description
+            st.session_state['selected_agent_index'] = agent_index # Keep track of the selected agent for potential updates/deletes
+
+
 def regenerate_agent_description(agent):
     agent_name = agent['config']['name']
     print(f"agent_name: {agent_name}")
@@ -163,80 +236,11 @@ def regenerate_agent_description(agent):
         return None
 
 
-
-def download_agent_file(expert_name):
-    # Format the expert_name
-    formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name)  # Remove non-alphanumeric characters
-    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')  # Convert to lowercase and replace spaces with underscores
-
-    # Get the full path to the agent JSON file
-    agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
-    json_file = os.path.join(agents_dir, f"{formatted_expert_name}.json")
-
-    # Check if the file exists
-    if os.path.exists(json_file):
-        # Read the file content
-        with open(json_file, "r") as f:
-            file_content = f.read()
-
-        # Encode the file content as base64
-        b64_content = base64.b64encode(file_content.encode()).decode()
-
-        # Create a download link
-        href = f'<a href="data:application/json;base64,{b64_content}" download="{formatted_expert_name}.json">Download {formatted_expert_name}.json</a>'
-        st.markdown(href, unsafe_allow_html=True)
-    else:
-        st.error(f"File not found: {json_file}")
-
-
 def retrieve_agent_information(agent_index):
     agent = st.session_state.agents[agent_index]
     agent_name = agent["config"]["name"]
     description = agent["description"]
     return agent_name, description
-
-
-def process_agent_interaction(agent_index):
-    agent_name, description = retrieve_agent_information(agent_index)
-    user_request = st.session_state.get('user_request', '')
-    user_input = st.session_state.get('user_input', '')
-    rephrased_request = st.session_state.get('rephrased_request', '')
-    reference_url = st.session_state.get('reference_url', '')
-
-    request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url)
-    response = send_request(agent_name, request)
-
-    if response:
-        update_discussion_and_whiteboard(agent_name, response, user_input)
-        st.session_state['form_agent_name'] = agent_name
-        st.session_state['form_agent_description'] = description
-        st.session_state['selected_agent_index'] = agent_index
-    
-
-    request = f"Act as the {agent_name} who {description}."
-    if user_request:
-        request += f" Original request was: {user_request}."
-    if rephrased_request:
-        request += f" You are helping a team work on satisfying {rephrased_request}."
-    if user_input:
-        request += f" Additional input: {user_input}.  Reference URL content: {url_content}."
-    if st.session_state.discussion:
-        request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
-
-    api_key = get_api_key()
-    if api_key is None:
-        st.error("API key not found. Please enter your API key.")
-        return
-
-    response = send_request_to_groq_api(agent_name, request, api_key)
-
-    if response:
-        update_discussion_and_whiteboard(agent_name, response, user_input)
-
-    # Additionally, populate the sidebar form with the agent's information
-    st.session_state['form_agent_name'] = agent_name
-    st.session_state['form_agent_description'] = description
-    st.session_state['selected_agent_index'] = agent_index  # Keep track of the selected agent for potential updates/deletes
 
 
 def send_request(agent_name, request):

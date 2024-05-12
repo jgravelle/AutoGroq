@@ -12,6 +12,11 @@ def make_api_request(url, data, headers, api_key):
         response = requests.post(url, json=data, headers=headers)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 429:
+            error_message = response.json().get("error", {}).get("message", "")
+            st.error(f"Rate limit reached for the current model. Please try again later or select a different model.")
+            st.error(f"Error details: {error_message}")
+            return None
         else:
             print(f"Error: API request failed with status {response.status_code}, response: {response.text}")
             return None

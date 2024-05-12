@@ -1,12 +1,5 @@
 import re 
 
-def sanitize_text(text): 
-    # Remove non-ASCII characters 
-    text = re.sub(r'[^\x00-\x7F]+', '', text) 
-    # Remove non-alphanumeric characters except for standard punctuation 
-    text = re.sub(r'[^a-zA-Z0-9\s.,!?:;\'"-]+', '', text) 
-    return text 
-
 
 def create_agent_data(expert_name, description, skills=None, tools=None):
     # Format the expert_name
@@ -58,3 +51,10 @@ def create_workflow_data(workflow):
 
     return workflow
 
+
+def sanitize_text(text): 
+    # Remove non-ASCII characters 
+    text = re.sub(r'[^\x00-\x7F]+', '', text) 
+    # Remove non-alphanumeric characters except for standard punctuation 
+    text = re.sub(r'[^a-zA-Z0-9\s.,!?:;\'"-]+', '', text) 
+    return text 

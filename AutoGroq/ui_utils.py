@@ -1,5 +1,6 @@
-import streamlit as st
 import os
+import streamlit as st
+
 
 def get_api_key():
     if 'api_key' in st.session_state and st.session_state.api_key:
@@ -34,8 +35,15 @@ import re
 import time
 import zipfile
 from file_utils import create_agent_data, sanitize_text
+
 import datetime
 import requests
+
+
+def create_zip_file(zip_buffer, file_data):
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for file_name, file_content in file_data.items():
+            zip_file.writestr(file_name, file_content)
 
 
 def display_discussion_and_whiteboard():
@@ -55,29 +63,6 @@ def display_discussion_modal():
     
     with st.expander("Discussion History"):
         st.write(discussion_history)
-       
-
-def display_user_input():
-    user_input = st.text_area("Additional Input:", key="user_input", height=100)
-
-    if user_input:
-        url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
-        url_match = url_pattern.search(user_input)
-        if url_match:
-            st.session_state.reference_url = url_match.group()
-        else:
-            st.session_state.reference_url = ''
-    else:
-        st.session_state.reference_url = ''
-
-    return user_input
-
-
-def display_rephrased_request(): 
-    if "rephrased_request" not in st.session_state:
-        st.session_state.rephrased_request = "" 
-
-    st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
 
 
 def display_download_button():
@@ -101,6 +86,29 @@ def display_download_button():
             )
     else:
         st.warning("No files available for download.")
+
+
+def display_user_input():
+    user_input = st.text_area("Additional Input:", key="user_input", height=100)
+
+    if user_input:
+        url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
+        url_match = url_pattern.search(user_input)
+        if url_match:
+            st.session_state.reference_url = url_match.group()
+        else:
+            st.session_state.reference_url = ''
+    else:
+        st.session_state.reference_url = ''
+
+    return user_input
+
+
+def display_rephrased_request(): 
+    if "rephrased_request" not in st.session_state:
+        st.session_state.rephrased_request = "" 
+
+    st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
 
 
 def display_reset_and_upload_buttons():
@@ -138,8 +146,7 @@ def display_reset_and_upload_buttons():
                 # Store the DataFrame in the session state
                 st.session_state.uploaded_data = df
             except Exception as e:
-                st.error(f"Error reading the file: {e}")
-                
+                st.error(f"Error reading the file: {e}")                
 
 
 def display_user_request_input():
@@ -209,6 +216,101 @@ def extract_json_objects(json_string):
         else:
             break
     return objects
+
+
+def get_agents_from_text(text, max_retries=3, retry_delay=2):
+    api_key = get_api_key()
+    temperature_value = st.session_state.get('temperature', 0.5)
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    groq_request = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "system",
+                "content": f"""
+                You are an expert system designed to identify and recommend the optimal team of experts
+                required to fulfill this specific user's request: $userRequest Your analysis shall
+                consider the complexity, domain, and specific needs of the request to assemble
+                a multidisciplinary team of experts. Each recommended expert shall come with a defined role,
+                a brief description of their expertise, their skill set, and the tools they would utilize
+                to achieve the user's goal. The first agent must be qualified to manage the entire project,
+                aggregate the work done by all the other agents, and produce a robust, complete,
+                and reliable solution. Return the results in JSON values labeled as expert_name, description,
+                skills, and tools. Their 'expert_name' is their title, not their given name.
+                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
+                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
+                or superfluous remarks/text of any kind. Tools shall be single-purpose methods,
+                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
+                would be good, but simply 'do_math' would be bad) Skills and tools shall be all lower case
+                with underscores instead of spaces, and they shall be named per their functionality,
+                e.g.: calculate_surface_area, or search_web
+                """
+            },
+            {
+                "role": "user",
+                "content": text
+            }
+        ]
+    }
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            response = requests.post(url, json=groq_request, headers=headers)
+            if response.status_code == 200:
+                response_data = response.json()
+                if "choices" in response_data and response_data["choices"]:
+                    content = response_data["choices"][0]["message"]["content"]
+                    print(f"Content: {content}")
+                    json_objects = extract_json_objects(content)
+                    if json_objects:
+                        autogen_agents = []
+                        crewai_agents = []
+                        missing_names = False
+                        for json_str in json_objects:
+                            try:
+                                agent_data = json.loads(json_str)
+                                expert_name = agent_data.get('expert_name', '')
+                                if not expert_name:
+                                    missing_names = True
+                                    break
+                                description = agent_data.get('description', '')
+                                skills = agent_data.get('skills', [])
+                                tools = agent_data.get('tools', [])
+                                autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
+                                autogen_agents.append(autogen_agent)
+                                crewai_agents.append(crewai_agent)
+                            except json.JSONDecodeError as e:
+                                print(f"Error parsing JSON object: {e}")
+                                print(f"JSON string: {json_str}")
+                        if missing_names:
+                            print("Missing agent names. Retrying...")
+                            retry_count += 1
+                            time.sleep(retry_delay)
+                            continue
+                        print(f"AutoGen Agents: {autogen_agents}")
+                        print(f"CrewAI Agents: {crewai_agents}")
+                        return autogen_agents, crewai_agents
+                    else:
+                        print("No valid JSON objects found in the response")
+                        return [], []
+                else:
+                    print("No agents data found in response")
+            else:
+                print(f"API request failed with status code {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"Error making API request: {e}")
+        retry_count += 1
+        time.sleep(retry_delay)
+    print(f"Maximum retries ({max_retries}) exceeded. Failed to retrieve valid agent names.")
+    return [], []
 
 
 def get_discussion_history():
@@ -393,102 +495,6 @@ def handle_user_request(session_state):
     session_state.agents = autogen_agents
 
 
-def get_agents_from_text(text, max_retries=3, retry_delay=2):
-    api_key = get_api_key()
-    temperature_value = st.session_state.get('temperature', 0.5)
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    groq_request = {
-        "model": st.session_state.model,
-        "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "system",
-                "content": f"""
-                You are an expert system designed to identify and recommend the optimal team of experts
-                required to fulfill this specific user's request: $userRequest Your analysis shall
-                consider the complexity, domain, and specific needs of the request to assemble
-                a multidisciplinary team of experts. Each recommended expert shall come with a defined role,
-                a brief description of their expertise, their skill set, and the tools they would utilize
-                to achieve the user's goal. The first agent must be qualified to manage the entire project,
-                aggregate the work done by all the other agents, and produce a robust, complete,
-                and reliable solution. Return the results in JSON values labeled as expert_name, description,
-                skills, and tools. Their 'expert_name' is their title, not their given name.
-                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
-                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
-                or superfluous remarks/text of any kind. Tools shall be single-purpose methods,
-                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
-                would be good, but simply 'do_math' would be bad) Skills and tools shall be all lower case
-                with underscores instead of spaces, and they shall be named per their functionality,
-                e.g.: calculate_surface_area, or search_web
-                """
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ]
-    }
-    retry_count = 0
-    while retry_count < max_retries:
-        try:
-            response = requests.post(url, json=groq_request, headers=headers)
-            if response.status_code == 200:
-                response_data = response.json()
-                if "choices" in response_data and response_data["choices"]:
-                    content = response_data["choices"][0]["message"]["content"]
-                    print(f"Content: {content}")
-                    json_objects = extract_json_objects(content)
-                    if json_objects:
-                        autogen_agents = []
-                        crewai_agents = []
-                        missing_names = False
-                        for json_str in json_objects:
-                            try:
-                                agent_data = json.loads(json_str)
-                                expert_name = agent_data.get('expert_name', '')
-                                if not expert_name:
-                                    missing_names = True
-                                    break
-                                description = agent_data.get('description', '')
-                                skills = agent_data.get('skills', [])
-                                tools = agent_data.get('tools', [])
-                                autogen_agent, crewai_agent = create_agent_data(expert_name, description, skills, tools)
-                                autogen_agents.append(autogen_agent)
-                                crewai_agents.append(crewai_agent)
-                            except json.JSONDecodeError as e:
-                                print(f"Error parsing JSON object: {e}")
-                                print(f"JSON string: {json_str}")
-                        if missing_names:
-                            print("Missing agent names. Retrying...")
-                            retry_count += 1
-                            time.sleep(retry_delay)
-                            continue
-                        print(f"AutoGen Agents: {autogen_agents}")
-                        print(f"CrewAI Agents: {crewai_agents}")
-                        return autogen_agents, crewai_agents
-                    else:
-                        print("No valid JSON objects found in the response")
-                        return [], []
-                else:
-                    print("No agents data found in response")
-            else:
-                print(f"API request failed with status code {response.status_code}: {response.text}")
-        except Exception as e:
-            print(f"Error making API request: {e}")
-        retry_count += 1
-        time.sleep(retry_delay)
-    print(f"Maximum retries ({max_retries}) exceeded. Failed to retrieve valid agent names.")
-    return [], []
-
-
-
 def rephrase_prompt(user_request):
     temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
@@ -574,12 +580,6 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     st.session_state.last_agent = agent_name
     st.session_state.last_comment = response_text
     
-
-def create_zip_file(zip_buffer, file_data):
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for file_name, file_content in file_data.items():
-            zip_file.writestr(file_name, file_content)
-
 
 def zip_files_in_memory(agents_data, workflow_data, crewai_agents):
     # Create separate ZIP buffers for Autogen and CrewAI
