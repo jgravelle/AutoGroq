@@ -1,6 +1,8 @@
 import os
 import streamlit as st
 
+from config import MAX_RETRIES, RETRY_DELAY
+
 
 def get_api_key():
     if 'api_key' in st.session_state and st.session_state.api_key:
@@ -218,7 +220,7 @@ def extract_json_objects(json_string):
     return objects
 
 
-def get_agents_from_text(text, max_retries=3, retry_delay=2):
+def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     api_key = get_api_key()
     temperature_value = st.session_state.get('temperature', 0.5)
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -442,8 +444,8 @@ def get_workflow_from_agents(agents):
 def handle_user_request(session_state):
     user_request = session_state.user_request
     
-    max_retries = 3
-    retry_delay = 2   # in seconds
+    max_retries = MAX_RETRIES
+    retry_delay = RETRY_DELAY
     
     for retry in range(max_retries):
         try:

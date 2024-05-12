@@ -1,5 +1,7 @@
 import streamlit as st 
 
+from config import MODEL_TOKEN_LIMITS
+
 from agent_management import display_agents
 from ui_utils import get_api_key, display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, rephrase_prompt, get_agents_from_text, extract_code_from_response, get_workflow_from_agents
 
@@ -128,12 +130,12 @@ def main():
     with col3: 
         selected_model = st.selectbox( 
             'Select Model', 
-            options=list(model_token_limits.keys()), 
+            options=list(MODEL_TOKEN_LIMITS.keys()),
             index=0, 
             key='model_selection' 
         ) 
         st.session_state.model = selected_model 
-        st.session_state.max_tokens = model_token_limits[selected_model] 
+        st.session_state.max_tokens = MODEL_TOKEN_LIMITS[selected_model]
         temperature = st.slider(
             "Set Temperature",
             min_value=0.0,

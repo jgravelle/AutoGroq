@@ -3,6 +3,9 @@ import requests
 import streamlit as st
 import time
 
+from config import RETRY_TOKEN_LIMIT
+
+
 def make_api_request(url, data, headers, api_key):
     time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
     try:
@@ -14,7 +17,7 @@ def make_api_request(url, data, headers, api_key):
             return response.json()
         elif response.status_code == 429:
             error_message = response.json().get("error", {}).get("message", "")
-            st.error(f"Rate limit reached for the current model. Please try again later or select a different model.")
+            st.error(f"Rate limit reached for the current model. If you click 'Regenerate' again, we'll retry with a reduced token count.  Or you can try selecting a different model.")
             st.error(f"Error details: {error_message}")
             return None
         else:
@@ -70,3 +73,21 @@ def send_request_to_groq_api(expert_name, request, api_key):
     except Exception as e:
         print(f"Error occurred while making the request to Groq API: {str(e)}")
         return None
+    
+def send_request_with_retry(url, data, headers, api_key):
+    response = make_api_request(url, data, headers, api_key)
+    if response is None:
+        # Add a retry button
+        if st.button("Retry with decreased token limit"):
+            # Update the token limit in the request data
+            data["max_tokens"] = RETRY_TOKEN_LIMIT
+            # Retry the request with the decreased token limit
+            print(f"Retrying the request with decreased token limit.")
+            print(f"URL: {url}")
+            print(f"Retry token limit: {RETRY_TOKEN_LIMIT}")
+            response = make_api_request(url, data, headers, api_key)
+            if response is not None:
+                print(f"Retry successful. Response: {response}")
+            else:
+                print("Retry failed.")
+    return response    
