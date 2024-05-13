@@ -636,19 +636,25 @@ def zip_files_in_memory(workflow_data):
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
-        agent_file_name = f"{agent_name}.json"
-        agent_file_data = json.dumps(agent, indent=2)
+        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
+        agent_file_name = f"{formatted_agent_name}.json"
+        agent_data = agent.copy()
+        agent_data['config']['name'] = formatted_agent_name
+        agent_file_data = json.dumps(agent_data, indent=2)
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
-    workflow_file_name = f"{sanitize_text(workflow_data['name'])}.json"
+    workflow_file_name = "workflow.json"
     workflow_file_data = json.dumps(workflow_data, indent=2)
-    autogen_file_data[f"workflows/{workflow_file_name}"] = workflow_file_data
+    autogen_file_data[workflow_file_name] = workflow_file_data
 
     # Prepare CrewAI file data
     crewai_file_data = {}
     for index, agent in enumerate(st.session_state.agents):
-        _, crewai_agent_data = create_agent_data(agent)
-        agent_file_name = f"agent_{index}.json"
+        agent_name = agent['config']['name']
+        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
+        crewai_agent_data = create_agent_data(agent)[1]
+        crewai_agent_data['name'] = formatted_agent_name
+        agent_file_name = f"{formatted_agent_name}.json"
         agent_file_data = json.dumps(crewai_agent_data, indent=2)
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
