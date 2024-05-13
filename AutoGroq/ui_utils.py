@@ -1,8 +1,9 @@
+import importlib.resources as resources
 import os
 import streamlit as st
 
 from config import MAX_RETRIES, RETRY_DELAY
-
+from skills.fetch_web_content import fetch_web_content
 
 def get_api_key():
     if 'api_key' in st.session_state and st.session_state.api_key:
@@ -36,7 +37,7 @@ import pandas as pd
 import re
 import time
 import zipfile
-from file_utils import create_agent_data, sanitize_text
+from file_utils import create_agent_data, create_skill_data, sanitize_text
 
 import datetime
 import requests
@@ -58,7 +59,7 @@ def display_discussion_and_whiteboard():
             st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
     with tab3:
-        st.write(discussion_history) 
+        st.write(discussion_history)
 
 
 def display_discussion_modal():
@@ -93,17 +94,23 @@ def display_download_button():
 
 def display_user_input():
     user_input = st.text_area("Additional Input:", key="user_input", height=100)
-
     if user_input:
         url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
         url_match = url_pattern.search(user_input)
         if url_match:
-            st.session_state.reference_url = url_match.group()
+            url = url_match.group()
+            if "reference_html" not in st.session_state or url not in st.session_state.reference_html:
+                html_content = fetch_web_content(url)
+                if html_content:
+                    if "reference_html" not in st.session_state:
+                        st.session_state.reference_html = {}
+                    st.session_state.reference_html[url] = html_content
+                else:
+                    st.warning("Failed to fetch HTML content.")
         else:
-            st.session_state.reference_url = ''
+            st.session_state.reference_html = {}
     else:
-        st.session_state.reference_url = ''
-
+        st.session_state.reference_html = {}
     return user_input
 
 
@@ -631,20 +638,23 @@ def zip_files_in_memory(workflow_data):
     # Create separate ZIP buffers for Autogen and CrewAI
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
-
-    # Prepare Autogen file data
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_data = agent.copy()
+        agent_data = agent.copy()   
         agent_data['config']['name'] = formatted_agent_name
-        agent_file_data = json.dumps(agent_data, indent=2)
+        agent_file_data = json.dumps(agent_data, indent=2).encode('utf-8')  # Encode to bytes
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
+        if agent.get('enable_reading_html', False):
+            # add skills/fetch_web_content.py to zip file
+            fetch_web_content_data = resources.read_text('skills', 'fetch_web_content.py')
+            skill_data = json.dumps(create_skill_data(fetch_web_content_data), indent=2).encode('utf-8')  # Encode to bytes
+            autogen_file_data[f"skills/fetch_web_content.json"] = skill_data
 
     workflow_file_name = "workflow.json"
-    workflow_file_data = json.dumps(workflow_data, indent=2)
+    workflow_file_data = json.dumps(workflow_data, indent=2).encode('utf-8')  # Encode to bytes
     autogen_file_data[workflow_file_name] = workflow_file_data
 
     # Prepare CrewAI file data
@@ -655,7 +665,7 @@ def zip_files_in_memory(workflow_data):
         crewai_agent_data = create_agent_data(agent)[1]
         crewai_agent_data['name'] = formatted_agent_name
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = json.dumps(crewai_agent_data, indent=2)
+        agent_file_data = json.dumps(crewai_agent_data, indent=2).encode('utf-8')  # Encode to bytes
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
     # Create ZIP files

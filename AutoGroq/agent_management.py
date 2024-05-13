@@ -31,37 +31,12 @@ def construct_request(agent_name, description, user_request, user_input, rephras
         request += f" You are helping a team work on satisfying {rephrased_request}."
     if user_input:
         request += f" Additional input: {user_input}."
-    if reference_url:
-        try:
-            response = requests.get(reference_url)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
-            url_content = soup.get_text()
-            request += f" Reference URL content: {url_content}."
-        except requests.exceptions.RequestException as e:
-            print(f"Error occurred while retrieving content from {reference_url}: {e}")
+    if reference_url and reference_url in st.session_state.reference_html:
+        html_content = st.session_state.reference_html[reference_url]
+        request += f" Reference URL content: {html_content}."
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
     return request
-
-
-def delete_agent(index):
-    if 0 <= index < len(st.session_state.agents):
-        expert_name = st.session_state.agents[index]["expert_name"]
-        del st.session_state.agents[index]
-        
-        # Get the full path to the JSON file
-        agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
-        json_file = os.path.join(agents_dir, f"{expert_name}.json")
-        
-        # Delete the corresponding JSON file
-        if os.path.exists(json_file):
-            os.remove(json_file)
-            print(f"JSON file deleted: {json_file}")
-        else:
-            print(f"JSON file not found: {json_file}")
-        
-        st.experimental_rerun()
 
 
 def display_agents():
@@ -108,28 +83,52 @@ def display_agent_edit_form(agent, edit_index):
         new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-        if st.button(" Regenerate", key=f"regenerate_{edit_index}"):
-            print(f"Regenerate button clicked for agent {edit_index}")
-            new_description = regenerate_agent_description(agent)
-            if new_description:
-                agent['new_description'] = new_description
-                print(f"Description regenerated for {agent['config']['name']}: {new_description}")
-                st.experimental_rerun()
-            else:
-                print(f"Failed to regenerate description for {agent['config']['name']}")
-        if st.button("Save Changes", key=f"save_{edit_index}"):
-            agent['config']['name'] = new_name
-            agent['description'] = agent.get('new_description', new_description)
-            st.session_state['show_edit'] = False
-            if 'edit_agent_index' in st.session_state:
-                del st.session_state['edit_agent_index']
-            if 'new_description' in agent:
-                del agent['new_description']
-            # Update the agent data in the session state
-            st.session_state.agents[edit_index] = agent
-            st.success("Agent properties updated")        
-            print("Contents of st.session_state.agents after saving the regenerated agent:")
-            regenerate_json_files_and_zip()
+
+        col1, col2, col3 = st.columns([1, 1, 2])
+
+        with col1:
+            if st.button(" Regenerate", key=f"regenerate_{edit_index}"):
+                print(f"Regenerate button clicked for agent {edit_index}")
+                new_description = regenerate_agent_description(agent)
+                if new_description:
+                    agent['new_description'] = new_description
+                    print(f"Description regenerated for {agent['config']['name']}: {new_description}")
+                    st.experimental_rerun()
+                else:
+                    print(f"Failed to regenerate description for {agent['config']['name']}")
+
+        with col2:
+            if st.button("Save Changes", key=f"save_{edit_index}"):
+                agent['config']['name'] = new_name
+                agent['description'] = agent.get('new_description', new_description)
+                st.session_state['show_edit'] = False
+                if 'edit_agent_index' in st.session_state:
+                    del st.session_state['edit_agent_index']
+                if 'new_description' in agent:
+                    del agent['new_description']
+                # Update the agent data in the session state
+                st.session_state.agents[edit_index] = agent
+                st.success("Agent properties updated")
+
+                # Regenerate the JSON files and zip file
+                regenerate_json_files_and_zip()
+
+        with col3:
+            # Initialize the enable_reading_html property for the agent if it doesn't exist
+            if "enable_reading_html" not in agent:
+                agent["enable_reading_html"] = False
+            
+            # Use the value from the agent's enable_reading_html property for the checkbox
+            enable_reading_html = st.checkbox(
+                "Add URL reading skill to this Autogen agent",
+                value=agent["enable_reading_html"],
+                key=f"enable_reading_html_{edit_index}"
+            )
+            
+            # Update the agent's enable_reading_html property based on the checkbox value
+            if enable_reading_html != agent["enable_reading_html"]:
+                agent["enable_reading_html"] = enable_reading_html
+                st.session_state.agents[edit_index] = agent  # Update the agent in the session state
 
 
 def download_agent_file(expert_name):
@@ -254,3 +253,4 @@ def send_request(agent_name, request):
         return None
     response = send_request_to_groq_api(agent_name, request, api_key)
     return response
+
