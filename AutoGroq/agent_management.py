@@ -61,7 +61,11 @@ def display_agent_buttons(agents):
         col1, col2 = st.sidebar.columns([1, 4])
         with col1:
             gear_icon = "⚙️"  # Unicode character for gear icon
-            if st.button(gear_icon, key=f"gear_{index}"):
+            if st.button(
+                gear_icon,
+                key=f"gear_{index}",
+                help="Edit Agent"  # Add the tooltip text
+            ):
                 st.session_state['edit_agent_index'] = index
                 st.session_state['show_edit'] = True
         with col2:
@@ -80,14 +84,41 @@ def display_agent_buttons(agents):
 
 def display_agent_edit_form(agent, edit_index):
     with st.expander(f"Edit Properties of {agent['config'].get('name', '')}", expanded=True):
-        new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
+        with col2:
+            # Add an empty space to push the button to the bottom
+            container = st.container()
+            space = container.empty()
+            
+            # Add the "X" button with a confirmation prompt
+            if container.button("X", key=f"delete_{edit_index}"):
+                if st.session_state.get(f"delete_confirmed_{edit_index}", False):
+                    st.session_state.agents.pop(edit_index)
+                    st.session_state['show_edit'] = False
+                    st.experimental_rerun()
+                else:
+                    st.session_state[f"delete_confirmed_{edit_index}"] = True
+                    st.experimental_rerun()
+            
+            # Display the confirmation prompt if the "X" button is clicked
+            if st.session_state.get(f"delete_confirmed_{edit_index}", False):
+                if container.button("Confirm Deletion", key=f"confirm_delete_{edit_index}"):
+                    st.session_state.agents.pop(edit_index)
+                    st.session_state['show_edit'] = False
+                    del st.session_state[f"delete_confirmed_{edit_index}"]
+                    st.experimental_rerun()
+                if container.button("Cancel", key=f"cancel_delete_{edit_index}"):
+                    del st.session_state[f"delete_confirmed_{edit_index}"]
+                    st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
 
         col1, col2, col3 = st.columns([1, 1, 2])
 
         with col1:
-            if st.button(" Regenerate", key=f"regenerate_{edit_index}"):
+            if st.button("Re-roll 🎲", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
                 new_description = regenerate_agent_description(agent)
                 if new_description:
@@ -108,26 +139,41 @@ def display_agent_edit_form(agent, edit_index):
                     del agent['new_description']
                 # Update the agent data in the session state
                 st.session_state.agents[edit_index] = agent
-                st.success("Agent properties updated")
 
                 # Regenerate the JSON files and zip file
                 regenerate_json_files_and_zip()
+                st.session_state['show_edit'] = False
 
         with col3:
-            # Initialize the enable_reading_html property for the agent if it doesn't exist
-            if "enable_reading_html" not in agent:
-                agent["enable_reading_html"] = False
+            # Initialize the fetch_web_content property for the agent if it doesn't exist
+            if "fetch_web_content" not in agent:
+                agent["fetch_web_content"] = False
             
-            # Use the value from the agent's enable_reading_html property for the checkbox
-            enable_reading_html = st.checkbox(
-                "Add URL reading skill to this Autogen agent",
-                value=agent["enable_reading_html"],
-                key=f"enable_reading_html_{edit_index}"
+            # Use the value from the agent's fetch_web_content property for the checkbox
+            fetch_web_content = st.checkbox(
+                "Add web browsing skill to this agent",
+                value=agent["fetch_web_content"],
+                key=f"fetch_web_content_{edit_index}"
             )
             
-            # Update the agent's enable_reading_html property based on the checkbox value
-            if enable_reading_html != agent["enable_reading_html"]:
-                agent["enable_reading_html"] = enable_reading_html
+            # Update the agent's fetch_web_content property based on the checkbox value
+            if fetch_web_content != agent["fetch_web_content"]:
+                agent["fetch_web_content"] = fetch_web_content
+                st.session_state.agents[edit_index] = agent  # Update the agent in the session state
+
+            if "generate_images" not in agent:
+                agent["generate_images"] = False
+
+            # Use the value from the agent's generate_images property for the checkbox
+            generate_images = st.checkbox(
+                "Add image generation skill to this agent",
+                value=agent["generate_images"],
+                key=f"generate_images_{edit_index}"
+            )
+
+            # Update the agent's generate_images property based on the checkbox value
+            if generate_images != agent["generate_images"]:
+                agent["generate_images"] = generate_images
                 st.session_state.agents[edit_index] = agent  # Update the agent in the session state
 
 

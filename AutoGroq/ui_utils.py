@@ -1,6 +1,8 @@
+import datetime
 import importlib.resources as resources
 import os
 import streamlit as st
+import time
 
 from config import MAX_RETRIES, RETRY_DELAY
 from skills.fetch_web_content import fetch_web_content
@@ -250,12 +252,12 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                 required to fulfill this specific user's request: $userRequest Your analysis shall
                 consider the complexity, domain, and specific needs of the request to assemble
                 a multidisciplinary team of experts. Each recommended expert shall come with a defined role,
-                a brief description of their expertise, their skill set, and the tools they would utilize
+                a brief description of their expertise, their specific skills, and the specific tools they would utilize
                 to achieve the user's goal. The first agent must be qualified to manage the entire project,
                 aggregate the work done by all the other agents, and produce a robust, complete,
                 and reliable solution. Return the results in JSON values labeled as expert_name, description,
                 skills, and tools. Their 'expert_name' is their title, not their given name.
-                Skills and tools are arrays (one expert can have multiple skills and use multiple tools).
+                Skills and tools are arrays (one expert can have multiple specific skills and use multiple specific tools).
                 Return ONLY this JSON response, with no other narrative, commentary, synopsis,
                 or superfluous remarks/text of any kind. Tools shall be single-purpose methods,
                 very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
@@ -304,10 +306,16 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                         "llm_config": {
                                             "config_list": [
                                                 {
-                                                    "model": "gpt-4"
+                                                    "user_id": "default",
+                                                    "timestamp": datetime.datetime.now().isoformat(),
+                                                    "model": "gpt-4",
+                                                    "base_url": None,
+                                                    "api_type": None,
+                                                    "api_version": None,
+                                                    "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": 0.1,
+                                            "temperature": st.session_state.get('temperature', 0.1),
                                             "timeout": 600,
                                             "cache_seed": 42
                                         },
@@ -316,14 +324,14 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                         "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
                                     },
                                     "description": description,
-                                    "skills": skills,
+                                    "skills": [],
                                     "tools": tools
                                 }
                                 
                                 crewai_agent_data = {
                                     "name": expert_name,
                                     "description": description,
-                                    "skills": skills,
+                                    "skills": [],
                                     "tools": tools,
                                     "verbose": True,
                                     "allow_delegation": True
@@ -392,7 +400,7 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": None
+            "skills": []
         },
         "receiver": {
             "type": "groupchat",
@@ -401,7 +409,13 @@ def get_workflow_from_agents(agents):
                 "llm_config": {
                     "config_list": [
                         {
-                            "model": "gpt-4"
+                            "user_id": "default",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "model": "gpt-4",
+                            "base_url": None,
+                            "api_type": None,
+                            "api_version": None,
+                            "description": "OpenAI model configuration"
                         }
                     ],
                     "temperature": temperature_value,
@@ -428,7 +442,7 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": None
+            "skills": []
         },
         "type": "groupchat",
         "user_id": "default",
@@ -441,10 +455,12 @@ def get_workflow_from_agents(agents):
         description = agent["description"]
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         sanitized_description = sanitize_text(description)
-
+        
         system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
-
         if index == 0:
+            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:] if a in st.session_state.agents]  # Filter out deleted agents
+            system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
+
             other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:]]
             system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
 
@@ -455,7 +471,13 @@ def get_workflow_from_agents(agents):
                 "llm_config": {
                     "config_list": [
                         {
-                            "model": "gpt-4"
+                            "user_id": "default",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "model": "gpt-4",
+                            "base_url": None,
+                            "api_type": None,
+                            "api_version": None,
+                            "description": "OpenAI model configuration"
                         }
                     ],
                     "temperature": temperature_value,
@@ -474,13 +496,16 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": None  # Set skills to null only in the workflow JSON
+            "skills": []  # Set skills to null only in the workflow JSON
         }
 
         workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
 
     crewai_agents = []
     for agent in agents:
+        if agent not in st.session_state.agents:  # Check if the agent exists in st.session_state.agents
+            continue  # Skip the agent if it has been deleted
+        
         _, crewai_agent_data = create_agent_data(agent)
         crewai_agents.append(crewai_agent_data)
 
@@ -643,15 +668,20 @@ def zip_files_in_memory(workflow_data):
         agent_name = agent['config']['name']
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_data = agent.copy()   
-        agent_data['config']['name'] = formatted_agent_name
-        agent_file_data = json.dumps(agent_data, indent=2).encode('utf-8')  # Encode to bytes
+        autogen_agent_data, _ = create_agent_data(agent)  # Get the updated Autogen agent data
+        autogen_agent_data['config']['name'] = formatted_agent_name
+        agent_file_data = json.dumps(autogen_agent_data, indent=2).encode('utf-8')  # Encode to bytes
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-        if agent.get('enable_reading_html', False):
+        if agent.get('fetch_web_content', False):
             # add skills/fetch_web_content.py to zip file
             fetch_web_content_data = resources.read_text('skills', 'fetch_web_content.py')
             skill_data = json.dumps(create_skill_data(fetch_web_content_data), indent=2).encode('utf-8')  # Encode to bytes
             autogen_file_data[f"skills/fetch_web_content.json"] = skill_data
+        if agent.get('generate_images', False):
+            # add skills/generate_images.py to zip file
+            generate_images_data = resources.read_text('skills', 'generate_images.py')
+            skill_data = json.dumps(create_skill_data(generate_images_data), indent=2).encode('utf-8') # Encode to bytes
+            autogen_file_data[f"skills/generate_images.json"] = skill_data
 
     workflow_file_name = "workflow.json"
     workflow_file_data = json.dumps(workflow_data, indent=2).encode('utf-8')  # Encode to bytes

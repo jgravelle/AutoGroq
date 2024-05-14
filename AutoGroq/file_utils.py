@@ -1,18 +1,14 @@
 import datetime
-import json
+import importlib.resources as resources
 import re 
+import streamlit as st
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
     description = agent['description']  # Use the updated description from the session state
     skills = agent.get("skills", [])
-    # if 'enable_reading_html' is true, add skill called 'fetch_web_content' to the agent's skills
-    if agent.get('enable_reading_html', False):
-        #if skills doesn't already contain a 'fetch_web_content' entry, add it
-        if 'fetch_web_content' not in skills:
-            skills.append('fetch_web_content')
-        
     tools = agent.get("tools", [])
+    current_timestamp = datetime.datetime.now().isoformat()
 
     # Format the expert_name
     formatted_expert_name = sanitize_text(expert_name)
@@ -25,30 +21,53 @@ def create_agent_data(agent):
     sanitized_skills = [sanitize_text(skill) for skill in skills]
     sanitized_tools = [sanitize_text(tool) for tool in tools]
 
-    # Create the agent data
-    agent_data = {
+    # Create the Autogen agent data
+    autogen_agent_data = {
         "type": "assistant",
         "config": {
-            "name": expert_name,
+            "name": formatted_expert_name,
             "llm_config": {
                 "config_list": [
                     {
-                        "model": "gpt-4"
+                        "user_id": "default",
+                        "timestamp": current_timestamp,
+                        "model": "gpt-4",
+                        "base_url": None,
+                        "api_type": None,
+                        "api_version": None,
+                        "description": "OpenAI model configuration"
                     }
                 ],
-                "temperature": 0.1,
-                "timeout": 600,
-                "cache_seed": 42
+                "temperature": st.session_state.get('temperature', 0.1),
+                "cache_seed": None,
+                "timeout": None,
+                "max_tokens": None,
+                "extra_body": None
             },
             "human_input_mode": "NEVER",
             "max_consecutive_auto_reply": 8,
-            "system_message": f"You are a helpful assistant that can act as {expert_name} who {sanitized_description}."
+            "system_message": f"You are a helpful assistant that can act as {expert_name} who {sanitized_description}.",
+            "is_termination_msg": None,
+            "code_execution_config": None,
+            "default_auto_reply": "",
+            "description": description
         },
-        "description": description,
-        "skills": sanitized_skills,
-        "tools": sanitized_tools
+        "timestamp": current_timestamp,
+        "user_id": "default",
+        "skills": []
     }
 
+    if agent.get('fetch_web_content', False):
+        fetch_web_content_data = resources.read_text('skills', 'fetch_web_content.py')
+        skill_data = create_skill_data(fetch_web_content_data)
+        autogen_agent_data["skills"].append(skill_data)
+
+    if agent.get('generate_images', False):
+        generate_images_data = resources.read_text('skills', 'generate_images.py')
+        skill_data = create_skill_data(generate_images_data)
+        autogen_agent_data["skills"].append(skill_data)
+
+    # Create the CrewAI agent data
     crewai_agent_data = {
         "name": expert_name,
         "description": description,
@@ -58,7 +77,7 @@ def create_agent_data(agent):
         "allow_delegation": True
     }
 
-    return agent_data, crewai_agent_data
+    return autogen_agent_data, crewai_agent_data
         
 
 def create_skill_data(python_code):
