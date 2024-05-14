@@ -126,25 +126,27 @@ def main():
             return
 
     
-    col1, col2, col3 = st.columns([2, 5, 3]) 
-    with col3: 
-        selected_model = st.selectbox( 
-            'Select Model', 
+    col1, col2 = st.columns([1, 1])  # Adjust the column widths as needed
+    with col1:
+        selected_model = st.selectbox(
+            'Select Model',
             options=list(MODEL_TOKEN_LIMITS.keys()),
-            index=0, 
-            key='model_selection' 
-        ) 
-        st.session_state.model = selected_model 
+            index=0,
+            key='model_selection'
+        )
+        st.session_state.model = selected_model
         st.session_state.max_tokens = MODEL_TOKEN_LIMITS[selected_model]
+
+    with col2:
         temperature = st.slider(
             "Set Temperature",
             min_value=0.0,
             max_value=1.0,
-            value=st.session_state.get('temperature', 0.3),  # Default value or the last set value
+            value=st.session_state.get('temperature', 0.3),
             step=0.01,
             key='temperature'
         )
-        
+            
     st.title("AutoGroq") 
         
     # Ensure default values for session state are set     
