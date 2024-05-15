@@ -3,9 +3,7 @@
 I create those sorts of PDFs with my PyToPdf utility:  https://github.com/jgravelle/PyToPdf
 
 ## What's new?
-**AGENT SKILL: URL/HTML READER!**  We're getting there!  Autogen agents can now read URLs and HTML for extracting information.  This opens up a world of possibilities for web/data scraping agents!
-**Customizable agents!**  They're now manually editable, and **NOW**, they can 'evolve' with your project!  We'll have a new video out soon!
-**Temperature control**  Careful setting it too low.  It can hose up your agent generations.
+**SKILLS!  WEBSITE READING AND IMAGE GENERATION!**  Sort of!  When editing agents, you can now add 'skills' to them, like 'website reading' or 'image generation'.  These don't actually do anything in AutoGroq™ itself, but in Autogen, those agents should be able to actually perform tasks like summarizing websites or generating images from prompts.
 
 **What the heck is...**
 # AutoGroq?
