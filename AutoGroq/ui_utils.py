@@ -662,34 +662,36 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     
 
 def zip_files_in_memory(workflow_data):
-    # Create separate ZIP buffers for Autogen and CrewAI
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
+
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         agent_file_name = f"{formatted_agent_name}.json"
-        autogen_agent_data, _ = create_agent_data(agent)  # Get the updated Autogen agent data
+        autogen_agent_data, _ = create_agent_data(agent)
         autogen_agent_data['config']['name'] = formatted_agent_name
-        agent_file_data = json.dumps(autogen_agent_data, indent=2).encode('utf-8')  # Encode to bytes
+        agent_file_data = json.dumps(autogen_agent_data, indent=2).encode('utf-8')
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-        if agent.get('fetch_web_content', False):
-            # add skills/fetch_web_content.py to zip file
-            fetch_web_content_data = resources.read_text('skills', 'fetch_web_content.py')
-            skill_data = json.dumps(create_skill_data(fetch_web_content_data), indent=2).encode('utf-8')  # Encode to bytes
-            autogen_file_data[f"skills/fetch_web_content.json"] = skill_data
-        if agent.get('generate_images', False):
-            # add skills/generate_images.py to zip file
-            generate_images_data = resources.read_text('skills', 'generate_images.py')
-            skill_data = json.dumps(create_skill_data(generate_images_data), indent=2).encode('utf-8') # Encode to bytes
-            autogen_file_data[f"skills/generate_images.json"] = skill_data
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        skill_folder = os.path.join(script_dir, "skills")
+        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+
+        for skill_file in skill_files:
+            skill_name = os.path.splitext(skill_file)[0]
+            if agent.get(skill_name, False):
+                skill_file_path = os.path.join(skill_folder, skill_file)
+                with open(skill_file_path, 'r') as file:
+                    skill_data = file.read()
+                skill_json = json.dumps(create_skill_data(skill_data), indent=2).encode('utf-8')
+                autogen_file_data[f"skills/{skill_name}.json"] = skill_json
 
     workflow_file_name = "workflow.json"
-    workflow_file_data = json.dumps(workflow_data, indent=2).encode('utf-8')  # Encode to bytes
+    workflow_file_data = json.dumps(workflow_data, indent=2).encode('utf-8')
     autogen_file_data[workflow_file_name] = workflow_file_data
 
-    # Prepare CrewAI file data
     crewai_file_data = {}
     for index, agent in enumerate(st.session_state.agents):
         agent_name = agent['config']['name']
@@ -697,14 +699,12 @@ def zip_files_in_memory(workflow_data):
         crewai_agent_data = create_agent_data(agent)[1]
         crewai_agent_data['name'] = formatted_agent_name
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = json.dumps(crewai_agent_data, indent=2).encode('utf-8')  # Encode to bytes
+        agent_file_data = json.dumps(crewai_agent_data, indent=2).encode('utf-8')
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
-    # Create ZIP files
     create_zip_file(autogen_zip_buffer, autogen_file_data)
     create_zip_file(crewai_zip_buffer, crewai_file_data)
 
-    # Move the ZIP file pointers to the beginning
     autogen_zip_buffer.seek(0)
     crewai_zip_buffer.seek(0)
 

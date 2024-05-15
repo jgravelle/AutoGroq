@@ -1,27 +1,19 @@
 import datetime
 import importlib.resources as resources
+import os
 import re 
 import streamlit as st
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
-    description = agent['description']  # Use the updated description from the session state
-    skills = agent.get("skills", [])
-    tools = agent.get("tools", [])
+    description = agent['description']
     current_timestamp = datetime.datetime.now().isoformat()
 
-    # Format the expert_name
     formatted_expert_name = sanitize_text(expert_name)
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
 
-    # Sanitize the description
     sanitized_description = sanitize_text(description)
 
-    # Sanitize the skills and tools
-    sanitized_skills = [sanitize_text(skill) for skill in skills]
-    sanitized_tools = [sanitize_text(tool) for tool in tools]
-
-    # Create the Autogen agent data
     autogen_agent_data = {
         "type": "assistant",
         "config": {
@@ -57,22 +49,22 @@ def create_agent_data(agent):
         "skills": []
     }
 
-    if agent.get('fetch_web_content', False):
-        fetch_web_content_data = resources.read_text('skills', 'fetch_web_content.py')
-        skill_data = create_skill_data(fetch_web_content_data)
-        autogen_agent_data["skills"].append(skill_data)
+    #script_dir = os.path.dirname(os.path.abspath(__file__))
+    skill_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
+    skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
 
-    if agent.get('generate_images', False):
-        generate_images_data = resources.read_text('skills', 'generate_images.py')
-        skill_data = create_skill_data(generate_images_data)
-        autogen_agent_data["skills"].append(skill_data)
+    for skill_file in skill_files:
+        skill_name = os.path.splitext(skill_file)[0]
+        if agent.get(skill_name, False):
+            skill_file_path = os.path.join(skill_folder, skill_file)
+            with open(skill_file_path, 'r') as file:
+                skill_data = file.read()
+            skill_json = create_skill_data(skill_data)
+            autogen_agent_data["skills"].append(skill_json)
 
-    # Create the CrewAI agent data
     crewai_agent_data = {
         "name": expert_name,
         "description": description,
-        "skills": sanitized_skills,
-        "tools": sanitized_tools,
         "verbose": True,
         "allow_delegation": True
     }

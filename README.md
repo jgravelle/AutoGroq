@@ -2,8 +2,10 @@
 ...contains all the code for this project.  It's handy for uploading to Claude.AI or ChatGPT if you want to make your own modifications.
 I create those sorts of PDFs with my PyToPdf utility:  https://github.com/jgravelle/PyToPdf
 
-## What's new?
-**SKILLS!  WEBSITE READING AND IMAGE GENERATION!**  Sort of!  When editing agents, you can now add 'skills' to them, like 'website reading' or 'image generation'.  These don't actually do anything in AutoGroq™ itself, but in Autogen, those agents should be able to actually perform tasks like summarizing websites or generating images from prompts.
+## What's new?  In a word:  SKILLS!
+**Add Your Own Skills!**  Drop a valid skill file into the skills folder and it will be automatically added to the list of available skills.  Your agents will be able to use your skills to perform whatever tasks you've built for them!
+
+**INCLUDED SKILLS!  WEBSITE READING AND IMAGE GENERATION!**  Sort of!  When editing agents, you can now add 'skills' to them, like 'website reading' or 'image generation'.  These don't actually do anything in AutoGroq™ itself, but in Autogen, those agents should be able to actually perform tasks like summarizing websites or generating images from prompts.
 
 **What the heck is...**
 # AutoGroq?

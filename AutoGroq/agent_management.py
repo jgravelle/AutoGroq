@@ -88,11 +88,8 @@ def display_agent_edit_form(agent, edit_index):
         with col1:
             new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
         with col2:
-            # Add an empty space to push the button to the bottom
             container = st.container()
             space = container.empty()
-            
-            # Add the "X" button with a confirmation prompt
             if container.button("X", key=f"delete_{edit_index}"):
                 if st.session_state.get(f"delete_confirmed_{edit_index}", False):
                     st.session_state.agents.pop(edit_index)
@@ -101,8 +98,6 @@ def display_agent_edit_form(agent, edit_index):
                 else:
                     st.session_state[f"delete_confirmed_{edit_index}"] = True
                     st.experimental_rerun()
-            
-            # Display the confirmation prompt if the "X" button is clicked
             if st.session_state.get(f"delete_confirmed_{edit_index}", False):
                 if container.button("Confirm Deletion", key=f"confirm_delete_{edit_index}"):
                     st.session_state.agents.pop(edit_index)
@@ -114,9 +109,7 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-
         col1, col2, col3 = st.columns([1, 1, 2])
-
         with col1:
             if st.button("Re-roll 🎲", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
@@ -127,7 +120,6 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
                 else:
                     print(f"Failed to regenerate description for {agent['config']['name']}")
-
         with col2:
             if st.button("Save Changes", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
@@ -137,45 +129,29 @@ def display_agent_edit_form(agent, edit_index):
                     del st.session_state['edit_agent_index']
                 if 'new_description' in agent:
                     del agent['new_description']
-                # Update the agent data in the session state
                 st.session_state.agents[edit_index] = agent
-
-                # Regenerate the JSON files and zip file
                 regenerate_json_files_and_zip()
                 st.session_state['show_edit'] = False
-
         with col3:
-            # Initialize the fetch_web_content property for the agent if it doesn't exist
-            if "fetch_web_content" not in agent:
-                agent["fetch_web_content"] = False
-            
-            # Use the value from the agent's fetch_web_content property for the checkbox
-            fetch_web_content = st.checkbox(
-                "Add web browsing skill to this agent",
-                value=agent["fetch_web_content"],
-                key=f"fetch_web_content_{edit_index}"
-            )
-            
-            # Update the agent's fetch_web_content property based on the checkbox value
-            if fetch_web_content != agent["fetch_web_content"]:
-                agent["fetch_web_content"] = fetch_web_content
-                st.session_state.agents[edit_index] = agent  # Update the agent in the session state
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            skill_folder = os.path.join(script_dir, "skills")
+            skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
 
-            if "generate_images" not in agent:
-                agent["generate_images"] = False
+            for skill_file in skill_files:
+                skill_name = os.path.splitext(skill_file)[0]
+                if skill_name not in agent:
+                    agent[skill_name] = False
 
-            # Use the value from the agent's generate_images property for the checkbox
-            generate_images = st.checkbox(
-                "Add image generation skill to this agent",
-                value=agent["generate_images"],
-                key=f"generate_images_{edit_index}"
-            )
+                skill_checkbox = st.checkbox(
+                    f"Add {skill_name} skill to this agent",
+                    value=agent[skill_name],
+                    key=f"{skill_name}_{edit_index}"
+                )
 
-            # Update the agent's generate_images property based on the checkbox value
-            if generate_images != agent["generate_images"]:
-                agent["generate_images"] = generate_images
-                st.session_state.agents[edit_index] = agent  # Update the agent in the session state
-
+                if skill_checkbox != agent[skill_name]:
+                    agent[skill_name] = skill_checkbox
+                    st.session_state.agents[edit_index] = agent
+                    
 
 def download_agent_file(expert_name):
     # Format the expert_name
