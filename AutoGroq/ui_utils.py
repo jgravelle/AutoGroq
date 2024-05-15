@@ -251,8 +251,10 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                 You are an expert system designed to identify and recommend the optimal team of experts
                 required to fulfill this specific user's request: $userRequest Your analysis shall
                 consider the complexity, domain, and specific needs of the request to assemble
-                a multidisciplinary team of experts. Each recommended expert shall come with a defined role,
-                a brief description of their expertise, their specific skills, and the specific tools they would utilize
+                a multidisciplinary team of experts. The team should be as small as possible while still
+                providing a complete and comprehensive talent pool able to properly address the users' requests.
+                Each recommended expert shall come with a defined role,
+                a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize
                 to achieve the user's goal. The first agent must be qualified to manage the entire project,
                 aggregate the work done by all the other agents, and produce a robust, complete,
                 and reliable solution. Return the results in JSON values labeled as expert_name, description,
