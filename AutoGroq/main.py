@@ -9,7 +9,7 @@ from ui_utils import get_api_key, display_api_key_input, display_discussion_and_
 
 def main(): 
     # Construct the relative path to the CSS file
-    css_file = "AutoGroq\style.css"
+    css_file = "AutoGroq/style.css"
 
     # Check if the CSS file exists
     if os.path.exists(css_file):
