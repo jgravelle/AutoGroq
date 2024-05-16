@@ -145,7 +145,7 @@ def display_agent_edit_form(agent, edit_index):
                     agent[skill_name] = False
 
                 skill_checkbox = st.checkbox(
-                    f"Add {skill_name} skill to this agent",
+                    f"Add {skill_name} skill to this agent in Autogen™",
                     value=agent[skill_name],
                     key=f"{skill_name}_{edit_index}"
                 )
@@ -238,7 +238,7 @@ def process_agent_interaction(agent_index):
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
             st.session_state['selected_agent_index'] = agent_index # Keep track of the selected agent for potential updates/deletes
-            
+
 
 def regenerate_agent_description(agent):
     agent_name = agent['config']['name']
