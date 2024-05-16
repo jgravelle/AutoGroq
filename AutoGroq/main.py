@@ -4,7 +4,7 @@ import streamlit as st
 from config import MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
-from ui_utils import get_api_key, display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input
+from ui_utils import get_api_key, display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, load_skill_functions
 
 
 def main(): 
@@ -17,6 +17,8 @@ def main():
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     else:
         st.error(f"CSS file not found: {os.path.abspath(css_file)}")
+
+    load_skill_functions()
 
     api_key = get_api_key()
     if api_key is None:

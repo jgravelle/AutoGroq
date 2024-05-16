@@ -1,5 +1,5 @@
 import datetime
-import importlib.resources as resources
+import importlib
 import os
 import streamlit as st
 import time
@@ -12,7 +12,7 @@ def get_api_key():
         api_key = st.session_state.api_key
         print(f"API Key from session state: {api_key}")
         return api_key
-    elif "GROQ_API_KEY" in os.environ:
+    elif "GROQ_API_KEY" in os.environ:  
         api_key = os.environ["GROQ_API_KEY"]
         print(f"API Key from environment variable: {api_key}")
         return api_key
@@ -96,6 +96,8 @@ def display_download_button():
 
 def display_user_input():
     user_input = st.text_area("Additional Input:", key="user_input", height=100)
+    reference_url = st.text_input("URL:", key="reference_url")
+
     if user_input:
         url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
         url_match = url_pattern.search(user_input)
@@ -109,11 +111,14 @@ def display_user_input():
                     st.session_state.reference_html[url] = html_content
                 else:
                     st.warning("Failed to fetch HTML content.")
+            else:
+                st.session_state.reference_html = {}
         else:
             st.session_state.reference_html = {}
     else:
         st.session_state.reference_html = {}
-    return user_input
+
+    return user_input, reference_url
 
 
 def display_rephrased_request(): 
@@ -266,6 +271,10 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                 would be good, but simply 'do_math' would be bad) Skills and tools shall be all lower case
                 with underscores instead of spaces, and they shall be named per their functionality,
                 e.g.: calculate_surface_area, or search_web
+
+                IMPORTANT: The agents should focus on executing the tasks and providing actionable steps rather than just planning.
+                They should break down the tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
+                The agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
                 """
             },
             {
@@ -274,6 +283,7 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             }
         ]
     }
+
     retry_count = 0
     while retry_count < max_retries:
         try:
@@ -287,7 +297,6 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                     if json_objects:
                         autogen_agents = []
                         crewai_agents = []
-                        
                         missing_names = False
                         for json_str in json_objects:
                             try:
@@ -299,7 +308,11 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                
+                                # Associate skills with the agent based on their capabilities
+                                agent_skills = []
+                                for skill_name in skills:
+                                    if skill_name in st.session_state.skill_functions:
+                                        agent_skills.append(skill_name)
                                 # Create the agent data using the new signature
                                 autogen_agent_data = {
                                     "type": "assistant",
@@ -326,31 +339,28 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                         "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
                                     },
                                     "description": description,
-                                    "skills": [],
+                                    "skills": agent_skills,
                                     "tools": tools
                                 }
-                                
                                 crewai_agent_data = {
                                     "name": expert_name,
                                     "description": description,
-                                    "skills": [],
+                                    "skills": agent_skills,
                                     "tools": tools,
                                     "verbose": True,
                                     "allow_delegation": True
                                 }
-                                
                                 autogen_agents.append(autogen_agent_data)
                                 crewai_agents.append(crewai_agent_data)
                             except json.JSONDecodeError as e:
                                 print(f"Error parsing JSON object: {e}")
                                 print(f"JSON string: {json_str}")
-                        
+
                         if missing_names:
                             print("Missing agent names. Retrying...")
                             retry_count += 1
                             time.sleep(retry_delay)
                             continue
-                        
                         print(f"AutoGen Agents: {autogen_agents}")
                         print(f"CrewAI Agents: {crewai_agents}")
                         return autogen_agents, crewai_agents
@@ -363,10 +373,8 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                 print(f"API request failed with status code {response.status_code}: {response.text}")
         except Exception as e:
             print(f"Error making API request: {e}")
-        
-        retry_count += 1
-        time.sleep(retry_delay)
-    
+            retry_count += 1
+            time.sleep(retry_delay)
     print(f"Maximum retries ({max_retries}) exceeded. Failed to retrieve valid agent names.")
     return [], []
 
@@ -561,6 +569,19 @@ def handle_user_request(session_state):
     autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
     session_state.autogen_zip_buffer = autogen_zip_buffer
     session_state.crewai_zip_buffer = crewai_zip_buffer
+
+
+def load_skill_functions():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    skill_folder = os.path.join(script_dir, "skills")
+    skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+    skill_functions = {}
+    for skill_file in skill_files:
+        skill_name = os.path.splitext(skill_file)[0]
+        skill_module = importlib.import_module(f"skills.{skill_name}")
+        if hasattr(skill_module, skill_name):
+            skill_functions[skill_name] = getattr(skill_module, skill_name)
+    st.session_state.skill_functions = skill_functions
 
 
 def regenerate_json_files_and_zip():
