@@ -194,7 +194,7 @@ def display_user_request_input():
                 print(f"Debug: Workflow data: {workflow_data}")
                 print(f"Debug: CrewAI agents: {crewai_agents}")
                 
-                autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(agents_data, workflow_data, crewai_agents)
+                autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
                 st.session_state.autogen_zip_buffer = autogen_zip_buffer
                 st.session_state.crewai_zip_buffer = crewai_zip_buffer
                 st.session_state.agents = autogen_agents
