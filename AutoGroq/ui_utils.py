@@ -129,7 +129,7 @@ def display_rephrased_request():
 
 
 def display_reset_and_upload_buttons():
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)  
     with col1:
         if st.button("Reset", key="reset_button"):
             # Define the keys of session state variables to clear
@@ -253,28 +253,20 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             {
                 "role": "system",
                 "content": f"""
-                You are an expert system designed to identify and recommend the optimal team of experts
-                required to fulfill this specific user's request: $userRequest Your analysis shall
-                consider the complexity, domain, and specific needs of the request to assemble
-                a multidisciplinary team of experts. The team should be as small as possible while still
-                providing a complete and comprehensive talent pool able to properly address the users' requests.
-                Each recommended expert shall come with a defined role,
-                a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize
-                to achieve the user's goal. The first agent must be qualified to manage the entire project,
-                aggregate the work done by all the other agents, and produce a robust, complete,
-                and reliable solution. Return the results in JSON values labeled as expert_name, description,
-                skills, and tools. Their 'expert_name' is their title, not their given name.
-                Skills and tools are arrays (one expert can have multiple specific skills and use multiple specific tools).
-                Return ONLY this JSON response, with no other narrative, commentary, synopsis,
-                or superfluous remarks/text of any kind. Tools shall be single-purpose methods,
-                very specific and narrow in their scope, and not at all ambiguous (e.g.: 'add_numbers'
-                would be good, but simply 'do_math' would be bad) Skills and tools shall be all lower case
-                with underscores instead of spaces, and they shall be named per their functionality,
-                e.g.: calculate_surface_area, or search_web
+                    You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
 
-                IMPORTANT: The agents should focus on executing the tasks and providing actionable steps rather than just planning.
-                They should break down the tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
-                The agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
+                    Guidelines:
+                    1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all other agents, and produce a robust, complete, and reliable solution.
+                    2. **Agent Roles**: Clearly define each agent's role in the project.
+                    3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
+                    4. **Specific Skills**: List the specific skills of each agent.
+                    5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
+                    6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
+                    7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
+                    8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
+                    9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
+
+                    Return ONLY the JSON response, with no other narrative, commentary, synopsis, or superfluous text of any kind.
                 """
             },
             {
@@ -606,19 +598,28 @@ def rephrase_prompt(user_request):
     
     url = "https://api.groq.com/openai/v1/chat/completions"
     refactoring_prompt = f"""
-    Refactor the following user request into an optimized prompt for an LLM,
-    focusing on clarity, conciseness, and effectiveness. Provide specific details
-    and examples where relevant. Do NOT reply with a direct response to the request;
-    instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased 
-    prompt.  Do not preface the rephrased prompt with any other text or superfluous narrative.
-    Do not enclose the rephrased prompt in quotes.
-    \n\nUser request: \"{user_request}\"\n\nrephrased:
+    Refactor the following user request into an optimized prompt for a language model. Focus on the following aspects:
+    1. Clarity: Ensure the prompt is clear and unambiguous.
+    2. Specific Instructions: Provide detailed steps or guidelines.
+    3. Context: Include necessary background information.
+    4. Structure: Organize the prompt logically.
+    5. Language: Use concise and precise language.
+    6. Examples: Offer examples to illustrate the desired output.
+    7. Constraints: Define any limits or guidelines.
+    8. Engagement: Make the prompt engaging and interesting.
+    9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
+
+    Do NOT reply with a direct response to the request. Instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative. Do not enclose the rephrased prompt in quotes.
+
+    User request: "{user_request}"
+
+    Rephrased:
     """
     
     groq_request = {
         "model": st.session_state.model,
         "temperature": temperature_value,
-        "max_tokens": 100,
+        "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [
