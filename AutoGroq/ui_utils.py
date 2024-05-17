@@ -4,7 +4,7 @@ import os
 import streamlit as st
 import time
 
-from config import MAX_RETRIES, RETRY_DELAY
+from config import LLM_URL, MAX_RETRIES, RETRY_DELAY
 from skills.fetch_web_content import fetch_web_content
 
 def get_api_key():
@@ -238,7 +238,7 @@ def extract_json_objects(json_string):
 def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     api_key = get_api_key()
     temperature_value = st.session_state.get('temperature', 0.5)
-    url = "https://api.groq.com/openai/v1/chat/completions"
+    url = LLM_URL
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -589,6 +589,7 @@ def regenerate_json_files_and_zip():
 
 
 def rephrase_prompt(user_request):
+    llm_url = LLM_URL
     temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
     api_key = get_api_key()
@@ -596,7 +597,7 @@ def rephrase_prompt(user_request):
         st.error("API key not found. Please enter your API key.")
         return None
     
-    url = "https://api.groq.com/openai/v1/chat/completions"
+    url = llm_url
     refactoring_prompt = f"""
     Refactor the following user request into an optimized prompt for a language model. Focus on the following aspects:
     1. Clarity: Ensure the prompt is clear and unambiguous.

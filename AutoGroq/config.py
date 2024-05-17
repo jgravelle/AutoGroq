@@ -2,6 +2,7 @@
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # in seconds
 RETRY_TOKEN_LIMIT = 5000
+LLM_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Model configurations
 MODEL_TOKEN_LIMITS = {

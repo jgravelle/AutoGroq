@@ -2,7 +2,7 @@ import requests
 import streamlit as st
 import time
 
-from config import RETRY_TOKEN_LIMIT
+from config import LLM_URL, RETRY_TOKEN_LIMIT
 
 
 def make_api_request(url, data, headers, api_key):
@@ -28,6 +28,7 @@ def make_api_request(url, data, headers, api_key):
     
 
 def send_request_to_groq_api(expert_name, request, api_key):
+    llm_url = LLM_URL
     temperature_value = st.session_state.get('temperature', 0.1)
     if api_key is None:
         if 'api_key' in st.session_state and st.session_state.api_key:
@@ -36,7 +37,7 @@ def send_request_to_groq_api(expert_name, request, api_key):
             st.error("API key not found. Please enter your API key.")
             return None
 
-    url = "https://api.groq.com/openai/v1/chat/completions"
+    url = llm_url
     data = {
         "model": st.session_state.model,
         "temperature": temperature_value,
