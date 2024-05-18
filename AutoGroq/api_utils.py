@@ -2,8 +2,16 @@ import requests
 import streamlit as st
 import time
 
-from config import LLM_URL, RETRY_TOKEN_LIMIT
+from config import GROQ_API_URL, GROQ_API_URL, LLM_PROVIDER, LLM_URL, OPENAI_API_URL, RETRY_TOKEN_LIMIT
+from llm_providers.groq_provider import GroqProvider
+from llm_providers.openai_provider import OpenAIProvider
 
+
+def get_llm_provider():
+    if LLM_PROVIDER == "groq":
+        return GroqProvider(api_url=GROQ_API_URL)
+    elif LLM_PROVIDER == "openai":
+        return OpenAIProvider(api_url=OPENAI_API_URL)
 
 def make_api_request(url, data, headers, api_key):
     time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls

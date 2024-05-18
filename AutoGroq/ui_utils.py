@@ -4,20 +4,9 @@ import os
 import streamlit as st
 import time
 
-from config import LLM_URL, MAX_RETRIES, RETRY_DELAY
+from auth_utils import get_api_key
+from config import OPENAI_API_KEY_NAME, GROQ_API_KEY_NAME, LLM_URL, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
 from skills.fetch_web_content import fetch_web_content
-
-def get_api_key():
-    if 'api_key' in st.session_state and st.session_state.api_key:
-        api_key = st.session_state.api_key
-        print(f"API Key from session state: {api_key}")
-        return api_key
-    elif "GROQ_API_KEY" in os.environ:  
-        api_key = os.environ["GROQ_API_KEY"]
-        print(f"API Key from environment variable: {api_key}")
-        return api_key
-    else:
-        return None
     
     
 def display_api_key_input():
@@ -39,6 +28,8 @@ import pandas as pd
 import re
 import time
 import zipfile
+
+from api_utils import get_llm_provider
 from file_utils import create_agent_data, create_skill_data, sanitize_text
 
 import datetime
@@ -223,27 +214,38 @@ def extract_code_from_response(response):
  
 def extract_json_objects(json_string):
     objects = []
-    start_index = json_string.find("{")
-    while start_index != -1:
-        end_index = json_string.find("}", start_index)
-        if end_index != -1:
-            object_str = json_string[start_index:end_index+1]
-            objects.append(object_str)
-            start_index = json_string.find("{", end_index + 1)
-        else:
-            break
-    return objects
+    stack = []
+    start_index = 0
+
+    for i, char in enumerate(json_string):
+        if char == "{":
+            if not stack:
+                start_index = i
+            stack.append(char)
+        elif char == "}":
+            if stack:
+                stack.pop()
+                if not stack:
+                    objects.append(json_string[start_index:i+1])
+
+    # Try to parse each extracted object
+    parsed_objects = []
+    for obj_str in objects:
+        try:
+            parsed_obj = json.loads(obj_str)
+            parsed_objects.append(parsed_obj)
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON object: {e}")
+            print(f"JSON string: {obj_str}")
+
+    return parsed_objects
 
 
 def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
-    api_key = get_api_key()
+    print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
-    url = LLM_URL
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    groq_request = {
+
+    llm_request_data = {
         "model": st.session_state.model,
         "temperature": temperature_value,
         "max_tokens": st.session_state.max_tokens,
@@ -266,7 +268,22 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                     8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
                     9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
 
-                    Return ONLY the JSON response, with no other narrative, commentary, synopsis, or superfluous text of any kind.
+                    Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
+                    
+                    [
+                      {{
+                        "expert_name": "agent_title",
+                        "description": "agent_description",
+                        "skills": ["skill1", "skill2"],
+                        "tools": ["tool1", "tool2"]
+                      }},
+                      {{
+                        "expert_name": "agent_title",
+                        "description": "agent_description",
+                        "skills": ["skill1", "skill2"],
+                        "tools": ["tool1", "tool2"]
+                      }}
+                    ]
                 """
             },
             {
@@ -276,27 +293,31 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
         ]
     }
 
+    llm_provider = get_llm_provider()
+
     retry_count = 0
     while retry_count < max_retries:
         try:
-            response = requests.post(url, json=groq_request, headers=headers)
+            llm_request_json = json.dumps(llm_request_data)
+
+            response = llm_provider.send_request(llm_request_json)
             if response.status_code == 200:
-                response_data = response.json()
+                response_data = llm_provider.process_response(response)
                 if "choices" in response_data and response_data["choices"]:
                     content = response_data["choices"][0]["message"]["content"]
                     print(f"Content: {content}")
-                    json_objects = extract_json_objects(content)
-                    if json_objects:
-                        autogen_agents = []
-                        crewai_agents = []
-                        missing_names = False
-                        for json_str in json_objects:
-                            try:
-                                agent_data = json.loads(json_str)
+                    try:
+                        json_data = json.loads(content)
+                        if isinstance(json_data, list):
+                            autogen_agents = []
+                            crewai_agents = []
+                            for agent_data in json_data:
                                 expert_name = agent_data.get('expert_name', '')
                                 if not expert_name:
-                                    missing_names = True
-                                    break
+                                    print("Missing agent name. Retrying...")
+                                    retry_count += 1
+                                    time.sleep(retry_delay)
+                                    continue
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
@@ -344,20 +365,15 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                                 }
                                 autogen_agents.append(autogen_agent_data)
                                 crewai_agents.append(crewai_agent_data)
-                            except json.JSONDecodeError as e:
-                                print(f"Error parsing JSON object: {e}")
-                                print(f"JSON string: {json_str}")
-
-                        if missing_names:
-                            print("Missing agent names. Retrying...")
-                            retry_count += 1
-                            time.sleep(retry_delay)
-                            continue
-                        print(f"AutoGen Agents: {autogen_agents}")
-                        print(f"CrewAI Agents: {crewai_agents}")
-                        return autogen_agents, crewai_agents
-                    else:
-                        print("No valid JSON objects found in the response")
+                            print(f"AutoGen Agents: {autogen_agents}")
+                            print(f"CrewAI Agents: {crewai_agents}")
+                            return autogen_agents, crewai_agents
+                        else:
+                            print("Invalid JSON format. Expected a list of agents.")
+                            return [], []
+                    except json.JSONDecodeError as e:
+                        print(f"Error parsing JSON: {e}")
+                        print(f"Content: {content}")
                         return [], []
                 else:
                     print("No agents data found in response")
@@ -518,11 +534,12 @@ def handle_user_request(session_state):
     user_request = session_state.user_request
     max_retries = MAX_RETRIES
     retry_delay = RETRY_DELAY
-    
+
     for retry in range(max_retries):
         try:
             rephrased_text = rephrase_prompt(user_request)
             print(f"Debug: Rephrased text: {rephrased_text}")
+
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
                 break  # Exit the loop if successful
@@ -530,6 +547,7 @@ def handle_user_request(session_state):
                 print("Error: Failed to rephrase the user request.")
                 st.warning("Failed to rephrase the user request. Please try again.")
                 return  # Exit the function if rephrasing fails
+
         except Exception as e:
             print(f"Error occurred in handle_user_request: {str(e)}")
             if retry < max_retries - 1:
@@ -539,6 +557,10 @@ def handle_user_request(session_state):
                 print("Max retries exceeded.")
                 st.warning("An error occurred. Please try again.")
                 return  # Exit the function if max retries are exceeded
+
+    if "rephrased_request" not in session_state:
+        st.warning("Failed to rephrase the user request. Please try again.")
+        return
 
     rephrased_text = session_state.rephrased_request
 
@@ -589,15 +611,9 @@ def regenerate_json_files_and_zip():
 
 
 def rephrase_prompt(user_request):
-    llm_url = LLM_URL
     temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
-    api_key = get_api_key()
-    if not api_key:
-        st.error("API key not found. Please enter your API key.")
-        return None
-    
-    url = llm_url
+
     refactoring_prompt = f"""
     Refactor the following user request into an optimized prompt for a language model. Focus on the following aspects:
     1. Clarity: Ensure the prompt is clear and unambiguous.
@@ -609,18 +625,18 @@ def rephrase_prompt(user_request):
     7. Constraints: Define any limits or guidelines.
     8. Engagement: Make the prompt engaging and interesting.
     9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
-
     Do NOT reply with a direct response to the request. Instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative. Do not enclose the rephrased prompt in quotes.
-
     User request: "{user_request}"
-
     Rephrased:
     """
-    
-    groq_request = {
-        "model": st.session_state.model,
+
+    model = st.session_state.model
+    max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)  # Use the appropriate max_tokens value based on the selected model
+
+    llm_request_data = {
+        "model": model,
         "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
+        "max_tokens": max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [
@@ -630,26 +646,26 @@ def rephrase_prompt(user_request):
             },
         ],
     }
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    
-    print(f"Request URL: {url}")
-    print(f"Request Headers: {headers}")
-    print(f"Request Payload: {json.dumps(groq_request, indent=2)}")
-    
+
+    llm_provider = get_llm_provider()
+
     try:
-        print("Sending request to Groq API...")
-        response = requests.post(url, json=groq_request, headers=headers, timeout=10)
+        print("Sending request to LLM API...")
+        print(f"Request Details:")
+        print(f"  URL: {llm_provider.api_url}")
+        print(f"  Model: {model}")
+        print(f"  Max Tokens: {max_tokens}")
+        print(f"  Temperature: {temperature_value}")
+        print(f"  Messages: {llm_request_data['messages']}")
+
+        response = llm_provider.send_request(llm_request_data)
         print(f"Response received. Status Code: {response.status_code}")
-        
+
         if response.status_code == 200:
             print("Request successful. Parsing response...")
-            response_data = response.json()
+            response_data = llm_provider.process_response(response)
             print(f"Response Data: {json.dumps(response_data, indent=2)}")
-            
+
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 rephrased = response_data["choices"][0]["message"]["content"]
                 return rephrased.strip()
@@ -660,15 +676,9 @@ def rephrase_prompt(user_request):
             print(f"Request failed. Status Code: {response.status_code}")
             print(f"Response Content: {response.text}")
             return None
-    except requests.exceptions.RequestException as e:
-        print(f"Error occurred while sending the request: {str(e)}")
-        return None
-    except (KeyError, ValueError) as e:
-        print(f"Error occurred while parsing the response: {str(e)}")
-        print(f"Response Content: {response.text}")
-        return None
+
     except Exception as e:
-        print(f"An unexpected error occurred: {str(e)}")
+        print(f"An error occurred: {str(e)}")
         return None
     
     

@@ -6,7 +6,7 @@ import streamlit as st
 
 from api_utils import send_request_to_groq_api               
 from bs4 import BeautifulSoup
-from ui_utils import get_api_key, regenerate_json_files_and_zip, update_discussion_and_whiteboard
+from ui_utils import get_api_key, get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):
@@ -180,64 +180,52 @@ def download_agent_file(expert_name):
         st.error(f"File not found: {json_file}")
 
 
-# agent_management.py
-
 def process_agent_interaction(agent_index):
     agent_name, description = retrieve_agent_information(agent_index)
     user_request = st.session_state.get('user_request', '')
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
     reference_url = st.session_state.get('reference_url', '')
-    
+
     # Execute associated skills for the agent
     agent = st.session_state.agents[agent_index]
     agent_skills = agent.get("skills", [])
     skill_results = {}
+
     for skill_name in agent_skills:
         if skill_name in st.session_state.skill_functions:
             skill_function = st.session_state.skill_functions[skill_name]
             skill_result = skill_function()
             skill_results[skill_name] = skill_result
-    
+
     request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, skill_results)
-    response = send_request(agent_name, request)
-    if response:
-        update_discussion_and_whiteboard(agent_name, response, user_input)
-        st.session_state['form_agent_name'] = agent_name
-        st.session_state['form_agent_description'] = description
-        st.session_state['selected_agent_index'] = agent_index
-        
-        request = f"Act as the {agent_name} who {description}."
-        if user_request:
-            request += f" Original request was: {user_request}."
-        if rephrased_request:
-            request += f" You are helping a team work on satisfying {rephrased_request}."
-        if user_input:
-            request += f" Additional input: {user_input}."
-        if reference_url:
-            try:
-                response = requests.get(reference_url)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, 'html.parser')
-                url_content = soup.get_text()
-                request += f" Reference URL content: {url_content}."
-            except requests.exceptions.RequestException as e:
-                print(f"Error occurred while retrieving content from {reference_url}: {e}")
-        if st.session_state.discussion:
-            request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
-        
-        api_key = get_api_key()
-        if api_key is None:
-            st.error("API key not found. Please enter your API key.")
-            return
-        
-        response = send_request_to_groq_api(agent_name, request, api_key)
-        if response:
-            update_discussion_and_whiteboard(agent_name, response, user_input)
-            # Additionally, populate the sidebar form with the agent's information
+    print(f"Request: {request}")
+
+    # Use the dynamic LLM provider to send the request
+    llm_provider = get_llm_provider()
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": st.session_state.get('temperature', 0.1),
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": request
+            }
+        ]
+    }
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            content = response_data["choices"][0]["message"]["content"]
+            update_discussion_and_whiteboard(agent_name, content, user_input)
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
-            st.session_state['selected_agent_index'] = agent_index # Keep track of the selected agent for potential updates/deletes
+            st.session_state['selected_agent_index'] = agent_index
+            st.experimental_rerun()  # Trigger a rerun to update the UI
 
 
 def regenerate_agent_description(agent):
@@ -248,32 +236,39 @@ def regenerate_agent_description(agent):
     user_request = st.session_state.get('user_request', '')
     print(f"user_request: {user_request}")
     discussion_history = st.session_state.get('discussion_history', '')
-
     prompt = f"""
     You are an AI assistant helping to improve an agent's description. The agent's current details are:
     Name: {agent_name}
     Description: {agent_description}
-
     The current user request is: {user_request}
-
     The discussion history so far is: {discussion_history}
-
-    Please generate a revised description for this agent that defines it in the best manner possible to address the current user request, taking into account the discussion thus far. Return only the revised description, without any additional commentary or narrative.  It is imperative that you return ONLY the text of the new description.  No preamble, no narrative, no superfluous commentary whatsoever.  Just the description, unlabeled, please.
+    Please generate a revised description for this agent that defines it in the best manner possible to address the current user request, taking into account the discussion thus far. Return only the revised description, without any additional commentary or narrative. It is imperative that you return ONLY the text of the new description. No preamble, no narrative, no superfluous commentary whatsoever. Just the description, unlabeled, please.
     """
-
-    api_key = get_api_key()
-    if api_key is None:
-        st.error("API key not found. Please enter your API key.")
-        return None
-
     print(f"regenerate_agent_description called with agent_name: {agent_name}")
     print(f"regenerate_agent_description called with prompt: {prompt}")
-
-    response = send_request_to_groq_api(agent_name, prompt, api_key)
-    if response:
-        return response.strip()
-    else:
-        return None
+    
+    llm_provider = get_llm_provider()
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": st.session_state.get('temperature', 0.1),
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            content = response_data["choices"][0]["message"]["content"]
+            return content.strip()
+    
+    return None
 
 
 def retrieve_agent_information(agent_index):
@@ -284,10 +279,7 @@ def retrieve_agent_information(agent_index):
 
 
 def send_request(agent_name, request):
-    api_key = get_api_key()
-    if api_key is None:
-        st.error("API key not found. Please enter your API key.")
-        return None
-    response = send_request_to_groq_api(agent_name, request, api_key)
+    llm_provider = get_llm_provider()
+    response = llm_provider.send_request(request)
     return response
 
