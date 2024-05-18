@@ -1,3 +1,9 @@
+## ChatGPT SUPPORT ADDED! ##
+It's everything you asked for:  1)  It's **slower** than Groq™, and 2) It costs **money!**
+
+You're very welcome.
+
+
 ## The PDF file...
 ...contains all the code for this project.  It's handy for uploading to Claude.AI or ChatGPT if you want to make your own modifications.
 I create those sorts of PDFs with my PyToPdf utility:  https://github.com/jgravelle/PyToPdf

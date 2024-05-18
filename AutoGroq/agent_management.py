@@ -54,7 +54,7 @@ def display_agents():
             else:
                 st.sidebar.warning("Invalid agent selected for editing.")
     else:
-        st.sidebar.warning("No agents have yet been created. Please enter a new request.")
+        st.sidebar.warning("No agents have yet been created. Please enter a new request.\n\r\n\rNOTE:  GPT models can only be used locally, not in the online demo.")
 
 
 def display_agent_buttons(agents):
