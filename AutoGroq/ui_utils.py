@@ -244,7 +244,6 @@ def extract_json_objects(json_string):
 def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
-
     llm_request_data = {
         "model": st.session_state.model,
         "temperature": temperature_value,
@@ -255,36 +254,47 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             {
                 "role": "system",
                 "content": f"""
-                    You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
-
-                    Guidelines:
-                    1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all other agents, and produce a robust, complete, and reliable solution.
-                    2. **Agent Roles**: Clearly define each agent's role in the project.
-                    3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
-                    4. **Specific Skills**: List the specific skills of each agent.
-                    5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
-                    6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
-                    7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
-                    8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
-                    9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
-
-                    Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
-                    
-                    [
-                      {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                      }},
-                      {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                      }}
-                    ]
-                """
+You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this
+specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the
+request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing
+a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent
+shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific
+tools they would utilize to achieve the user's goal.
+Guidelines:
+1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all
+other agents, and produce a robust, complete, and reliable solution.
+2. **Agent Roles**: Clearly define each agent's role in the project.
+3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
+4. **Specific Skills**: List the specific skills of each agent.
+5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very
+specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
+6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools.
+'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have
+multiple specific skills and use multiple specific tools).
+7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per
+their functionality (e.g., calculate_surface_area, or search_web).
+8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just
+planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or
+utilize their skills when appropriate.
+9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as
+possible and provide step-by-step solutions to the user's request.
+Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of
+any kind:
+[
+{{
+"expert_name": "agent_title",
+"description": "agent_description",
+"skills": ["skill1", "skill2"],
+"tools": ["tool1", "tool2"]
+}},
+{{
+"expert_name": "agent_title",
+"description": "agent_description",
+"skills": ["skill1", "skill2"],
+"tools": ["tool1", "tool2"]
+}}
+]
+"""
             },
             {
                 "role": "user",
@@ -292,17 +302,16 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             }
         ]
     }
-
     llm_provider = get_llm_provider()
-
     retry_count = 0
     while retry_count < max_retries:
         try:
-            llm_request_json = json.dumps(llm_request_data)
-
-            response = llm_provider.send_request(llm_request_json)
+            response = llm_provider.send_request(llm_request_data)
+            print(f"Response received. Status Code: {response.status_code}")
             if response.status_code == 200:
+                print("Request successful. Parsing response...")
                 response_data = llm_provider.process_response(response)
+                print(f"Response Data: {json.dumps(response_data, indent=2)}")
                 if "choices" in response_data and response_data["choices"]:
                     content = response_data["choices"][0]["message"]["content"]
                     print(f"Content: {content}")
@@ -374,7 +383,70 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
                     except json.JSONDecodeError as e:
                         print(f"Error parsing JSON: {e}")
                         print(f"Content: {content}")
-                        return [], []
+                        json_data = extract_json_objects(content)
+                        if json_data:
+                            autogen_agents = []
+                            crewai_agents = []
+                            for agent_data in json_data:
+                                expert_name = agent_data.get('expert_name', '')
+                                if not expert_name:
+                                    print("Missing agent name. Retrying...")
+                                    retry_count += 1
+                                    time.sleep(retry_delay)
+                                    continue
+                                description = agent_data.get('description', '')
+                                skills = agent_data.get('skills', [])
+                                tools = agent_data.get('tools', [])
+                                # Associate skills with the agent based on their capabilities
+                                agent_skills = []
+                                for skill_name in skills:
+                                    if skill_name in st.session_state.skill_functions:
+                                        agent_skills.append(skill_name)
+                                # Create the agent data using the new signature
+                                autogen_agent_data = {
+                                    "type": "assistant",
+                                    "config": {
+                                        "name": expert_name,
+                                        "llm_config": {
+                                            "config_list": [
+                                                {
+                                                    "user_id": "default",
+                                                    "timestamp": datetime.datetime.now().isoformat(),
+                                                    "model": "gpt-4",
+                                                    "base_url": None,
+                                                    "api_type": None,
+                                                    "api_version": None,
+                                                    "description": "OpenAI model configuration"
+                                                }
+                                            ],
+                                            "temperature": st.session_state.get('temperature', 0.1),
+                                            "timeout": 600,
+                                            "cache_seed": 42
+                                        },
+                                        "human_input_mode": "NEVER",
+                                        "max_consecutive_auto_reply": 8,
+                                        "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
+                                    },
+                                    "description": description,
+                                    "skills": agent_skills,
+                                    "tools": tools
+                                }
+                                crewai_agent_data = {
+                                    "name": expert_name,
+                                    "description": description,
+                                    "skills": agent_skills,
+                                    "tools": tools,
+                                    "verbose": True,
+                                    "allow_delegation": True
+                                }
+                                autogen_agents.append(autogen_agent_data)
+                                crewai_agents.append(crewai_agent_data)
+                            print(f"AutoGen Agents: {autogen_agents}")
+                            print(f"CrewAI Agents: {crewai_agents}")
+                            return autogen_agents, crewai_agents
+                        else:
+                            print("Failed to extract JSON objects from content.")
+                            return [], []
                 else:
                     print("No agents data found in response")
             else:

@@ -1,3 +1,4 @@
+import json
 import requests
 from auth_utils import get_api_key
 from llm_providers.base_provider import BaseLLMProvider
@@ -13,8 +14,14 @@ class GroqProvider(BaseLLMProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        response = requests.post(self.api_url, json=data, headers=headers)
+        # Ensure data is a JSON string
+        if isinstance(data, dict):
+            json_data = json.dumps(data)
+        else:
+            json_data = data
+        response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
+
 
     def process_response(self, response):
         if response.status_code == 200:

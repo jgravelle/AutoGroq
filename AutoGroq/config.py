@@ -1,5 +1,5 @@
 #APIs
-LLM_PROVIDER = "openai" # Supported values: "groq", "openai"
+LLM_PROVIDER = "groq" # Supported values: "groq", "openai"
 
 GROQ_API_KEY_NAME = "GROQ_API_KEY"
 GROQ_API_KEY = None
@@ -17,9 +17,9 @@ LLM_URL = GROQ_API_URL
 
 # Model configurations
 MODEL_TOKEN_LIMITS = {
-    'gpt-4o': 4096,
     'llama3-70b-8192': 8192,
     'llama3-8b-8192': 8192,
     'mixtral-8x7b-32768': 32768,
-    'gemma-7b-it': 8192
+    'gemma-7b-it': 8192,
+    'gpt-4o': 4096,
 }
