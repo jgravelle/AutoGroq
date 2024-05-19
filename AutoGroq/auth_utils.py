@@ -1,45 +1,46 @@
 import os
 import streamlit as st
-from config import API_KEY_NAME, LLM_PROVIDER, API_KEY_NAME
+
+from config import LLM_PROVIDER
+
 
 def get_api_key():
-    if LLM_PROVIDER == "groq":
-        api_key_name = API_KEY_NAME
-    elif LLM_PROVIDER == "openai":
-        api_key_name = API_KEY_NAME
-    # Add other LLM providers here...
-    else:
-        raise ValueError(f"Unsupported LLM provider: {LLM_PROVIDER}")
+    api_key_env_var = f"{LLM_PROVIDER.upper()}_API_KEY"
+    api_key = os.environ.get(api_key_env_var)
 
-    if 'api_key' in st.session_state and st.session_state.api_key:
-        api_key = st.session_state.api_key
-        print(f"API Key from session state: {api_key}")
-        return api_key
+    if api_key is None:
+        api_key = globals().get(api_key_env_var)
 
-    api_key = os.environ.get(api_key_name)
-    if api_key:
-        print(f"API Key from environment variable: {api_key}")
-        st.session_state.api_key = api_key
-        return api_key
-
-    try:
-        if st.secrets[api_key_name]:
-            api_key = st.secrets[api_key_name]
-            print(f"API Key from Streamlit secrets: {api_key}")
-            st.session_state.api_key = api_key
-            return api_key
-    except:
-        # Suppress any exceptions related to secrets and return None
-        return None
-
-    if 'api_key_input_displayed' not in st.session_state:
-        api_key = st.text_input(f"Enter the {api_key_name}:", type="password")
-        if api_key:
-            st.session_state.api_key = api_key
-            st.success("API key entered successfully.")
-            st.session_state.api_key_input_displayed = True
+    if api_key is None:
+        if api_key_env_var not in st.session_state:
+            api_key = st.text_input(f"Enter the {LLM_PROVIDER.upper()} API Key:", type="password")
+            if api_key:
+                st.session_state[api_key_env_var] = api_key
+                st.success("API Key entered successfully.")
+            else:
+                st.warning(f"Please enter the {LLM_PROVIDER.upper()} API Key to use the app.")
         else:
-            st.warning(f"Please enter the {api_key_name} to use the app.")
-            return api_key
-    else:
-        return None
+            api_key = st.session_state.get(api_key_env_var)
+
+    return api_key
+    
+
+def get_api_url():
+    api_url_env_var = f"{LLM_PROVIDER.upper()}_API_URL"
+    api_url = os.environ.get(api_url_env_var)
+
+    if api_url is None:
+        api_url = globals().get(api_url_env_var)
+
+    if api_url is None:
+        if api_url_env_var not in st.session_state:
+            api_url = st.text_input(f"Enter the {LLM_PROVIDER.upper()} API URL:", type="password")
+            if api_url:
+                st.session_state[api_url_env_var] = api_url
+                st.success("API URL entered successfully.")
+            else:
+                st.warning(f"Please enter the {LLM_PROVIDER.upper()} API URL to use the app.")
+        else:
+            api_url = st.session_state.get(api_url_env_var)
+
+    return api_url

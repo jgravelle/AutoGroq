@@ -1,12 +1,12 @@
+
 import base64
 import os
 import re
-import requests
 import streamlit as st
 
-from api_utils import send_request_to_groq_api               
-from bs4 import BeautifulSoup
-from ui_utils import get_api_key, get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
+from config import API_URL
+
+from ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):
@@ -14,7 +14,6 @@ def agent_button_callback(agent_index):
     def callback():
         st.session_state['selected_agent_index'] = agent_index
         agent = st.session_state.agents[agent_index]
-
         agent_name = agent['config']['name'] if 'config' in agent and 'name' in agent['config'] else ''
         st.session_state['form_agent_name'] = agent_name
         st.session_state['form_agent_description'] = agent['description'] if 'description' in agent else ''
@@ -55,10 +54,10 @@ def display_agents():
                 st.sidebar.warning("Invalid agent selected for editing.")
     else:
         st.sidebar.warning(f"No agents have yet been created. Please enter a new request.")
-        st.sidebar.warning(f"NOTE:  GPT models can only be used locally, not in the online demo.")
-        st.sidebar.warning(f"ALSO:  'No secrets files found' warning is normal and inconsequential in local mode.")
-        st.sidebar.warning(f"FINALLY:  If no agents are created, do a hard reset (CTL-F5) and try switching models.  LLM results can be unpredictable.")
-        st.sidebar.warning(f"I said 'FINALLY'.  Why are you still reading...?")
+        st.sidebar.warning(f"NOTE: GPT models can only be used locally, not in the online demo.")
+        st.sidebar.warning(f"ALSO: 'No secrets files found' warning is normal and inconsequential in local mode.")
+        st.sidebar.warning(f"FINALLY: If no agents are created, do a hard reset (CTL-F5) and try switching models. LLM results can be unpredictable.")
+        st.sidebar.warning(f"I said 'FINALLY'. Why are you still reading...?")
 
 
 def display_agent_buttons(agents):
@@ -66,11 +65,11 @@ def display_agent_buttons(agents):
         agent_name = agent["config"]["name"] if agent["config"].get("name") else f"Unnamed Agent {index + 1}"
         col1, col2 = st.sidebar.columns([1, 4])
         with col1:
-            gear_icon = "⚙️"  # Unicode character for gear icon
+            gear_icon = "⚙️" # Unicode character for gear icon
             if st.button(
                 gear_icon,
                 key=f"gear_{index}",
-                help="Edit Agent"  # Add the tooltip text
+                help="Edit Agent" # Add the tooltip text
             ):
                 st.session_state['edit_agent_index'] = index
                 st.session_state['show_edit'] = True
@@ -115,10 +114,9 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            if st.button("Re-roll ", key=f"regenerate_{edit_index}"):
+            if st.button("Re-roll 🎲", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
                 new_description = regenerate_agent_description(agent)
                 if new_description:
@@ -130,7 +128,6 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
                 else:
                     print(f"Failed to regenerate description for {agent['config']['name']}")
-
         with col2:
             if st.button("Save Changes", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
@@ -147,41 +144,34 @@ def display_agent_edit_form(agent, edit_index):
             script_dir = os.path.dirname(os.path.abspath(__file__))
             skill_folder = os.path.join(script_dir, "skills")
             skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
-
             for skill_file in skill_files:
                 skill_name = os.path.splitext(skill_file)[0]
                 if skill_name not in agent:
                     agent[skill_name] = False
-
                 skill_checkbox = st.checkbox(
                     f"Add {skill_name} skill to this agent in Autogen™",
                     value=agent[skill_name],
                     key=f"{skill_name}_{edit_index}"
                 )
-
                 if skill_checkbox != agent[skill_name]:
                     agent[skill_name] = skill_checkbox
                     st.session_state.agents[edit_index] = agent
-                    
+
 
 def download_agent_file(expert_name):
     # Format the expert_name
-    formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name)  # Remove non-alphanumeric characters
-    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')  # Convert to lowercase and replace spaces with underscores
-
+    formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name) # Remove non-alphanumeric characters
+    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_') # Convert to lowercase and replace spaces with underscores
     # Get the full path to the agent JSON file
     agents_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "agents"))
     json_file = os.path.join(agents_dir, f"{formatted_expert_name}.json")
-
     # Check if the file exists
     if os.path.exists(json_file):
         # Read the file content
         with open(json_file, "r") as f:
             file_content = f.read()
-
         # Encode the file content as base64
         b64_content = base64.b64encode(file_content.encode()).decode()
-
         # Create a download link
         href = f'<a href="data:application/json;base64,{b64_content}" download="{formatted_expert_name}.json">Download {formatted_expert_name}.json</a>'
         st.markdown(href, unsafe_allow_html=True)
@@ -195,23 +185,19 @@ def process_agent_interaction(agent_index):
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
     reference_url = st.session_state.get('reference_url', '')
-
     # Execute associated skills for the agent
     agent = st.session_state.agents[agent_index]
     agent_skills = agent.get("skills", [])
     skill_results = {}
-
     for skill_name in agent_skills:
         if skill_name in st.session_state.skill_functions:
             skill_function = st.session_state.skill_functions[skill_name]
             skill_result = skill_function()
             skill_results[skill_name] = skill_result
-
     request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, skill_results)
     print(f"Request: {request}")
-
     # Use the dynamic LLM provider to send the request
-    llm_provider = get_llm_provider()
+    llm_provider = get_llm_provider(API_URL)
     llm_request_data = {
         "model": st.session_state.model,
         "temperature": st.session_state.get('temperature', 0.1),
@@ -234,7 +220,7 @@ def process_agent_interaction(agent_index):
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
             st.session_state['selected_agent_index'] = agent_index
-            st.experimental_rerun()  # Trigger a rerun to update the UI
+            st.experimental_rerun() # Trigger a rerun to update the UI
 
 
 def regenerate_agent_description(agent):
@@ -255,8 +241,7 @@ def regenerate_agent_description(agent):
     """
     print(f"regenerate_agent_description called with agent_name: {agent_name}")
     print(f"regenerate_agent_description called with prompt: {prompt}")
-    
-    llm_provider = get_llm_provider()
+    llm_provider = get_llm_provider(API_URL)
     llm_request_data = {
         "model": st.session_state.model,
         "temperature": st.session_state.get('temperature', 0.1),
@@ -276,7 +261,6 @@ def regenerate_agent_description(agent):
         if "choices" in response_data and response_data["choices"]:
             content = response_data["choices"][0]["message"]["content"]
             return content.strip()
-    
     return None
 
 
@@ -288,7 +272,6 @@ def retrieve_agent_information(agent_index):
 
 
 def send_request(agent_name, request):
-    llm_provider = get_llm_provider()
+    llm_provider = get_llm_provider(API_URL)
     response = llm_provider.send_request(request)
     return response
-

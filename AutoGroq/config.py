@@ -1,18 +1,24 @@
 #APIs
-LLM_PROVIDER = "groq" # Supported values: "groq", "openai"
-
-if LLM_PROVIDER == "groq":
-    API_KEY_NAME = "GROQ_API_KEY"
-elif LLM_PROVIDER == "openai":
-    API_KEY_NAME = "OPENAI_API_KEY"
-else:
-    raise ValueError(f"Unsupported LLM provider: {LLM_PROVIDER}")
-
-GROQ_API_KEY = None
+LLM_PROVIDER = "openai" # Supported values: "groq", "openai"GROQ_API_KEY = "None"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 OPENAI_API_KEY = None
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+
+if LLM_PROVIDER == "groq":
+    API_KEY_NAME = "GROQ_API_KEY"
+    API_URL = GROQ_API_URL
+elif LLM_PROVIDER == "openai":
+    API_KEY_NAME = "OPENAI_API_KEY"
+    API_URL = OPENAI_API_URL
+else:
+    raise ValueError(f"Unsupported LLM provider: {LLM_PROVIDER}")
+
+API_KEY_NAMES = {
+    "groq": "GROQ_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    # Add other LLM providers and their respective API key names here
+}
 
 # Retry settings
 MAX_RETRIES = 3

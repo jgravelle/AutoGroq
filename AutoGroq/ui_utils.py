@@ -4,8 +4,8 @@ import os
 import streamlit as st
 import time
 
-from auth_utils import get_api_key
-from config import LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+
 from skills.fetch_web_content import fetch_web_content
     
     
@@ -22,6 +22,7 @@ def display_api_key_input():
     
     return api_key
 
+
 import io
 import json
 import pandas as pd
@@ -33,7 +34,6 @@ from api_utils import get_llm_provider
 from file_utils import create_agent_data, create_skill_data, sanitize_text
 
 import datetime
-import requests
 
 
 def create_zip_file(zip_buffer, file_data):
@@ -237,7 +237,7 @@ def extract_json_objects(json_string):
     return parsed_objects
 
 
-def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
+def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
@@ -286,7 +286,7 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             }
         ]
     }
-    llm_provider = get_llm_provider()
+    llm_provider = get_llm_provider(api_url)
     retry_count = 0
     while retry_count < max_retries:
         try:
@@ -583,15 +583,16 @@ def get_workflow_from_agents(agents):
 
 
 def handle_user_request(session_state):
+    print("Debug: Handling user request for session state: ", session_state)
     user_request = session_state.user_request
     max_retries = MAX_RETRIES
     retry_delay = RETRY_DELAY
 
     for retry in range(max_retries):
         try:
-            rephrased_text = rephrase_prompt(user_request)
+            print("Debug: Sending request to rephrase_prompt")
+            rephrased_text = rephrase_prompt(user_request, API_URL)  # Pass the API_URL to rephrase_prompt
             print(f"Debug: Rephrased text: {rephrased_text}")
-
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
                 break  # Exit the loop if successful
@@ -599,7 +600,6 @@ def handle_user_request(session_state):
                 print("Error: Failed to rephrase the user request.")
                 st.warning("Failed to rephrase the user request. Please try again.")
                 return  # Exit the function if rephrasing fails
-
         except Exception as e:
             print(f"Error occurred in handle_user_request: {str(e)}")
             if retry < max_retries - 1:
@@ -616,7 +616,7 @@ def handle_user_request(session_state):
 
     rephrased_text = session_state.rephrased_request
 
-    autogen_agents, crewai_agents = get_agents_from_text(rephrased_text)
+    autogen_agents, crewai_agents = get_agents_from_text(rephrased_text, API_URL)
     print(f"Debug: AutoGen Agents: {autogen_agents}")
     print(f"Debug: CrewAI Agents: {crewai_agents}")
 
@@ -662,9 +662,10 @@ def regenerate_json_files_and_zip():
     st.session_state.crewai_zip_buffer = crewai_zip_buffer
 
 
-def rephrase_prompt(user_request):
+def rephrase_prompt(user_request, api_url):
     temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
+    print(f"Debug: api_url: {api_url}")
 
     refactoring_prompt = f"""
     Refactor the following user request into an optimized prompt for a language model. Focus on the following aspects:
@@ -677,7 +678,9 @@ def rephrase_prompt(user_request):
     7. Constraints: Define any limits or guidelines.
     8. Engagement: Make the prompt engaging and interesting.
     9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
-    Do NOT reply with a direct response to the request. Instead, rephrase the request as a well-structured prompt, and return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative. Do not enclose the rephrased prompt in quotes.
+    Do NOT reply with a direct response to the request. Instead, rephrase the request as a well-structured prompt, and
+    return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
+    Do not enclose the rephrased prompt in quotes.
     User request: "{user_request}"
     Rephrased:
     """
@@ -699,16 +702,16 @@ def rephrase_prompt(user_request):
         ],
     }
 
-    llm_provider = get_llm_provider()
+    llm_provider = get_llm_provider(api_url)  # Pass the api_url to get_llm_provider
 
     try:
         print("Sending request to LLM API...")
         print(f"Request Details:")
-        print(f"  URL: {llm_provider.api_url}")
-        print(f"  Model: {model}")
-        print(f"  Max Tokens: {max_tokens}")
-        print(f"  Temperature: {temperature_value}")
-        print(f"  Messages: {llm_request_data['messages']}")
+        print(f" URL: {api_url}")  # Print the API URL
+        print(f" Model: {model}")
+        print(f" Max Tokens: {max_tokens}")
+        print(f" Temperature: {temperature_value}")
+        print(f" Messages: {llm_request_data['messages']}")
 
         response = llm_provider.send_request(llm_request_data)
         print(f"Response received. Status Code: {response.status_code}")
@@ -728,7 +731,6 @@ def rephrase_prompt(user_request):
             print(f"Request failed. Status Code: {response.status_code}")
             print(f"Response Content: {response.text}")
             return None
-
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return None
