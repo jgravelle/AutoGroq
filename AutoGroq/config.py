@@ -1,5 +1,5 @@
 #APIs
-LLM_PROVIDER = "openai" # Supported values: "groq", "openai"GROQ_API_KEY = "None"
+LLM_PROVIDER = "groq" # Supported values: "groq", "openai"GROQ_API_KEY = "None"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 OPENAI_API_KEY = None
