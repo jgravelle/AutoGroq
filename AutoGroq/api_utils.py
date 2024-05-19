@@ -17,7 +17,8 @@ def make_api_request(url, data, headers, api_key):
     time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
     try:
         if not api_key:
-            raise ValueError("GROQ_API_KEY not found. Please enter your API key.")
+            llm = LLM_PROVIDER.upper()
+            raise ValueError(f"{llm}_API_KEY not found. Please enter your API key.")
         headers["Authorization"] = f"Bearer {api_key}"
         response = requests.post(url, json=data, headers=headers)
         if response.status_code == 200:

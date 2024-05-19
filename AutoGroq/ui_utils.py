@@ -5,15 +5,15 @@ import streamlit as st
 import time
 
 from auth_utils import get_api_key
-from config import OPENAI_API_KEY_NAME, GROQ_API_KEY_NAME, LLM_URL, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from config import LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
 from skills.fetch_web_content import fetch_web_content
     
     
 def display_api_key_input():
     if 'api_key' not in st.session_state:
         st.session_state.api_key = ''
-    
-    api_key = st.text_input("Enter your GROQ_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
+    llm = LLM_PROVIDER.upper()
+    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
     
     if api_key:
         st.session_state.api_key = api_key
@@ -216,7 +216,6 @@ def extract_json_objects(json_string):
     objects = []
     stack = []
     start_index = 0
-
     for i, char in enumerate(json_string):
         if char == "{":
             if not stack:
@@ -227,8 +226,6 @@ def extract_json_objects(json_string):
                 stack.pop()
                 if not stack:
                     objects.append(json_string[start_index:i+1])
-
-    # Try to parse each extracted object
     parsed_objects = []
     for obj_str in objects:
         try:
@@ -237,7 +234,6 @@ def extract_json_objects(json_string):
         except json.JSONDecodeError as e:
             print(f"Error parsing JSON object: {e}")
             print(f"JSON string: {obj_str}")
-
     return parsed_objects
 
 
@@ -254,47 +250,35 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
             {
                 "role": "system",
                 "content": f"""
-You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this
-specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the
-request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing
-a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent
-shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific
-tools they would utilize to achieve the user's goal.
-Guidelines:
-1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all
-other agents, and produce a robust, complete, and reliable solution.
-2. **Agent Roles**: Clearly define each agent's role in the project.
-3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
-4. **Specific Skills**: List the specific skills of each agent.
-5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very
-specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
-6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools.
-'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have
-multiple specific skills and use multiple specific tools).
-7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per
-their functionality (e.g., calculate_surface_area, or search_web).
-8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just
-planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or
-utilize their skills when appropriate.
-9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as
-possible and provide step-by-step solutions to the user's request.
-Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of
-any kind:
-[
-{{
-"expert_name": "agent_title",
-"description": "agent_description",
-"skills": ["skill1", "skill2"],
-"tools": ["tool1", "tool2"]
-}},
-{{
-"expert_name": "agent_title",
-"description": "agent_description",
-"skills": ["skill1", "skill2"],
-"tools": ["tool1", "tool2"]
-}}
-]
-"""
+                    You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
+                    
+                    Guidelines:
+                    1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all other agents, and produce a robust, complete, and reliable solution.
+                    2. **Agent Roles**: Clearly define each agent's role in the project.
+                    3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
+                    4. **Specific Skills**: List the specific skills of each agent.
+                    5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
+                    6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
+                    7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
+                    8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
+                    9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
+                    
+                    Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
+                    [
+                        {{
+                            "expert_name": "agent_title",
+                            "description": "agent_description",
+                            "skills": ["skill1", "skill2"],
+                            "tools": ["tool1", "tool2"]
+                        }},
+                        {{
+                            "expert_name": "agent_title",
+                            "description": "agent_description",
+                            "skills": ["skill1", "skill2"],
+                            "tools": ["tool1", "tool2"]
+                        }}
+                    ]
+                """
             },
             {
                 "role": "user",
@@ -330,12 +314,10 @@ any kind:
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                # Associate skills with the agent based on their capabilities
                                 agent_skills = []
                                 for skill_name in skills:
                                     if skill_name in st.session_state.skill_functions:
                                         agent_skills.append(skill_name)
-                                # Create the agent data using the new signature
                                 autogen_agent_data = {
                                     "type": "assistant",
                                     "config": {
@@ -397,12 +379,10 @@ any kind:
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                # Associate skills with the agent based on their capabilities
                                 agent_skills = []
                                 for skill_name in skills:
                                     if skill_name in st.session_state.skill_functions:
                                         agent_skills.append(skill_name)
-                                # Create the agent data using the new signature
                                 autogen_agent_data = {
                                     "type": "assistant",
                                     "config": {

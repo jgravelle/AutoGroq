@@ -1,7 +1,7 @@
 import os
 import streamlit as st 
 
-from config import MODEL_TOKEN_LIMITS
+from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
 from ui_utils import get_api_key, display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, load_skill_functions
@@ -24,7 +24,8 @@ def main():
     if api_key is None:
         api_key = display_api_key_input()
         if api_key is None:
-            st.warning("Please enter your GROQ_API_KEY to use the app.")
+            llm = LLM_PROVIDER.upper()
+            st.warning(f"{llm}_API_KEY not found. Please enter your API key.")
             return
 
     

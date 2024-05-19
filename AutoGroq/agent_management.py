@@ -54,7 +54,11 @@ def display_agents():
             else:
                 st.sidebar.warning("Invalid agent selected for editing.")
     else:
-        st.sidebar.warning("No agents have yet been created. Please enter a new request.\n\r\n\rNOTE:  GPT models can only be used locally, not in the online demo.")
+        st.sidebar.warning(f"No agents have yet been created. Please enter a new request.")
+        st.sidebar.warning(f"NOTE:  GPT models can only be used locally, not in the online demo.")
+        st.sidebar.warning(f"ALSO:  'No secrets files found' warning is normal and inconsequential in local mode.")
+        st.sidebar.warning(f"FINALLY:  If no agents are created, try switching models.  LLM results can be unpredictable.")
+        st.sidebar.warning(f"I said 'FINALLY'.  Why are you still reading...?")
 
 
 def display_agent_buttons(agents):
@@ -111,17 +115,22 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
+
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            if st.button("Re-roll 🎲", key=f"regenerate_{edit_index}"):
+            if st.button("Re-roll ", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
                 new_description = regenerate_agent_description(agent)
                 if new_description:
                     agent['new_description'] = new_description
                     print(f"Description regenerated for {agent['config']['name']}: {new_description}")
+                    st.session_state[f"regenerate_description_{edit_index}"] = True
+                    # Update the value parameter of st.text_area to display the new description
+                    description_value = new_description
                     st.experimental_rerun()
                 else:
                     print(f"Failed to regenerate description for {agent['config']['name']}")
+
         with col2:
             if st.button("Save Changes", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
