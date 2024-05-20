@@ -1,6 +1,9 @@
 #APIs
-LLM_PROVIDER = "groq" # Supported values: "groq", "openai"GROQ_API_KEY = "None"
+LLM_PROVIDER = "groq" # Supported values: "groq", "openai", "ollama"
+
+
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
 
 OPENAI_API_KEY = None
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
@@ -11,11 +14,15 @@ if LLM_PROVIDER == "groq":
 elif LLM_PROVIDER == "openai":
     API_KEY_NAME = "OPENAI_API_KEY"
     API_URL = OPENAI_API_URL
+elif LLM_PROVIDER == "ollama":
+    API_KEY_NAME = None
+    API_URL = OLLAMA_API_URL
 else:
     raise ValueError(f"Unsupported LLM provider: {LLM_PROVIDER}")
 
 API_KEY_NAMES = {
     "groq": "GROQ_API_KEY",
+    "ollama": None,
     "openai": "OPENAI_API_KEY",
     # Add other LLM providers and their respective API key names here
 }
@@ -38,5 +45,9 @@ elif LLM_PROVIDER == "openai":
     MODEL_TOKEN_LIMITS = {
         'gpt-4o': 4096,
     }
+elif LLM_PROVIDER == "ollama":
+    MODEL_TOKEN_LIMITS = {
+        'llama3': 8192,
+    }   
 else:
     MODEL_TOKEN_LIMITS = {}

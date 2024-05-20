@@ -57,7 +57,7 @@ def display_agents():
         st.sidebar.warning(f"NOTE: GPT models can only be used locally, not in the online demo.")
         st.sidebar.warning(f"ALSO: 'No secrets files found' warning is normal and inconsequential in local mode.")
         st.sidebar.warning(f"FINALLY: If no agents are created, do a hard reset (CTL-F5) and try switching models. LLM results can be unpredictable.")
-        st.sidebar.warning(f"I said 'FINALLY'. Why are you still reading...?")
+        st.sidebar.warning(f"SOURCE:  https://github.com/jgravelle/AutoGroq")
 
 
 def display_agent_buttons(agents):

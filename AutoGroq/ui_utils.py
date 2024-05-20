@@ -237,7 +237,7 @@ def extract_json_objects(json_string):
     return parsed_objects
 
 
-def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
+def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):      
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
@@ -251,7 +251,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                 "role": "system",
                 "content": f"""
                     You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
-                    
+                    Fulfill the following guidelines without ever explicitily stating them in your response.
                     Guidelines:
                     1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all other agents, and produce a robust, complete, and reliable solution.
                     2. **Agent Roles**: Clearly define each agent's role in the project.
@@ -263,7 +263,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                     8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
                     9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
                     
-                    Return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
+                    ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
                     [
                         {{
                             "expert_name": "agent_title",
@@ -668,7 +668,7 @@ def rephrase_prompt(user_request, api_url):
     print(f"Debug: api_url: {api_url}")
 
     refactoring_prompt = f"""
-    Refactor the following user request into an optimized prompt for a language model. Focus on the following aspects:
+    Refactor the following user request into an optimized prompt for a language model whose priority is resolving user request by discussing and performing the actions necessary to fulfill the user's request. Focus on the fulfilling all following aspects without explicitly stating them:
     1. Clarity: Ensure the prompt is clear and unambiguous.
     2. Specific Instructions: Provide detailed steps or guidelines.
     3. Context: Include necessary background information.
@@ -715,6 +715,7 @@ def rephrase_prompt(user_request, api_url):
 
         response = llm_provider.send_request(llm_request_data)
         print(f"Response received. Status Code: {response.status_code}")
+        print(f"Response Content: {response.text}")
 
         if response.status_code == 200:
             print("Request successful. Parsing response...")

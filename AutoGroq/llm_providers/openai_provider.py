@@ -9,6 +9,7 @@ class OpenaiProvider(BaseLLMProvider):
         self.api_key = get_api_key()
         self.api_url = api_url
     
+
     def send_request(self, data):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -23,6 +24,7 @@ class OpenaiProvider(BaseLLMProvider):
         
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
+    
     
     def process_response(self, response):
         if response.status_code == 200:

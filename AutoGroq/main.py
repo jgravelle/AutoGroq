@@ -51,7 +51,7 @@ def main():
             key='temperature'
         )
             
-    st.title("AutoGroqGPT") 
+    st.title("AutoGroq/Ollama/GPT") 
         
     # Ensure default values for session state are set     
     if "discussion" not in st.session_state: 
