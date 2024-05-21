@@ -50,8 +50,17 @@ def main():
             step=0.01,
             key='temperature'
         )
-            
-    st.title("AutoGroq/Ollama/GPT") 
+
+    # If the LLM Provider is "groq", the title is "AutoGroq"
+    if LLM_PROVIDER == "groq":
+        st.title("AutoGroq")
+    elif LLM_PROVIDER == "ollama":
+        st.title("Auto̶G̶r̶o̶qOllama")
+    elif LLM_PROVIDER == "lmstudio":
+        st.title("Auto̶G̶r̶o̶qLM_Studio")
+    elif LLM_PROVIDER == "openai":
+        st.title("Auto̶G̶r̶o̶qChatGPT") 
+    
         
     # Ensure default values for session state are set     
     if "discussion" not in st.session_state: 

@@ -13,6 +13,7 @@ def create_agent_data(agent):
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
 
     sanitized_description = sanitize_text(description)
+    temperature_value = st.session_state.get('temperature', 0.1)
 
     autogen_agent_data = {
         "type": "assistant",
@@ -23,14 +24,14 @@ def create_agent_data(agent):
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
-                        "model": "gpt-4",
+                        "model": st.session_state.model,
                         "base_url": None,
                         "api_type": None,
                         "api_version": None,
                         "description": "OpenAI model configuration"
                     }
                 ],
-                "temperature": st.session_state.get('temperature', 0.1),
+                "temperature": temperature_value,
                 "cache_seed": None,
                 "timeout": None,
                 "max_tokens": None,

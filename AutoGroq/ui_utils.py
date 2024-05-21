@@ -282,7 +282,8 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
             },
             {
                 "role": "user",
-                "content": text
+                "content": text,
+                "json_response": True
             }
         ]
     }
@@ -327,14 +328,14 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 {
                                                     "user_id": "default",
                                                     "timestamp": datetime.datetime.now().isoformat(),
-                                                    "model": "gpt-4",
+                                                    "model": st.session_state.model,
                                                     "base_url": None,
                                                     "api_type": None,
                                                     "api_version": None,
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": st.session_state.get('temperature', 0.1),
+                                            "temperature": temperature_value,
                                             "timeout": 600,
                                             "cache_seed": 42
                                         },
@@ -392,14 +393,14 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 {
                                                     "user_id": "default",
                                                     "timestamp": datetime.datetime.now().isoformat(),
-                                                    "model": "gpt-4",
+                                                    "model": st.session_state.model,
                                                     "base_url": None,
                                                     "api_type": None,
                                                     "api_version": None,
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": st.session_state.get('temperature', 0.1),
+                                            "temperature": temperature_value,
                                             "timeout": 600,
                                             "cache_seed": 42
                                         },
@@ -481,7 +482,7 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": datetime.datetime.now().isoformat(),
-                            "model": "gpt-4",
+                            "model": st.session_state.model,
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
@@ -491,7 +492,7 @@ def get_workflow_from_agents(agents):
                     "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": None,
+                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
@@ -543,7 +544,7 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": datetime.datetime.now().isoformat(),
-                            "model": "gpt-4",
+                            "model": st.session_state.model,
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
@@ -553,7 +554,7 @@ def get_workflow_from_agents(agents):
                     "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": None,
+                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
