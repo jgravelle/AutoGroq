@@ -23,7 +23,7 @@ def create_agent_data(agent):
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
-                        "model": "gpt-4",
+                        "model": "gpt-4o",
                         "base_url": None,
                         "api_type": None,
                         "api_version": None,

@@ -327,7 +327,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 {
                                                     "user_id": "default",
                                                     "timestamp": datetime.datetime.now().isoformat(),
-                                                    "model": "gpt-4",
+                                                    "model": "gpt-4o",
                                                     "base_url": None,
                                                     "api_type": None,
                                                     "api_version": None,
@@ -392,7 +392,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 {
                                                     "user_id": "default",
                                                     "timestamp": datetime.datetime.now().isoformat(),
-                                                    "model": "gpt-4",
+                                                    "model": "gpt-4o",
                                                     "base_url": None,
                                                     "api_type": None,
                                                     "api_version": None,
@@ -481,7 +481,7 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": datetime.datetime.now().isoformat(),
-                            "model": "gpt-4",
+                            "model": "gpt-4o",
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
@@ -543,7 +543,7 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": datetime.datetime.now().isoformat(),
-                            "model": "gpt-4",
+                            "model": "gpt-4o",
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
