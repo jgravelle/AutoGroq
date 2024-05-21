@@ -282,8 +282,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
             },
             {
                 "role": "user",
-                "content": text,
-                "json_response": False
+                "content": text
             }
         ]
     }
