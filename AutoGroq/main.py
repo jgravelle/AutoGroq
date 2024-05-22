@@ -5,7 +5,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
 from auth_utils import get_api_key
-from ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_rephrased_request, display_reset_and_upload_buttons, display_user_request_input, load_skill_functions
+from ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_reset_and_upload_buttons, display_user_request_input, load_skill_functions
 
 
 def main(): 
@@ -75,7 +75,7 @@ def main():
     with st.container(): 
         st.markdown('<div class="main">', unsafe_allow_html=True) 
         display_user_request_input() 
-        display_rephrased_request() 
+        # display_rephrased_request() 
         st.markdown('<div class="discussion-whiteboard">', unsafe_allow_html=True) 
         display_discussion_and_whiteboard() 
         st.markdown('</div>', unsafe_allow_html=True) 
@@ -85,7 +85,7 @@ def main():
         display_reset_and_upload_buttons() 
         st.markdown('</div>', unsafe_allow_html=True) 
 
-    display_download_button()        
+    display_download_button()     
     
 if __name__ == "__main__": 
     main()

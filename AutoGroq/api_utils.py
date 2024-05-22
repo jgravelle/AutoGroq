@@ -25,7 +25,7 @@ def make_api_request(url, data, headers, api_key):
             return response.json()
         elif response.status_code == 429:
             error_message = response.json().get("error", {}).get("message", "")
-            st.error(f"Rate limit reached for the current model. If you click 'Re-roll' again, we'll retry with a reduced token count.  Or you can try selecting a different model.")
+            st.error(f"Rate limit reached for the current model. If you click 'Update' again, we'll retry with a reduced token count.  Or you can try selecting a different model.")
             st.error(f"Error details: {error_message}")
             return None
         else:

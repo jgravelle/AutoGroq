@@ -94,7 +94,6 @@ def display_agent_edit_form(agent, edit_index):
             new_name = st.text_input("Name", value=agent['config'].get('name', ''), key=f"name_{edit_index}")
         with col2:
             container = st.container()
-            space = container.empty()
             if container.button("X", key=f"delete_{edit_index}"):
                 if st.session_state.get(f"delete_confirmed_{edit_index}", False):
                     st.session_state.agents.pop(edit_index)
@@ -116,7 +115,7 @@ def display_agent_edit_form(agent, edit_index):
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            if st.button("Re-roll 🎲", key=f"regenerate_{edit_index}"):
+            if st.button("Update", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
                 new_description = regenerate_agent_description(agent)
                 if new_description:
@@ -236,7 +235,7 @@ def regenerate_agent_description(agent):
     Description: {agent_description}
     The current user request is: {user_request}
     The discussion history so far is: {discussion_history}
-    Please generate a revised description for this agent that defines it in the best manner possible to address the current user request, taking into account the discussion thus far. Return only the revised description, without any additional commentary or narrative. It is imperative that you return ONLY the text of the new description. No preamble, no narrative, no superfluous commentary whatsoever. Just the description, unlabeled, please.
+    Please generate a revised description for this agent that defines it in the best manner possible to address the current user request, taking into account the discussion thus far. Return only the revised description, written in the third-person, without any additional commentary or narrative. It is imperative that you return ONLY the text of the new description written in the third-person. No preamble, no narrative, no superfluous commentary whatsoever. Just the description, written in the third-person, unlabeled, please.  You will have been successful if your reply is thorough, comprehensive, concise, written in the third-person, and adherent to all of these instructions.
     """
     print(f"regenerate_agent_description called with agent_name: {agent_name}")
     print(f"regenerate_agent_description called with prompt: {prompt}")

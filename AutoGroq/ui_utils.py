@@ -5,6 +5,7 @@ import streamlit as st
 import time
 
 from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from current_project import Current_Project
 
 from skills.fetch_web_content import fetch_web_content
     
@@ -85,17 +86,57 @@ def create_zip_file(zip_buffer, file_data):
 
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
-    tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Goal", "Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables"])
+
+
     with tab1:
+        if st.session_state.get("rephrased_request", "") == "":
+            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
+        else:
+            rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
+
+
+    with tab2:
         if "last_comment" not in st.session_state:
             st.session_state.last_comment = ""
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
-    with tab2:
+
+    with tab3:
         if "whiteboard" not in st.session_state:
             st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
-    with tab3:
+
+    with tab4:
         st.write(discussion_history)
+
+    with tab5:
+        if "current_project" in st.session_state:
+            current_project = st.session_state.current_project
+            for index, objective in enumerate(current_project.objectives):
+                if objective["text"].strip():  # Check if the objective text is not empty
+                    checkbox_key = f"objective_{index}"
+                    done = st.checkbox(objective["text"], value=objective["done"], key=checkbox_key)
+                    if done != objective["done"]:
+                        if done:
+                            current_project.mark_objective_done(index)
+                        else:
+                            current_project.mark_objective_undone(index)
+        else:
+            st.warning("No objectives found. Please enter a user request.")
+
+    with tab6:
+        if "current_project" in st.session_state:
+            current_project = st.session_state.current_project
+            for index, deliverable in enumerate(current_project.deliverables):
+                if deliverable["text"].strip():  # Check if the deliverable text is not empty
+                    checkbox_key = f"deliverable_{index}"
+                    done = st.checkbox(deliverable["text"], value=deliverable["done"], key=checkbox_key)
+                    if done != deliverable["done"]:
+                        if done:
+                            current_project.mark_deliverable_done(index)
+                        else:
+                            current_project.mark_deliverable_undone(index)
 
 
 def display_download_button():
@@ -148,13 +189,6 @@ def display_user_input():
     return user_input, reference_url
 
 
-def display_rephrased_request(): 
-    if "rephrased_request" not in st.session_state:
-        st.session_state.rephrased_request = "" 
-
-    st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area") 
-
-
 def display_reset_and_upload_buttons():
     col1, col2 = st.columns(2)  
     with col1:
@@ -196,42 +230,15 @@ def display_reset_and_upload_buttons():
 def display_user_request_input():
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
-
     if st.session_state.show_request_input:
-        user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""))
-        if st.session_state.get("previous_user_request") != user_request:
-            st.session_state.previous_user_request = user_request
-            if user_request:
-                if not st.session_state.get('rephrased_request'):
-                    handle_user_request(st.session_state)
-                else:
-                    autogen_agents, crewai_agents = get_agents_from_text(st.session_state.rephrased_request)
-                    print(f"Debug: AutoGen Agents: {autogen_agents}")
-                    print(f"Debug: CrewAI Agents: {crewai_agents}")
-
-                    if not autogen_agents:
-                        print("Error: No agents created.")
-                        st.warning("Failed to create agents. Please try again.")
-                    else:
-                        agents_data = {}
-                        for agent in autogen_agents:
-                            agent_name = agent['config']['name']
-                            agents_data[agent_name] = agent
-
-                        print(f"Debug: Agents data: {agents_data}")
-
-                        workflow_data, _ = get_workflow_from_agents(autogen_agents)
-                        print(f"Debug: Workflow data: {workflow_data}")
-                        print(f"Debug: CrewAI agents: {crewai_agents}")
-
-                        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-                        st.session_state.autogen_zip_buffer = autogen_zip_buffer
-                        st.session_state.crewai_zip_buffer = crewai_zip_buffer
-                        st.session_state.agents = autogen_agents
-
-                        st.session_state.show_request_input = False  # Hide the request input after agents are created
-
-                st.experimental_rerun()
+        if st.session_state.get("previous_user_request") != st.session_state.get("user_request", ""):
+            st.session_state.previous_user_request = st.session_state.get("user_request", "")
+            if st.session_state.get("user_request", ""):
+                handle_user_request(st.session_state)
+            else:
+                st.session_state.agents = []
+                st.session_state.show_request_input = False
+            st.experimental_rerun()
 
 
 def extract_code_from_response(response):
@@ -666,6 +673,28 @@ def handle_user_request(session_state):
 
         session_state.project_manager_output = project_manager_output
 
+        # Create an instance of the Current_Project class
+        current_project = Current_Project()
+        current_project.set_re_engineered_prompt(rephrased_text)
+
+        # Extract objectives and deliverables from the project manager's output
+        objectives_pattern = r"Objectives:\n(.*?)(?=Deliverables|$)"
+        deliverables_pattern = r"Deliverables:\n(.*?)(?=Timeline|Team of Experts|$)"
+
+        objectives_match = re.search(objectives_pattern, project_manager_output, re.DOTALL)
+        if objectives_match:
+            objectives = objectives_match.group(1).strip().split("\n")
+            for objective in objectives:
+                current_project.add_objective(objective.strip())
+
+        deliverables_match = re.search(deliverables_pattern, project_manager_output, re.DOTALL)
+        if deliverables_match:
+            deliverables = deliverables_match.group(1).strip().split("\n")
+            for deliverable in deliverables:
+                current_project.add_deliverable(deliverable.strip())
+
+        session_state.current_project = current_project
+
         # Update the discussion and whiteboard with the Project Manager's initial response
         update_discussion_and_whiteboard("Project Manager", project_manager_output, "")
     else:
@@ -714,7 +743,7 @@ def load_skill_functions():
         if hasattr(skill_module, skill_name):
             skill_functions[skill_name] = getattr(skill_module, skill_name)
     st.session_state.skill_functions = skill_functions
-
+    
 
 def regenerate_json_files_and_zip():
     # Get the updated workflow data
