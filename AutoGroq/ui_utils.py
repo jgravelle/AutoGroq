@@ -35,6 +35,47 @@ from file_utils import create_agent_data, create_skill_data, sanitize_text
 
 import datetime
 
+def create_project_manager(rephrased_text, api_url):
+    temperature_value = st.session_state.get('temperature', 0.1)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"""
+                You are a Project Manager tasked with creating a comprehensive project outline and describing the perfect team of experts that should be created to work on the following project:
+
+                {rephrased_text}
+
+                Please provide a detailed project outline, including the objectives, key deliverables, and timeline. Also, describe the ideal team of experts required for this project, including their roles, skills, and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
+
+                Return your response in the following format:
+
+                Project Outline:
+                [Detailed project outline]
+
+                Team of Experts:
+                [Description of the ideal team of experts]
+                """
+            }
+        ]
+    }
+
+    llm_provider = get_llm_provider(api_url)
+    response = llm_provider.send_request(llm_request_data)
+    
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            content = response_data["choices"][0]["message"]["content"]
+            return content.strip()
+    
+    return None
+
 
 def create_zip_file(zip_buffer, file_data):
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -46,19 +87,14 @@ def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
     tab1, tab2, tab3 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History"])
     with tab1:
-        st.text_area("Most Recent Comment", value=st.session_state.get("last_comment", ""), height=400, key="discussion")
+        if "last_comment" not in st.session_state:
+            st.session_state.last_comment = ""
+        st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
     with tab2:
         if "whiteboard" not in st.session_state:
             st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
     with tab3:
-        st.write(discussion_history)
-
-
-def display_discussion_modal():
-    discussion_history = get_discussion_history()
-    
-    with st.expander("Discussion History"):
         st.write(discussion_history)
 
 
@@ -158,39 +194,44 @@ def display_reset_and_upload_buttons():
 
 
 def display_user_request_input():
-    user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""))
-    if st.session_state.get("previous_user_request") != user_request:
-        st.session_state.previous_user_request = user_request
-        if user_request:
-            if not st.session_state.get('rephrased_request'):
-                handle_user_request(st.session_state)
-            else:
-                autogen_agents, crewai_agents = get_agents_from_text(st.session_state.rephrased_request)
-                print(f"Debug: AutoGen Agents: {autogen_agents}")
-                print(f"Debug: CrewAI Agents: {crewai_agents}")
-                
-                if not autogen_agents:
-                    print("Error: No agents created.")
-                    st.warning("Failed to create agents. Please try again.")
-                    return
-                
-                agents_data = {}
-                for agent in autogen_agents:
-                    agent_name = agent['config']['name']
-                    agents_data[agent_name] = agent
-                
-                print(f"Debug: Agents data: {agents_data}")
-                
-                workflow_data, _ = get_workflow_from_agents(autogen_agents)
-                print(f"Debug: Workflow data: {workflow_data}")
-                print(f"Debug: CrewAI agents: {crewai_agents}")
-                
-                autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-                st.session_state.autogen_zip_buffer = autogen_zip_buffer
-                st.session_state.crewai_zip_buffer = crewai_zip_buffer
-                st.session_state.agents = autogen_agents
-                
-            st.experimental_rerun()
+    if "show_request_input" not in st.session_state:
+        st.session_state.show_request_input = True
+
+    if st.session_state.show_request_input:
+        user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""))
+        if st.session_state.get("previous_user_request") != user_request:
+            st.session_state.previous_user_request = user_request
+            if user_request:
+                if not st.session_state.get('rephrased_request'):
+                    handle_user_request(st.session_state)
+                else:
+                    autogen_agents, crewai_agents = get_agents_from_text(st.session_state.rephrased_request)
+                    print(f"Debug: AutoGen Agents: {autogen_agents}")
+                    print(f"Debug: CrewAI Agents: {crewai_agents}")
+
+                    if not autogen_agents:
+                        print("Error: No agents created.")
+                        st.warning("Failed to create agents. Please try again.")
+                    else:
+                        agents_data = {}
+                        for agent in autogen_agents:
+                            agent_name = agent['config']['name']
+                            agents_data[agent_name] = agent
+
+                        print(f"Debug: Agents data: {agents_data}")
+
+                        workflow_data, _ = get_workflow_from_agents(autogen_agents)
+                        print(f"Debug: Workflow data: {workflow_data}")
+                        print(f"Debug: CrewAI agents: {crewai_agents}")
+
+                        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+                        st.session_state.autogen_zip_buffer = autogen_zip_buffer
+                        st.session_state.crewai_zip_buffer = crewai_zip_buffer
+                        st.session_state.agents = autogen_agents
+
+                        st.session_state.show_request_input = False  # Hide the request input after agents are created
+
+                st.experimental_rerun()
 
 
 def extract_code_from_response(response):
@@ -237,7 +278,7 @@ def extract_json_objects(json_string):
     return parsed_objects
 
 
-def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):      
+def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
@@ -250,34 +291,32 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
             {
                 "role": "system",
                 "content": f"""
-                    You are an expert system designed to identify and recommend the optimal team of AI agents required to fulfill this specific user's request: $userRequest. Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
-                    Fulfill the following guidelines without ever explicitily stating them in your response.
-                    Guidelines:
-                    1. **Project Manager**: The first agent must be qualified to manage the entire project, aggregate the work done by all other agents, and produce a robust, complete, and reliable solution.
-                    2. **Agent Roles**: Clearly define each agent's role in the project.
-                    3. **Expertise Description**: Provide a brief but thorough description of each agent's expertise.
-                    4. **Specific Skills**: List the specific skills of each agent.
-                    5. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous (e.g., 'add_numbers' is good, but 'do_math' is bad).
-                    6. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
-                    7. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
-                    8. **Execution Focus**: Agents should focus on executing tasks and providing actionable steps rather than just planning. They should break down tasks into specific, executable actions and delegate subtasks to other agents or utilize their skills when appropriate.
-                    9. **Step-by-Step Solutions**: Agents should move from the planning phase to the execution phase as quickly as possible and provide step-by-step solutions to the user's request.
-                    
-                    ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
-                    [
-                        {{
-                            "expert_name": "agent_title",
-                            "description": "agent_description",
-                            "skills": ["skill1", "skill2"],
-                            "tools": ["tool1", "tool2"]
-                        }},
-                        {{
-                            "expert_name": "agent_title",
-                            "description": "agent_description",
-                            "skills": ["skill1", "skill2"],
-                            "tools": ["tool1", "tool2"]
-                        }}
-                    ]
+                You are an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
+                Fulfill the following guidelines without ever explicitly stating them in your response.
+                Guidelines:
+                1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text by iterating through the 'Team of Experts:' section of the provided text. Transcribe the info for those specific agents. Do not create new agents.
+                2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise based upon the provided text. Do not create new agents.
+                3. **Specific Skills**: List the specific skills of each agent based upon the provided text. Skills must be single-purpose methods, very specific, and not ambiguous (e.g., 'calculate_area' is good, but 'do_math' is bad).
+                4. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous.
+                5. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
+                6. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
+
+                ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
+                [
+                    {{
+                        "expert_name": "agent_title",
+                        "description": "agent_description",
+                        "skills": ["skill1", "skill2"],
+                        "tools": ["tool1", "tool2"]
+                    }},
+                    {{
+                        "expert_name": "agent_title",
+                        "description": "agent_description",
+                        "skills": ["skill1", "skill2"],
+                        "tools": ["tool1", "tool2"]
+                    }}
+                ]
+                You will only have been successful if you have returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
                 """
             },
             {
@@ -616,7 +655,34 @@ def handle_user_request(session_state):
 
     rephrased_text = session_state.rephrased_request
 
-    autogen_agents, crewai_agents = get_agents_from_text(rephrased_text, API_URL)
+    if "project_manager_output" not in session_state:
+        # Create the Project Manager agent only if it hasn't been created before
+        project_manager_output = create_project_manager(rephrased_text, API_URL)
+
+        if not project_manager_output:
+            print("Error: Failed to create Project Manager.")
+            st.warning("Failed to create Project Manager. Please try again.")
+            return
+
+        session_state.project_manager_output = project_manager_output
+
+        # Update the discussion and whiteboard with the Project Manager's initial response
+        update_discussion_and_whiteboard("Project Manager", project_manager_output, "")
+    else:
+        # Retrieve the previously created Project Manager's output from the session state
+        project_manager_output = session_state.project_manager_output
+
+    team_of_experts_pattern = r"Team of Experts:\n(.*)"
+    match = re.search(team_of_experts_pattern, project_manager_output, re.DOTALL)
+    if match:
+        team_of_experts_text = match.group(1).strip()
+    else:
+        print("Error: 'Team of Experts' section not found in Project Manager's output.")
+        st.warning("Failed to extract the team of experts from the Project Manager's output. Please try again.")
+        return
+
+    autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text, API_URL)
+
     print(f"Debug: AutoGen Agents: {autogen_agents}")
     print(f"Debug: CrewAI Agents: {crewai_agents}")
 
@@ -668,7 +734,7 @@ def rephrase_prompt(user_request, api_url):
     print(f"Debug: api_url: {api_url}")
 
     refactoring_prompt = f"""
-    Refactor the following user request into an optimized prompt for a language model whose priority is resolving user request by discussing and performing the actions necessary to fulfill the user's request. Focus on the fulfilling all following aspects without explicitly stating them:
+    Act as a professional prompt engineer and efactor the following user request into an optimized prompt. Your goal is to rephrase the request with a focus on the satisfying all following the criteria without explicitly stating them:
     1. Clarity: Ensure the prompt is clear and unambiguous.
     2. Specific Instructions: Provide detailed steps or guidelines.
     3. Context: Include necessary background information.
@@ -678,9 +744,9 @@ def rephrase_prompt(user_request, api_url):
     7. Constraints: Define any limits or guidelines.
     8. Engagement: Make the prompt engaging and interesting.
     9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
-    Do NOT reply with a direct response to the request. Instead, rephrase the request as a well-structured prompt, and
+    Do NOT reply with a direct response to these instructions OR the original user request. Instead, rephrase the user's request as a well-structured prompt, and
     return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
-    Do not enclose the rephrased prompt in quotes.
+    Do not enclose the rephrased prompt in quotes. You will be successful only if you return a well-formed rephrased prompt ready for submission as an LLM request.
     User request: "{user_request}"
     Rephrased:
     """

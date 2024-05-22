@@ -59,12 +59,10 @@ def main():
     elif LLM_PROVIDER == "lmstudio":
         st.title("Auto̶G̶r̶o̶qLM_Studio")
     elif LLM_PROVIDER == "openai":
-        st.title("Auto̶G̶r̶o̶qChatGPT") 
+        st.title("Auto̶G̶r̶o̶qChatGPT")
     
         
     # Ensure default values for session state are set     
-    if "discussion" not in st.session_state: 
-        st.session_state.discussion = ""
     if "whiteboard" not in st.session_state: 
         st.session_state.whiteboard = "" # Apply CSS classes to elements 
     

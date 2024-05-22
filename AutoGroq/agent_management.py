@@ -220,7 +220,6 @@ def process_agent_interaction(agent_index):
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
             st.session_state['selected_agent_index'] = agent_index
-            st.experimental_rerun() # Trigger a rerun to update the UI
 
 
 def regenerate_agent_description(agent):
