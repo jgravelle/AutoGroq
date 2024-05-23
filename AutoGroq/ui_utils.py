@@ -87,30 +87,22 @@ def create_zip_file(zip_buffer, file_data):
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Goal", "Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables"])
-
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal"])
 
     with tab1:
-        if st.session_state.get("rephrased_request", "") == "":
-            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
-        else:
-            rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
-
-
-    with tab2:
         if "last_comment" not in st.session_state:
             st.session_state.last_comment = ""
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
 
-    with tab3:
+    with tab2:
         if "whiteboard" not in st.session_state:
             st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
 
-    with tab4:
+    with tab3:
         st.write(discussion_history)
 
-    with tab5:
+    with tab4:
         if "current_project" in st.session_state:
             current_project = st.session_state.current_project
             for index, objective in enumerate(current_project.objectives):
@@ -125,7 +117,7 @@ def display_discussion_and_whiteboard():
         else:
             st.warning("No objectives found. Please enter a user request.")
 
-    with tab6:
+    with tab5:
         if "current_project" in st.session_state:
             current_project = st.session_state.current_project
             for index, deliverable in enumerate(current_project.deliverables):
@@ -137,6 +129,10 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_done(index)
                         else:
                             current_project.mark_deliverable_undone(index)
+    
+    with tab6:
+        rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
+
 
 
 def display_download_button():

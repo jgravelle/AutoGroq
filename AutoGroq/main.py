@@ -5,7 +5,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
 from auth_utils import get_api_key
-from ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_reset_and_upload_buttons, display_user_request_input, load_skill_functions
+from ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_reset_and_upload_buttons, display_user_request_input, handle_user_request, load_skill_functions
 
 
 def main(): 
@@ -74,6 +74,8 @@ def main():
     
     with st.container(): 
         st.markdown('<div class="main">', unsafe_allow_html=True) 
+        if st.session_state.get("rephrased_request", "") == "":
+            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
         display_user_request_input() 
         # display_rephrased_request() 
         st.markdown('<div class="discussion-whiteboard">', unsafe_allow_html=True) 
