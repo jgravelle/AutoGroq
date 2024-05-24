@@ -1,3 +1,6 @@
+## ONE-CLICK, BULK FILE UPLOAD TO AUTOGEN™!
+You made a dozen agents, each with two or three skills-- that's a LOT of clicking to import them one-by-one into Autogen.  Not any more!  Configure AutoGroq™ with the path to your Autogen Studio database.sqlite file, and you can import all 16 of those files with a single click!
+
 ## SUPPORT FOR EVERY LLM ON THE PLANET! ##
 ...SORT OF!  We've got Groq, ChatGPT, and Ollama support.  I'm working on LM Studio as you read this.
 Look at the provider model in the code to see how to make your own.  This was one of the most requested features.
