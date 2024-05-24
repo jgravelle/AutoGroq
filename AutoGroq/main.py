@@ -5,6 +5,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
 from auth_utils import get_api_key
+from db_utils import export_to_autogen
 from ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_user_input, display_reset_and_upload_buttons, display_user_request_input, handle_user_request, load_skill_functions
 
 
@@ -87,7 +88,10 @@ def main():
         display_reset_and_upload_buttons() 
         st.markdown('</div>', unsafe_allow_html=True) 
 
-    display_download_button()     
+    display_download_button() 
+
+    if st.button("Export to Autogen"):
+        export_to_autogen()    
     
 if __name__ == "__main__": 
     main()
