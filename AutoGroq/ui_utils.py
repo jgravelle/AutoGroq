@@ -87,7 +87,7 @@ def create_zip_file(zip_buffer, file_data):
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal", "Skills"])
 
     with tab1:
         if "last_comment" not in st.session_state:
@@ -133,6 +133,29 @@ def display_discussion_and_whiteboard():
     with tab6:
         rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
 
+    with tab7:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        skill_folder = os.path.join(script_dir, "skills")
+        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+        selected_skills = []
+
+        select_all = st.checkbox("Select All", key="select_all_skills")
+
+        for skill_file in skill_files:
+            skill_name = os.path.splitext(skill_file)[0]
+            if select_all:
+                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=True, key=f"skill_{skill_name}")
+            else:
+                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=False, key=f"skill_{skill_name}")
+            if skill_checkbox:
+                selected_skills.append(skill_name)
+
+        if select_all:
+            st.session_state.selected_skills = [os.path.splitext(f)[0] for f in skill_files]
+        else:
+            st.session_state.selected_skills = selected_skills
+
+        regenerate_zip_files()
 
 
 def display_download_button():
@@ -356,10 +379,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                agent_skills = []
-                                for skill_name in skills:
-                                    if skill_name in st.session_state.skill_functions:
-                                        agent_skills.append(skill_name)
+                                agent_skills = st.session_state.selected_skills
                                 autogen_agent_data = {
                                     "type": "assistant",
                                     "config": {
@@ -421,10 +441,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                 description = agent_data.get('description', '')
                                 skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                agent_skills = []
-                                for skill_name in skills:
-                                    if skill_name in st.session_state.skill_functions:
-                                        agent_skills.append(skill_name)
+                                agent_skills = st.session_state.selected_skills
                                 autogen_agent_data = {
                                     "type": "assistant",
                                     "config": {
@@ -753,6 +770,17 @@ def regenerate_json_files_and_zip():
     st.session_state.crewai_zip_buffer = crewai_zip_buffer
 
 
+def regenerate_zip_files():
+    if "agents" in st.session_state:
+        workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+        st.session_state.autogen_zip_buffer = autogen_zip_buffer
+        st.session_state.crewai_zip_buffer = crewai_zip_buffer
+        print("Zip files regenerated.")
+    else:
+        print("No agents found. Skipping zip file regeneration.")
+
+
 def rephrase_prompt(user_request, api_url):
     temperature_value = st.session_state.get('temperature', 0.1)
     print("Executing rephrase_prompt()")
@@ -832,7 +860,12 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     if user_input:
         user_input_text = f"\n\n\n\n{user_input}\n\n"
         st.session_state.discussion_history += user_input_text
-    response_text = f"{agent_name}:\n\n {response}\n\n===\n\n"
+
+    if "last_agent" not in st.session_state or st.session_state.last_agent != agent_name:
+        response_text = f"{agent_name}:\n\n{response}\n\n===\n\n"
+    else:
+        response_text = f"{response}\n\n===\n\n"
+
     st.session_state.discussion_history += response_text
     code_blocks = extract_code_from_response(response)
     st.session_state.whiteboard = code_blocks
@@ -843,6 +876,7 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
 def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
+    skill_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
 
     autogen_file_data = {}
     for agent in st.session_state.agents:
@@ -851,24 +885,33 @@ def zip_files_in_memory(workflow_data):
         agent_file_name = f"{formatted_agent_name}.json"
         autogen_agent_data, _ = create_agent_data(agent)
         autogen_agent_data['config']['name'] = formatted_agent_name
-        agent_file_data = json.dumps(autogen_agent_data, indent=2).encode('utf-8')
+        
+        autogen_agent_data['skills'] = []
+        for skill_name in st.session_state.selected_skills:
+            skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
+            with open(skill_file_path, 'r') as file:
+                skill_data = file.read()
+                skill_json = create_skill_data(skill_data)
+                autogen_agent_data['skills'].append(skill_json)
+        
+        agent_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
+        agent_file_data += json.dumps(autogen_agent_data, indent=2)
+        agent_file_data = agent_file_data.encode('utf-8')
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        skill_folder = os.path.join(script_dir, "skills")
-        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
-
-        for skill_file in skill_files:
-            skill_name = os.path.splitext(skill_file)[0]
-            if agent.get(skill_name, False):
-                skill_file_path = os.path.join(skill_folder, skill_file)
-                with open(skill_file_path, 'r') as file:
-                    skill_data = file.read()
-                skill_json = json.dumps(create_skill_data(skill_data), indent=2).encode('utf-8')
-                autogen_file_data[f"skills/{skill_name}.json"] = skill_json
+    for skill_name in st.session_state.selected_skills:
+        skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
+        with open(skill_file_path, 'r') as file:
+            skill_data = file.read()
+            skill_json = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
+            skill_json += json.dumps(create_skill_data(skill_data), indent=2)
+            skill_json = skill_json.encode('utf-8')
+            autogen_file_data[f"skills/{skill_name}.json"] = skill_json
 
     workflow_file_name = "workflow.json"
-    workflow_file_data = json.dumps(workflow_data, indent=2).encode('utf-8')
+    workflow_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
+    workflow_file_data += json.dumps(workflow_data, indent=2)
+    workflow_file_data = workflow_file_data.encode('utf-8')
     autogen_file_data[workflow_file_name] = workflow_file_data
 
     crewai_file_data = {}
@@ -878,7 +921,9 @@ def zip_files_in_memory(workflow_data):
         crewai_agent_data = create_agent_data(agent)[1]
         crewai_agent_data['name'] = formatted_agent_name
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = json.dumps(crewai_agent_data, indent=2).encode('utf-8')
+        agent_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
+        agent_file_data += json.dumps(crewai_agent_data, indent=2)
+        agent_file_data = agent_file_data.encode('utf-8')
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
 
     create_zip_file(autogen_zip_buffer, autogen_file_data)

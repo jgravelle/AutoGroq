@@ -1,3 +1,5 @@
+#  Thanks to MADTANK:  https://github.com/madtank
+
 from typing import Optional
 import requests
 import collections

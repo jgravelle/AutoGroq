@@ -1,3 +1,5 @@
+# Thanks to NeutrinoTek:  https://github.com/neutrinotek 
+
 import requests
 import json
 from auth_utils import get_api_key

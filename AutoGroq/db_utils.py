@@ -63,7 +63,7 @@ def export_data(db_path):
                             skill_json = create_skill_data(skill_data)
                             skill_data = (
                                 str(uuid.uuid4()),  # Generate a unique ID for the skill
-                                'default',  # Set the user ID to 'default'
+                                str(uuid.uuid4()),  # Generate a unique user ID for the skill
                                 datetime.datetime.now().isoformat(),
                                 skill_data,
                                 skill_json['title'],

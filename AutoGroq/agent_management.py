@@ -112,7 +112,7 @@ def display_agent_edit_form(agent, edit_index):
                     st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-        col1, col2, col3 = st.columns([1, 1, 2])
+        col1, col2 = st.columns([1, 3])
         with col1:
             if st.button("Update", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
@@ -138,22 +138,6 @@ def display_agent_edit_form(agent, edit_index):
                 st.session_state.agents[edit_index] = agent
                 regenerate_json_files_and_zip()
                 st.session_state['show_edit'] = False
-        with col3:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            skill_folder = os.path.join(script_dir, "skills")
-            skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
-            for skill_file in skill_files:
-                skill_name = os.path.splitext(skill_file)[0]
-                if skill_name not in agent:
-                    agent[skill_name] = False
-                skill_checkbox = st.checkbox(
-                    f"Add {skill_name} skill to this agent in Autogen™",
-                    value=agent[skill_name],
-                    key=f"{skill_name}_{edit_index}"
-                )
-                if skill_checkbox != agent[skill_name]:
-                    agent[skill_name] = skill_checkbox
-                    st.session_state.agents[edit_index] = agent
 
 
 def download_agent_file(expert_name):
