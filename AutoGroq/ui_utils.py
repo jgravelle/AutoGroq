@@ -159,26 +159,23 @@ def display_discussion_and_whiteboard():
 
 
 def display_download_button():
-    if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button(
-                label="Download Autogen Files",
-                data=st.session_state.autogen_zip_buffer,
-                file_name="autogen_files.zip",
-                mime="application/zip",
-                key=f"autogen_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
-            )
-        with col2:
-            st.download_button(
-                label="Download CrewAI Files",
-                data=st.session_state.crewai_zip_buffer,
-                file_name="crewai_files.zip",
-                mime="application/zip",
-                key=f"crewai_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
-            )
-    else:
-        st.warning("No files available for download.")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="Download Autogen Files",
+            data=st.session_state.autogen_zip_buffer,
+            file_name="autogen_files.zip",
+            mime="application/zip",
+            key=f"autogen_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+        )
+    with col2:
+        st.download_button(
+            label="Download CrewAI Files",
+            data=st.session_state.crewai_zip_buffer,
+            file_name="crewai_files.zip",
+            mime="application/zip",
+            key=f"crewai_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+        )
 
 
 def display_user_input():

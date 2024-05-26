@@ -88,10 +88,11 @@ def main():
         display_reset_and_upload_buttons() 
         st.markdown('</div>', unsafe_allow_html=True) 
 
-    display_download_button() 
-
-    if st.button("Export to Autogen"):
-        export_to_autogen()    
+    if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
+        display_download_button() 
+        if st.button("Export to Autogen"):
+            export_to_autogen()  
+      
     
 if __name__ == "__main__": 
     main()

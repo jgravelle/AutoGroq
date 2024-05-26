@@ -11,9 +11,14 @@ from ui_utils import get_workflow_from_agents
 
 
 def export_to_autogen():
+    # Check if the app is running on Streamlit Sharing
+    url_params = st.query_params
+    if "streamlit.app" in url_params.get("url", ""):
+        st.warning("Exporting to Autogen is only possible with a locally running copy of AutoGroq™.")
+        return
+
     db_path = AUTOGEN_DB_PATH
     print(f"Database path: {db_path}")
-
     if db_path:
         export_data(db_path)
     else:
