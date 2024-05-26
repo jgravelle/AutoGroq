@@ -5,7 +5,7 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import AUTOGEN_DB_PATH
+from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 from file_utils import create_agent_data, create_skill_data, sanitize_text
 from ui_utils import get_workflow_from_agents
 
@@ -40,8 +40,13 @@ def export_data(db_path):
                 agent_name = agent['config']['name']
                 formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
                 autogen_agent_data, _ = create_agent_data(agent)
+                
+                # Update the model and max_tokens in the autogen_agent_data
+                autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
+                autogen_agent_data['config']['llm_config']['max_tokens'] = MODEL_CHOICES.get(agent['config']['llm_config']['config_list'][0]['model'], MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
+                
                 agent_data = (
-                    str(uuid.uuid4()),  # Generate a unique ID for the agent
+                    str(uuid.uuid4()), # Generate a unique ID for the agent
                     'default',
                     datetime.datetime.now().isoformat(),
                     json.dumps(autogen_agent_data['config']),
@@ -51,27 +56,26 @@ def export_data(db_path):
                 cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
                 print(f"Inserted agent: {formatted_agent_name}")
 
-                script_dir = os.path.dirname(os.path.abspath(__file__))
-                skill_folder = os.path.join(script_dir, "skills")
-                skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
-                for skill_file in skill_files:
-                    skill_name = os.path.splitext(skill_file)[0]
-                    if agent.get(skill_name, False) and skill_name not in inserted_skills:
-                        skill_file_path = os.path.join(skill_folder, skill_file)
-                        with open(skill_file_path, 'r') as file:
-                            skill_data = file.read()
-                            skill_json = create_skill_data(skill_data)
-                            skill_data = (
-                                str(uuid.uuid4()),  # Generate a unique ID for the skill
-                                str(uuid.uuid4()),  # Generate a unique user ID for the skill
-                                datetime.datetime.now().isoformat(),
-                                skill_data,
-                                skill_json['title'],
-                                skill_json['file_name']
-                            )
-                            cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
-                            print(f"Inserted skill: {skill_json['title']}")
-                            inserted_skills.add(skill_name)  # Add the inserted skill to the set
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            skill_folder = os.path.join(script_dir, "skills")
+            skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+            for skill_name in st.session_state.selected_skills:
+                if skill_name not in inserted_skills:
+                    skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
+                    with open(skill_file_path, 'r') as file:
+                        skill_data = file.read()
+                        skill_json = create_skill_data(skill_data)
+                        skill_data = (
+                            str(uuid.uuid4()),  # Generate a unique ID for the skill
+                            'default',  # Set the user ID to 'default'
+                            datetime.datetime.now().isoformat(),
+                            skill_data,
+                            skill_json['title'],
+                            skill_json['file_name']
+                        )
+                        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
+                        print(f"Inserted skill: {skill_json['title']}")
+                        inserted_skills.add(skill_name)  # Add the inserted skill to the set
 
             # Access agents from st.session_state for workflow
             workflow_data = get_workflow_from_agents(st.session_state.agents)[0]

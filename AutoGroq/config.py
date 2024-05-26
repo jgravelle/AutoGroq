@@ -64,3 +64,14 @@ else:
 
 # Database path
 AUTOGEN_DB_PATH = "C:\\Users\\j\\.autogenstudio\\database.sqlite"
+
+MODEL_CHOICES = {
+    'default': None,
+    'gemma-7b-it': 8192,
+    'gpt-4o': 4096,
+    'instructlab/granite-7b-lab-GGUF': 2048,
+    'llama3': 8192,
+    'llama3-70b-8192': 8192,
+    'llama3-8b-8192': 8192,
+    'mixtral-8x7b-32768': 32768
+}

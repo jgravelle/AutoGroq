@@ -877,28 +877,29 @@ def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
     skill_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
-
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         agent_file_name = f"{formatted_agent_name}.json"
+        
+        # Use the agent-specific model configuration
         autogen_agent_data, _ = create_agent_data(agent)
         autogen_agent_data['config']['name'] = formatted_agent_name
-        
+        autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
+        autogen_agent_data['config']['llm_config']['max_tokens'] = agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
         autogen_agent_data['skills'] = []
+        
         for skill_name in st.session_state.selected_skills:
             skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
             with open(skill_file_path, 'r') as file:
                 skill_data = file.read()
                 skill_json = create_skill_data(skill_data)
                 autogen_agent_data['skills'].append(skill_json)
-        
         agent_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
         agent_file_data += json.dumps(autogen_agent_data, indent=2)
         agent_file_data = agent_file_data.encode('utf-8')
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-
     for skill_name in st.session_state.selected_skills:
         skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
         with open(skill_file_path, 'r') as file:
@@ -907,13 +908,11 @@ def zip_files_in_memory(workflow_data):
             skill_json += json.dumps(create_skill_data(skill_data), indent=2)
             skill_json = skill_json.encode('utf-8')
             autogen_file_data[f"skills/{skill_name}.json"] = skill_json
-
     workflow_file_name = "workflow.json"
     workflow_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
     workflow_file_data += json.dumps(workflow_data, indent=2)
     workflow_file_data = workflow_file_data.encode('utf-8')
     autogen_file_data[workflow_file_name] = workflow_file_data
-
     crewai_file_data = {}
     for index, agent in enumerate(st.session_state.agents):
         agent_name = agent['config']['name']
@@ -925,11 +924,8 @@ def zip_files_in_memory(workflow_data):
         agent_file_data += json.dumps(crewai_agent_data, indent=2)
         agent_file_data = agent_file_data.encode('utf-8')
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
-
     create_zip_file(autogen_zip_buffer, autogen_file_data)
     create_zip_file(crewai_zip_buffer, crewai_file_data)
-
     autogen_zip_buffer.seek(0)
     crewai_zip_buffer.seek(0)
-
     return autogen_zip_buffer, crewai_zip_buffer

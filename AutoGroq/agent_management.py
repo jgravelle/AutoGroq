@@ -4,7 +4,7 @@ import os
 import re
 import streamlit as st
 
-from config import API_URL
+from config import API_URL, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
@@ -111,17 +111,28 @@ def display_agent_edit_form(agent, edit_index):
                     del st.session_state[f"delete_confirmed_{edit_index}"]
                     st.experimental_rerun()
         description_value = agent.get('new_description', agent.get('description', ''))
-        new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
-        col1, col2 = st.columns([1, 3])
+        
+        col1, col2 = st.columns([3, 1])
         with col1:
-            if st.button("Update", key=f"regenerate_{edit_index}"):
+            selected_model = st.selectbox("Model", options=list(MODEL_CHOICES.keys()), index=list(MODEL_CHOICES.keys()).index(agent['config']['llm_config']['config_list'][0]['model']), key=f"model_select_{edit_index}")
+        with col2:
+            if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}"):
+                for agent in st.session_state.agents:
+                    agent['config']['llm_config']['config_list'][0]['model'] = selected_model
+                    agent['config']['llm_config']['max_tokens'] = MODEL_CHOICES[selected_model]
+                st.experimental_rerun()
+        
+        new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Update User Description", key=f"regenerate_{edit_index}"):
                 print(f"Regenerate button clicked for agent {edit_index}")
                 new_description = regenerate_agent_description(agent)
                 if new_description:
                     agent['new_description'] = new_description
                     print(f"Description regenerated for {agent['config']['name']}: {new_description}")
                     st.session_state[f"regenerate_description_{edit_index}"] = True
-                    # Update the value parameter of st.text_area to display the new description
                     description_value = new_description
                     st.experimental_rerun()
                 else:
@@ -130,6 +141,14 @@ def display_agent_edit_form(agent, edit_index):
             if st.button("Save Changes", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
                 agent['description'] = agent.get('new_description', new_description)
+                
+                if selected_model != 'default':
+                    agent['config']['llm_config']['config_list'][0]['model'] = selected_model
+                    agent['config']['llm_config']['max_tokens'] = MODEL_CHOICES[selected_model]
+                else:
+                    agent['config']['llm_config']['config_list'][0]['model'] = st.session_state.model
+                    agent['config']['llm_config']['max_tokens'] = MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096)
+                
                 st.session_state['show_edit'] = False
                 if 'edit_agent_index' in st.session_state:
                     del st.session_state['edit_agent_index']
