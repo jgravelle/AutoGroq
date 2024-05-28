@@ -2,11 +2,17 @@
 
 AutoGroq is a groundbreaking tool that revolutionizes the way users interact with AI assistants. By dynamically generating tailored teams of AI agents based on your project requirements, AutoGroq eliminates the need for manual configuration and allows you to tackle any question, problem, or project with ease and efficiency.
 
+## NEW THIS WEEK:  SKILL GENERATION!
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/c47f6bc7-03a9-4695-86ab-46dbbda06bec)
+
+
 ## Why AutoGroq?
 
 AutoGroq was born out of the realization that the traditional approach to building AI agents was backwards. Instead of creating agents in anticipation of problems, AutoGroq uses the syntax of the users' needs as the basis for constructing the perfect AI team. It's how we wished Autogen worked from the very beginning.
 
 With AutoGroq, a fully configured workflow, team of agents, and skillset are just a few clicks and a couple of minutes away, without any programming necessary. Our rapidly growing user base of nearly 8000 developers is a testament to the power and effectiveness of AutoGroq.
+
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/a5294491-2c78-4e07-a587-8a1eacb17a0a)
 
 ## Key Features
 
@@ -24,18 +30,16 @@ With AutoGroq, a fully configured workflow, team of agents, and skillset are jus
 
 To get started with AutoGroq, follow these steps:
 
-1. Install Matt Berman's Autogen.
-2. Install Mini-conda.
+1. Install Autogen following Matt Berman's instructions:  https://www.youtube.com/watch?v=mUEFwUU0IfE
+2. Install Mini-conda:  https://docs.anaconda.com/free/miniconda/miniconda-install/
 3. Open a command prompt and run the following commands:
-md c:\AutoGroq
-cd c:\AutoGroq
-conda create -n AutoGroq python=3.11
-conda activate AutoGroq
-git clone https://github.com/jgravelle/AutoGroq.git
-pip install -r requirements.txt
-streamlit run c:\AutoGroq\AutoGroq\main.py
-Copy code
-For a detailed installation guide, please refer to the [Installation Instructions](link-to-installation-instructions).
+   md c:\AutoGroq  
+   cd c:\AutoGroq  
+   conda create -n AutoGroq python=3.11  
+   conda activate AutoGroq  
+   git clone https://github.com/jgravelle/AutoGroq.git  
+   pip install -r requirements.txt  
+   streamlit run c:\AutoGroq\AutoGroq\main.py  
 
 ## How It Works
 
@@ -50,7 +54,7 @@ For a detailed installation guide, please refer to the [Installation Instruction
 
 Experience AutoGroq's capabilities firsthand by accessing our online beta version: [AutoGroq Live Demo](https://autogroq.streamlit.app/)
 
-For a step-by-step guide on using AutoGroq, watch our updated video tutorial: [AutoGroq Video Tutorial](https://www.youtube.com/watch?v=JkYzuL8V_4g)
+For a step-by-step guide on using AutoGroq, watch our updated video tutorials: [AutoGroq Video Tutorials](https://www.youtube.com/watch?v=hoMqUmUeifU&list=PLPu97iZ5SLTsGX3WWJjQ5GNHy7ZX66ryP&index=15)
 
 ## Contributing
 
