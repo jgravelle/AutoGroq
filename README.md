@@ -33,13 +33,13 @@ To get started with AutoGroq, follow these steps:
 1. Install Autogen following Matt Berman's instructions:  https://www.youtube.com/watch?v=mUEFwUU0IfE
 2. Install Mini-conda:  https://docs.anaconda.com/free/miniconda/miniconda-install/
 3. Open a command prompt and run the following commands:
-md c:\AutoGroq
-cd c:\AutoGroq
-conda create -n AutoGroq python=3.11
-conda activate AutoGroq
-git clone https://github.com/jgravelle/AutoGroq.git
-pip install -r requirements.txt
-streamlit run c:\AutoGroq\AutoGroq\main.py
+   md c:\AutoGroq
+   cd c:\AutoGroq
+   conda create -n AutoGroq python=3.11
+   conda activate AutoGroq
+   git clone https://github.com/jgravelle/AutoGroq.git
+   pip install -r requirements.txt
+   streamlit run c:\AutoGroq\AutoGroq\main.py
 
 ## How It Works
 
