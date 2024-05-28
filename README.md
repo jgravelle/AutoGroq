@@ -2,6 +2,10 @@
 
 AutoGroq is a groundbreaking tool that revolutionizes the way users interact with AI assistants. By dynamically generating tailored teams of AI agents based on your project requirements, AutoGroq eliminates the need for manual configuration and allows you to tackle any question, problem, or project with ease and efficiency.
 
+## NEW THIS WEEK:  SKILL GENERATION!
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/c47f6bc7-03a9-4695-86ab-46dbbda06bec)
+
+
 ## Why AutoGroq?
 
 AutoGroq was born out of the realization that the traditional approach to building AI agents was backwards. Instead of creating agents in anticipation of problems, AutoGroq uses the syntax of the users' needs as the basis for constructing the perfect AI team. It's how we wished Autogen worked from the very beginning.
