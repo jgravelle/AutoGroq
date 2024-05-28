@@ -12,6 +12,8 @@ AutoGroq was born out of the realization that the traditional approach to buildi
 
 With AutoGroq, a fully configured workflow, team of agents, and skillset are just a few clicks and a couple of minutes away, without any programming necessary. Our rapidly growing user base of nearly 8000 developers is a testament to the power and effectiveness of AutoGroq.
 
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/a5294491-2c78-4e07-a587-8a1eacb17a0a)
+
 ## Key Features
 
 - **Dynamic Expert Agent Generation**: AutoGroq automatically creates expert agents specialized in various domains or topics, ensuring you receive the most relevant support for your inquiries.
@@ -28,8 +30,8 @@ With AutoGroq, a fully configured workflow, team of agents, and skillset are jus
 
 To get started with AutoGroq, follow these steps:
 
-1. Install Matt Berman's Autogen.
-2. Install Mini-conda.
+1. Install Autogen following Matt Berman's instructions:  https://www.youtube.com/watch?v=mUEFwUU0IfE
+2. Install Mini-conda:  https://docs.anaconda.com/free/miniconda/miniconda-install/
 3. Open a command prompt and run the following commands:
 md c:\AutoGroq
 cd c:\AutoGroq
@@ -38,8 +40,6 @@ conda activate AutoGroq
 git clone https://github.com/jgravelle/AutoGroq.git
 pip install -r requirements.txt
 streamlit run c:\AutoGroq\AutoGroq\main.py
-Copy code
-For a detailed installation guide, please refer to the [Installation Instructions](link-to-installation-instructions).
 
 ## How It Works
 
