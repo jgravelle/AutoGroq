@@ -7,7 +7,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
 from utils.auth_utils import get_api_key
-from utils.db_utils import export_skill_to_autogen
+from utils.db_utils import export_skill_to_autogen, export_to_autogen
 from utils.ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_reset_and_upload_buttons, display_user_input, display_user_request_input, generate_skill, handle_user_request, load_skill_functions, regenerate_zip_files, rephrase_skill
 
 
@@ -136,7 +136,12 @@ def main():
                     st.experimental_rerun()
 
     display_reset_and_upload_buttons()
-    display_download_button()
+    if "agents" in st.session_state and st.session_state.agents:
+        if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
+            display_download_button() 
+            if st.button("Export to Autogen"):
+                export_to_autogen()  
+    
 
 if __name__ == "__main__":
     main()
