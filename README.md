@@ -54,7 +54,7 @@ streamlit run c:\AutoGroq\AutoGroq\main.py
 
 Experience AutoGroq's capabilities firsthand by accessing our online beta version: [AutoGroq Live Demo](https://autogroq.streamlit.app/)
 
-For a step-by-step guide on using AutoGroq, watch our updated video tutorial: [AutoGroq Video Tutorial](https://www.youtube.com/watch?v=JkYzuL8V_4g)
+For a step-by-step guide on using AutoGroq, watch our updated video tutorials: [AutoGroq Video Tutorials](https://www.youtube.com/watch?v=hoMqUmUeifU&list=PLPu97iZ5SLTsGX3WWJjQ5GNHy7ZX66ryP&index=15)
 
 ## Contributing
 
