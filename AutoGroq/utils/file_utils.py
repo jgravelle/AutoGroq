@@ -1,3 +1,4 @@
+
 import datetime
 import os
 import re 
@@ -50,8 +51,8 @@ def create_agent_data(agent):
         "skills": []
     }
 
-    #script_dir = os.path.dirname(os.path.abspath(__file__))
-    skill_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skill_folder = os.path.join(project_root, "skills")
     skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
 
     for skill_file in skill_files:

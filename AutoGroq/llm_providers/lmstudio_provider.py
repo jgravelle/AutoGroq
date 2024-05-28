@@ -1,12 +1,33 @@
 
 import json
 import requests
+
 from llm_providers.base_provider import BaseLLMProvider
 
 class LmstudioProvider(BaseLLMProvider):
     def __init__(self, api_url):
         self.api_url = api_url
 
+
+    def process_response(self, response):
+        if response.status_code == 200:
+            response_data = response.json()
+            if "choices" in response_data:
+                content = response_data["choices"][0]["message"]["content"]
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": content.strip()
+                            }
+                        }
+                    ]
+                }
+            else:
+                raise Exception("Unexpected response format. 'choices' field missing.")
+        else:
+            raise Exception(f"Request failed with status code {response.status_code}")
+        
 
     def send_request(self, data):
         headers = {
@@ -30,22 +51,3 @@ class LmstudioProvider(BaseLLMProvider):
 
         response = requests.post(f"{self.api_url}", data=json_data, headers=headers)
         return response
-
-    def process_response(self, response):
-        if response.status_code == 200:
-            response_data = response.json()
-            if "choices" in response_data:
-                content = response_data["choices"][0]["message"]["content"]
-                return {
-                    "choices": [
-                        {
-                            "message": {
-                                "content": content.strip()
-                            }
-                        }
-                    ]
-                }
-            else:
-                raise Exception("Unexpected response format. 'choices' field missing.")
-        else:
-            raise Exception(f"Request failed with status code {response.status_code}")

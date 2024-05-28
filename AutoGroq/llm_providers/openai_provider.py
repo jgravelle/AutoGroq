@@ -1,9 +1,10 @@
 # Thanks to NeutrinoTek:  https://github.com/neutrinotek 
-
-import requests
 import json
-from auth_utils import get_api_key
+import requests
+
 from llm_providers.base_provider import BaseLLMProvider
+from utils.auth_utils import get_api_key
+
 
 class OpenaiProvider(BaseLLMProvider):
 
@@ -11,6 +12,13 @@ class OpenaiProvider(BaseLLMProvider):
         self.api_key = get_api_key()
         self.api_url = api_url
     
+
+    def process_response(self, response):
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {
@@ -26,10 +34,4 @@ class OpenaiProvider(BaseLLMProvider):
         
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
-    
-    
-    def process_response(self, response):
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Request failed with status code {response.status_code}")
+     

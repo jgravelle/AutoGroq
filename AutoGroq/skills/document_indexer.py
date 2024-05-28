@@ -2,6 +2,7 @@
 #  README:  https://github.com/madtank/autogenstudio-skills/blob/main/rag/README.md
 
 import argparse
+import bs4
 import csv
 import json
 import os

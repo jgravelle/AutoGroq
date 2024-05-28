@@ -1,3 +1,4 @@
+
 import datetime
 import json
 import os
@@ -6,8 +7,9 @@ import streamlit as st
 import uuid
 
 from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
-from file_utils import create_agent_data, create_skill_data, sanitize_text
-from ui_utils import get_workflow_from_agents
+
+from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+from utils.workflow_utils import get_workflow_from_agents
 
 
 def export_to_autogen():
@@ -61,9 +63,8 @@ def export_data(db_path):
                 cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
                 print(f"Inserted agent: {formatted_agent_name}")
 
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            skill_folder = os.path.join(script_dir, "skills")
-            skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            skill_folder = os.path.join(project_root, "skills")
             for skill_name in st.session_state.selected_skills:
                 if skill_name not in inserted_skills:
                     skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
@@ -108,3 +109,34 @@ def export_data(db_path):
         except sqlite3.Error as e:
             st.error(f"Error exporting data to Autogen: {str(e)}")
             print(f"Error exporting data to Autogen: {str(e)}")
+
+
+def export_skill_to_autogen(skill_name, edited_skill):
+    print(f"Exporting skill '{skill_name}' to Autogen...")
+    try:
+        conn = sqlite3.connect(AUTOGEN_DB_PATH)
+        cursor = conn.cursor()
+        print("Connected to the database successfully.")
+
+        skill_data = create_skill_data(edited_skill)
+        print(f"Skill data: {skill_data}")
+        skill_data = (
+            str(uuid.uuid4()),  # Generate a unique ID for the skill
+            'default',  # Set the user ID to 'default'
+            datetime.datetime.now().isoformat(),
+            edited_skill,
+            skill_data['title'],
+            skill_data['file_name']
+        )
+        print(f"Inserting skill data: {skill_data}")
+        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
+
+        conn.commit()
+        print("Skill exported to Autogen successfully.")
+        conn.close()
+        print("Database connection closed.")
+        st.success(f"Skill '{skill_name}' exported to Autogen successfully!")
+        st.experimental_rerun()
+    except sqlite3.Error as e:
+        st.error(f"Error exporting skill to Autogen: {str(e)}")
+        print(f"Error exporting skill to Autogen: {str(e)}")

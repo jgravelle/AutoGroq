@@ -6,7 +6,7 @@ import streamlit as st
 
 from config import API_URL, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-from ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
+from utils.ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):

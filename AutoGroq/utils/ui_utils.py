@@ -1,41 +1,25 @@
+
 import datetime
 import importlib
-import os
-import streamlit as st
-import time
-
-from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
-from current_project import Current_Project
-
-from skills.fetch_web_content import fetch_web_content
-    
-    
-def display_api_key_input():
-    if 'api_key' not in st.session_state:
-        st.session_state.api_key = ''
-    llm = LLM_PROVIDER.upper()
-    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
-    
-    if api_key:
-        st.session_state.api_key = api_key
-        st.success("API key entered successfully.")
-        print(f"API Key: {api_key}")
-    
-    return api_key
-
-
 import io
 import json
+import os
 import pandas as pd
 import re
+import streamlit as st
 import time
 import zipfile
 
-from api_utils import get_llm_provider
-from file_utils import create_agent_data, create_skill_data, sanitize_text
+from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
 
-import datetime
-
+from current_project import Current_Project
+from skills.fetch_web_content import fetch_web_content
+from utils.api_utils import get_llm_provider
+from utils.db_utils import export_skill_to_autogen
+from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+from utils.workflow_utils import get_workflow_from_agents
+    
+    
 def create_project_manager(rephrased_text, api_url):
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
@@ -84,10 +68,24 @@ def create_zip_file(zip_buffer, file_data):
             zip_file.writestr(file_name, file_content)
 
 
+def display_api_key_input():
+    if 'api_key' not in st.session_state:
+        st.session_state.api_key = ''
+    llm = LLM_PROVIDER.upper()
+    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
+    
+    if api_key:
+        st.session_state.api_key = api_key
+        st.success("API key entered successfully.")
+        print(f"API Key: {api_key}")
+    
+    return api_key
+
+
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal", "Skills"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal"])
 
     with tab1:
         if "last_comment" not in st.session_state:
@@ -132,30 +130,6 @@ def display_discussion_and_whiteboard():
     
     with tab6:
         rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
-
-    with tab7:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        skill_folder = os.path.join(script_dir, "skills")
-        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
-        selected_skills = []
-
-        select_all = st.checkbox("Select All", key="select_all_skills")
-
-        for skill_file in skill_files:
-            skill_name = os.path.splitext(skill_file)[0]
-            if select_all:
-                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=True, key=f"skill_{skill_name}")
-            else:
-                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=False, key=f"skill_{skill_name}")
-            if skill_checkbox:
-                selected_skills.append(skill_name)
-
-        if select_all:
-            st.session_state.selected_skills = [os.path.splitext(f)[0] for f in skill_files]
-        else:
-            st.session_state.selected_skills = selected_skills
-
-        regenerate_zip_files()
 
 
 def display_download_button():
@@ -299,6 +273,40 @@ def extract_json_objects(json_string):
             print(f"Error parsing JSON object: {e}")
             print(f"JSON string: {obj_str}")
     return parsed_objects
+                
+
+def generate_skill(rephrased_skill_request):
+    temperature_value = st.session_state.get('temperature', 0.1)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"""
+                Based on the rephrased skill request below, please do the following:
+
+                1. Do step-by-step reasoning and think to understand the request better.
+                2. Code the best Autogen skill in Python as per the request as a [skill_name].py file.
+                3. Follow the provided examples.
+                4. Return ONLY THE CODE for the skill.  Any non-code content (e.g., comments, docstrings) is not required.  If there ARE any non-code lines, please pre-pend them with a '#' symbol to comment them out.
+
+                Rephrased skill request: "{rephrased_skill_request}"
+                """
+            }
+        ]
+    }
+    llm_provider = get_llm_provider(API_URL)
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            proposed_skill = response_data["choices"][0]["message"]["content"].strip()
+            return proposed_skill
+    return None
 
 
 def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
@@ -501,143 +509,6 @@ def get_discussion_history():
     return st.session_state.discussion_history
 
 
-def get_workflow_from_agents(agents):
-    current_timestamp = datetime.datetime.now().isoformat()
-    temperature_value = st.session_state.get('temperature', 0.3)
-
-    workflow = {
-        "name": "AutoGroq Workflow",
-        "description": "Workflow auto-generated by AutoGroq.",
-        "sender": {
-            "type": "userproxy",
-            "config": {
-                "name": "userproxy",
-                "llm_config": False,
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 5,
-                "system_message": "You are a helpful assistant.",
-                "is_termination_msg": None,
-                "code_execution_config": {
-                    "work_dir": None,
-                    "use_docker": False
-                },
-                "default_auto_reply": "",
-                "description": None
-            },
-            "timestamp": current_timestamp,
-            "user_id": "default",
-            "skills": []
-        },
-        "receiver": {
-            "type": "groupchat",
-            "config": {
-                "name": "group_chat_manager",
-                "llm_config": {
-                    "config_list": [
-                        {
-                            "user_id": "default",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "model": st.session_state.model,
-                            "base_url": None,
-                            "api_type": None,
-                            "api_version": None,
-                            "description": "OpenAI model configuration"
-                        }
-                    ],
-                    "temperature": temperature_value,
-                    "cache_seed": 42,
-                    "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
-                    "extra_body": None
-                },
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 10,
-                "system_message": "Group chat manager",
-                "is_termination_msg": None,
-                "code_execution_config": None,
-                "default_auto_reply": "",
-                "description": None
-            },
-            "groupchat_config": {
-                "agents": [],
-                "admin_name": "Admin",
-                "messages": [],
-                "max_round": 10,
-                "speaker_selection_method": "auto",
-                "allow_repeat_speaker": True
-            },
-            "timestamp": current_timestamp,
-            "user_id": "default",
-            "skills": []
-        },
-        "type": "groupchat",
-        "user_id": "default",
-        "timestamp": current_timestamp,
-        "summary_method": "last"
-    }
-
-    for index, agent in enumerate(agents):
-        agent_name = agent["config"]["name"]
-        description = agent["description"]
-        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-        sanitized_description = sanitize_text(description)
-        
-        system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
-        if index == 0:
-            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:] if a in st.session_state.agents]  # Filter out deleted agents
-            system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
-
-            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:]]
-            system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
-
-        agent_config = {
-            "type": "assistant",
-            "config": {
-                "name": formatted_agent_name,
-                "llm_config": {
-                    "config_list": [
-                        {
-                            "user_id": "default",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "model": st.session_state.model,
-                            "base_url": None,
-                            "api_type": None,
-                            "api_version": None,
-                            "description": "OpenAI model configuration"
-                        }
-                    ],
-                    "temperature": temperature_value,
-                    "cache_seed": 42,
-                    "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
-                    "extra_body": None
-                },
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 8,
-                "system_message": system_message,
-                "is_termination_msg": None,
-                "code_execution_config": None,
-                "default_auto_reply": "",
-                "description": None
-            },
-            "timestamp": current_timestamp,
-            "user_id": "default",
-            "skills": []  # Set skills to null only in the workflow JSON
-        }
-
-        workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
-
-    crewai_agents = []
-    for agent in agents:
-        if agent not in st.session_state.agents:  # Check if the agent exists in st.session_state.agents
-            continue  # Skip the agent if it has been deleted
-        
-        _, crewai_agent_data = create_agent_data(agent)
-        crewai_agents.append(crewai_agent_data)
-
-    return workflow, crewai_agents
-
-
 def handle_user_request(session_state):
     print("Debug: Handling user request for session state: ", session_state)
     user_request = session_state.user_request
@@ -743,8 +614,8 @@ def handle_user_request(session_state):
 
 
 def load_skill_functions():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    skill_folder = os.path.join(script_dir, "skills")
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skill_folder = os.path.join(project_root, "skills")
     skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
     skill_functions = {}
     for skill_file in skill_files:
@@ -753,7 +624,30 @@ def load_skill_functions():
         if hasattr(skill_module, skill_name):
             skill_functions[skill_name] = getattr(skill_module, skill_name)
     st.session_state.skill_functions = skill_functions
-    
+
+
+def process_skill_request():
+    skill_request = st.session_state.skill_request_input
+    if skill_request:
+        print(f"Skill Request: {skill_request}")
+        rephrased_skill_request = rephrase_skill(skill_request)
+        if rephrased_skill_request:
+            print(f"Generating proposed skill...")
+            proposed_skill = generate_skill(rephrased_skill_request)
+            print(f"Proposed Skill: {proposed_skill}")
+            if proposed_skill:
+                skill_name = re.search(r"def\s+(\w+)\(", proposed_skill).group(1)
+                st.write(f"Proposed Skill: {skill_name}")
+                st.code(proposed_skill)
+                if st.button("Export to Autogen", key=f"export_button_{skill_name}"):
+                    print(f"Exporting skill {skill_name} to Autogen")
+                    export_skill_to_autogen(skill_name, proposed_skill)
+                    st.success(f"Skill {skill_name} exported to Autogen successfully!")
+                    st.experimental_rerun()
+                if st.button("Discard", key=f"discard_button_{skill_name}"):
+                    st.warning("Skill discarded.")
+                    st.experimental_rerun()
+
 
 def regenerate_json_files_and_zip():
     # Get the updated workflow data
@@ -776,6 +670,39 @@ def regenerate_zip_files():
         print("Zip files regenerated.")
     else:
         print("No agents found. Skipping zip file regeneration.")
+
+
+def rephrase_skill(skill_request):
+    print("Debug: Rephrasing skill: ", skill_request)
+    temperature_value = st.session_state.get('temperature', 0.1)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"""
+                Act as a professional skill creator and rephrase the following skill request into an optimized prompt:
+
+                Skill request: "{skill_request}"
+
+                Rephrased:
+                """
+            }
+        ]
+    }
+    llm_provider = get_llm_provider(API_URL)
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            rephrased = response_data["choices"][0]["message"]["content"].strip()
+            print(f"Debug: Rephrased skill: {rephrased}")
+            return rephrased
+    return None
 
 
 def rephrase_prompt(user_request, api_url):
@@ -851,7 +778,13 @@ def rephrase_prompt(user_request, api_url):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return None
-    
+
+
+def save_skill(skill_name, edited_skill):
+    with open(f"{skill_name}.py", "w") as f:
+        f.write(edited_skill)
+    st.success(f"Skill {skill_name} saved successfully!")
+
     
 def update_discussion_and_whiteboard(agent_name, response, user_input):
     if user_input:
@@ -873,7 +806,8 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
 def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
-    skill_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills")
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skill_folder = os.path.join(project_root, "skills")
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
