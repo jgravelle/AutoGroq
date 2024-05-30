@@ -6,41 +6,20 @@ import streamlit as st
 from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 
 from agent_management import display_agents
-from utils.auth_utils import get_api_key
+from utils.api_utils import set_llm_provider_title
 from utils.db_utils import export_skill_to_autogen, export_to_autogen
-from utils.ui_utils import display_api_key_input, display_discussion_and_whiteboard, display_download_button, display_reset_and_upload_buttons, display_user_input, display_user_request_input, generate_skill, handle_user_request, load_skill_functions, regenerate_zip_files, rephrase_skill
+from utils.session_utils import initialize_session_variables
+from utils.ui_utils import display_discussion_and_whiteboard, display_download_button, display_reset_and_upload_buttons, display_user_input, display_user_request_input, generate_skill, handle_user_request, key_prompt, load_skill_functions, regenerate_zip_files, rephrase_skill, set_css
 
 
 def main():
-    # Construct the relative path to the CSS file
-    css_file = "AutoGroq/style.css"
-
-    # Check if the CSS file exists
-    if os.path.exists(css_file):
-        with open(css_file) as f:
-            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    else:
-        st.error(f"CSS file not found: {os.path.abspath(css_file)}")
-
+    set_css()
+    initialize_session_variables()
     load_skill_functions()
+    key_prompt()
+    set_llm_provider_title()
 
-    api_key = get_api_key()
-    if api_key is None:
-        api_key = display_api_key_input()
-    if api_key is None:
-        llm = LLM_PROVIDER.upper()
-        st.warning(f"{llm}_API_KEY not found. Please enter your API key.")
-        return
 
-    # If the LLM Provider is "groq", the title is "AutoGroq"
-    if LLM_PROVIDER == "groq":
-        st.title("AutoGroq™")
-    elif LLM_PROVIDER == "ollama":
-        st.title("Auto̶G̶r̶o̶qOllama")
-    elif LLM_PROVIDER == "lmstudio":
-        st.title("Auto̶G̶r̶o̶qLM_Studio")
-    elif LLM_PROVIDER == "openai":
-        st.title("Auto̶G̶r̶o̶qChatGPT")
 
     col1, col2 = st.columns([1, 1])  # Adjust the column widths as needed
     with col1:

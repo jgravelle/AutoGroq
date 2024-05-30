@@ -1,3 +1,11 @@
+import os
+
+
+# Get user home directory
+home_dir = os.path.expanduser("~")
+default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
+
+
 #APIs
 LLM_PROVIDER = "groq" # Supported values: "groq", "openai", "ollama", "lmstudio"
 
@@ -63,7 +71,8 @@ else:
 
     
 # Database path
-AUTOGEN_DB_PATH = "C:\\Users\\j\\.autogenstudio\\database.sqlite"
+# AUTOGEN_DB_PATH="/path/to/custom/database.sqlite"
+AUTOGEN_DB_PATH = os.environ.get('AUTOGEN_DB_PATH', default_db_path)
 
 MODEL_CHOICES = {
     'default': None,

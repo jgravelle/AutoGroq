@@ -15,6 +15,7 @@ from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY
 from current_project import Current_Project
 from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
+from utils.auth_utils import get_api_key
 from utils.db_utils import export_skill_to_autogen
 from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
@@ -69,8 +70,6 @@ def create_zip_file(zip_buffer, file_data):
 
 
 def display_api_key_input():
-    if 'api_key' not in st.session_state:
-        st.session_state.api_key = ''
     llm = LLM_PROVIDER.upper()
     api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
     
@@ -88,13 +87,9 @@ def display_discussion_and_whiteboard():
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal"])
 
     with tab1:
-        if "last_comment" not in st.session_state:
-            st.session_state.last_comment = ""
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
 
     with tab2:
-        if "whiteboard" not in st.session_state:
-            st.session_state.whiteboard = ""
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
 
     with tab3:
@@ -164,8 +159,6 @@ def display_user_input():
             if "reference_html" not in st.session_state or url not in st.session_state.reference_html:
                 html_content = fetch_web_content(url)
                 if html_content:
-                    if "reference_html" not in st.session_state:
-                        st.session_state.reference_html = {}
                     st.session_state.reference_html[url] = html_content
                 else:
                     st.warning("Failed to fetch HTML content.")
@@ -218,8 +211,6 @@ def display_reset_and_upload_buttons():
 
 
 def display_user_request_input():
-    if "show_request_input" not in st.session_state:
-        st.session_state.show_request_input = True
     if st.session_state.show_request_input:
         if st.session_state.get("previous_user_request") != st.session_state.get("user_request", ""):
             st.session_state.previous_user_request = st.session_state.get("user_request", "")
@@ -504,8 +495,6 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
 
 
 def get_discussion_history():
-    if "discussion_history" not in st.session_state:
-        st.session_state.discussion_history = ""
     return st.session_state.discussion_history
 
 
@@ -587,7 +576,7 @@ def handle_user_request(session_state):
     if match:
         team_of_experts_text = match.group(1).strip()
     else:
-        print("Error: 'Team of Experts' section not found in Project Manager's output.")
+        print("Error: 'ts' section not found in Project Manager's output.")
         st.warning("Failed to extract the team of experts from the Project Manager's output. Please try again.")
         return
 
@@ -612,6 +601,15 @@ def handle_user_request(session_state):
     session_state.autogen_zip_buffer = autogen_zip_buffer
     session_state.crewai_zip_buffer = crewai_zip_buffer
 
+
+def key_prompt():
+    api_key = get_api_key()
+    if api_key is None:
+        api_key = display_api_key_input()
+    if api_key is None:
+        llm = LLM_PROVIDER.upper()
+        st.warning(f"{llm}_API_KEY not found. Please enter your API key.")
+        return
 
 def load_skill_functions():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -785,7 +783,19 @@ def save_skill(skill_name, edited_skill):
         f.write(edited_skill)
     st.success(f"Skill {skill_name} saved successfully!")
 
+
+def set_css():
+    # Construct the relative path to the CSS file
+    css_file = "AutoGroq/style.css"
+
+    # Check if the CSS file exists
+    if os.path.exists(css_file):
+        with open(css_file) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    else:
+        st.error(f"CSS file not found: {os.path.abspath(css_file)}")
     
+
 def update_discussion_and_whiteboard(agent_name, response, user_input):
     if user_input:
         user_input_text = f"\n\n\n\n{user_input}\n\n"
@@ -827,21 +837,18 @@ def zip_files_in_memory(workflow_data):
                 skill_data = file.read()
                 skill_json = create_skill_data(skill_data)
                 autogen_agent_data['skills'].append(skill_json)
-        agent_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
-        agent_file_data += json.dumps(autogen_agent_data, indent=2)
+        agent_file_data = json.dumps(autogen_agent_data, indent=2)
         agent_file_data = agent_file_data.encode('utf-8')
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
     for skill_name in st.session_state.selected_skills:
         skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
         with open(skill_file_path, 'r') as file:
             skill_data = file.read()
-            skill_json = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
-            skill_json += json.dumps(create_skill_data(skill_data), indent=2)
+            skill_json = json.dumps(create_skill_data(skill_data), indent=2)
             skill_json = skill_json.encode('utf-8')
             autogen_file_data[f"skills/{skill_name}.json"] = skill_json
     workflow_file_name = "workflow.json"
-    workflow_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
-    workflow_file_data += json.dumps(workflow_data, indent=2)
+    workflow_file_data = json.dumps(workflow_data, indent=2)
     workflow_file_data = workflow_file_data.encode('utf-8')
     autogen_file_data[workflow_file_name] = workflow_file_data
     crewai_file_data = {}
@@ -851,8 +858,7 @@ def zip_files_in_memory(workflow_data):
         crewai_agent_data = create_agent_data(agent)[1]
         crewai_agent_data['name'] = formatted_agent_name
         agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = "# Created by AutoGroq™ [https://github.com/jgravelle/AutoGroq]\n# https://j.gravelle.us\n\n"
-        agent_file_data += json.dumps(crewai_agent_data, indent=2)
+        agent_file_data = json.dumps(crewai_agent_data, indent=2)
         agent_file_data = agent_file_data.encode('utf-8')
         crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
     create_zip_file(autogen_zip_buffer, autogen_file_data)
