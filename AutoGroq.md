@@ -1,4 +1,4 @@
-# agent_management.py
+# AutoGroq\agent_management.py
 
 ```python
 
@@ -281,7 +281,7 @@ def send_request(agent_name, request):
 
 ```
 
-# config.py
+# AutoGroq\config.py
 
 ```python
 import os
@@ -372,7 +372,7 @@ MODEL_CHOICES = {
 }
 ```
 
-# current_project.py
+# AutoGroq\current_project.py
 
 ```python
 class Current_Project:
@@ -408,7 +408,7 @@ class Current_Project:
 
 ```
 
-# main.py
+# AutoGroq\main.py
 
 ```python
 
@@ -460,7 +460,7 @@ if __name__ == "__main__":
 
 ```
 
-# prompts.py
+# AutoGroq\prompts.py
 
 ```python
 
@@ -547,7 +547,7 @@ def get_rephrased_user_prompt(user_request):
 
 ```
 
-# llm_providers\base_provider.py
+# AutoGroq\llm_providers\base_provider.py
 
 ```python
 
@@ -565,7 +565,7 @@ class BaseLLMProvider(ABC):
 
 ```
 
-# llm_providers\groq_provider.py
+# AutoGroq\llm_providers\groq_provider.py
 
 ```python
 
@@ -604,7 +604,7 @@ class GroqProvider(BaseLLMProvider):
     
 ```
 
-# llm_providers\lmstudio_provider.py
+# AutoGroq\llm_providers\lmstudio_provider.py
 
 ```python
 
@@ -663,7 +663,7 @@ class LmstudioProvider(BaseLLMProvider):
 
 ```
 
-# llm_providers\ollama_provider.py
+# AutoGroq\llm_providers\ollama_provider.py
 
 ```python
 
@@ -723,7 +723,7 @@ class OllamaProvider(BaseLLMProvider):
 
 ```
 
-# llm_providers\openai_provider.py
+# AutoGroq\llm_providers\openai_provider.py
 
 ```python
 # Thanks to NeutrinoTek:  https://github.com/neutrinotek 
@@ -765,7 +765,7 @@ class OpenaiProvider(BaseLLMProvider):
      
 ```
 
-# skills\document_indexer.py
+# AutoGroq\skills\document_indexer.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1097,7 +1097,7 @@ if __name__ == "__main__":
     print(f"Saved vectorstore to {args.output_path}")
 ```
 
-# skills\document_retriever.py
+# AutoGroq\skills\document_retriever.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1240,7 +1240,7 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# skills\execute_powershell_command.py
+# AutoGroq\skills\execute_powershell_command.py
 
 ```python
 # Thanks to aj47:  https://github.com/aj47 
@@ -1271,7 +1271,7 @@ if __name__ == "__main__":
     print(output)
 ```
 
-# skills\fetch_web_content.py
+# AutoGroq\skills\fetch_web_content.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1318,7 +1318,7 @@ def fetch_web_content(url: str) -> Optional[str]:
         return None
 ```
 
-# skills\generate_sd_images.py
+# AutoGroq\skills\generate_sd_images.py
 
 ```python
 # Thanks to marc-shade:  https://github.com/marc-shade
@@ -1393,7 +1393,7 @@ def generate_sd_images(query: str, image_size: str = "512x512", team_name: str =
     return saved_files
 ```
 
-# skills\get_weather.py
+# AutoGroq\skills\get_weather.py
 
 ```python
 import requests
@@ -1432,7 +1432,7 @@ def get_weather(zipcode: str, api_key: str) -> Optional[dict]:
 
 ```
 
-# skills\plot_diagram.py
+# AutoGroq\skills\plot_diagram.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1486,7 +1486,7 @@ file_name = 'custom_geometric_structure'
 image_path = draw_geometric_structure(file_name, base_circles=8, base_circle_color='blue', top_circle_color='orange', line_color='grey', line_width=2)
 ```
 
-# skills\save_file_to_disk.py
+# AutoGroq\skills\save_file_to_disk.py
 
 ```python
 # Thanks to aj47:  https://github.com/aj47
@@ -1521,7 +1521,7 @@ def save_file_to_disk(contents, file_name):
 # print(save_file_to_disk(contents_to_save, file_name))
 ```
 
-# skills\slackoverflow_teams.py
+# AutoGroq\skills\slackoverflow_teams.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1593,7 +1593,7 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# skills\slack_search.py
+# AutoGroq\skills\slack_search.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1688,7 +1688,7 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# skills\webscrape.py
+# AutoGroq\skills\webscrape.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1730,7 +1730,7 @@ def save_webpage_as_text(url, output_filename):
 #     save_webpage_as_text(url, output_filename)
 ```
 
-# skills\web_search.py
+# AutoGroq\skills\web_search.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1852,7 +1852,7 @@ class WebSearch:
 #         print(title, link, snippet)
 ```
 
-# utils\api_utils.py
+# AutoGroq\utils\api_utils.py
 
 ```python
 
@@ -1925,7 +1925,7 @@ def set_llm_provider_title():
 
 ```
 
-# utils\auth_utils.py
+# AutoGroq\utils\auth_utils.py
 
 ```python
 
@@ -1972,7 +1972,7 @@ def get_api_url():
 
 ```
 
-# utils\db_utils.py
+# AutoGroq\utils\db_utils.py
 
 ```python
 
@@ -2120,7 +2120,7 @@ def export_skill_to_autogen(skill_name, edited_skill):
 
 ```
 
-# utils\file_utils.py
+# AutoGroq\utils\file_utils.py
 
 ```python
 
@@ -2247,7 +2247,7 @@ def sanitize_text(text):
 
 ```
 
-# utils\session_utils.py
+# AutoGroq\utils\session_utils.py
 
 ```python
 import streamlit as st
@@ -2336,7 +2336,7 @@ def initialize_session_variables():
 
 ```
 
-# utils\ui_utils.py
+# AutoGroq\utils\ui_utils.py
 
 ```python
 
@@ -3253,7 +3253,7 @@ def zip_files_in_memory(workflow_data):
 
 ```
 
-# utils\workflow_utils.py
+# AutoGroq\utils\workflow_utils.py
 
 ```python
 
