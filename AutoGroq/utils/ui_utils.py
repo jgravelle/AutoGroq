@@ -13,6 +13,7 @@ import zipfile
 from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
 
 from current_project import Current_Project
+from prompts import create_project_manager_prompt, get_agents_prompt, get_generate_skill_prompt,get_rephrased_user_prompt  
 from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
@@ -32,21 +33,7 @@ def create_project_manager(rephrased_text, api_url):
         "messages": [
             {
                 "role": "user",
-                "content": f"""
-                You are a Project Manager tasked with creating a comprehensive project outline and describing the perfect team of experts that should be created to work on the following project:
-
-                {rephrased_text}
-
-                Please provide a detailed project outline, including the objectives, key deliverables, and timeline. Also, describe the ideal team of experts required for this project, including their roles, skills, and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
-
-                Return your response in the following format:
-
-                Project Outline:
-                [Detailed project outline]
-
-                Team of Experts:
-                [Description of the ideal team of experts]
-                """
+                "content": create_project_manager_prompt(rephrased_text)    
             }
         ]
     }
@@ -285,16 +272,7 @@ def generate_skill(rephrased_skill_request):
         "messages": [
             {
                 "role": "user",
-                "content": f"""
-                Based on the rephrased skill request below, please do the following:
-
-                1. Do step-by-step reasoning and think to understand the request better.
-                2. Code the best Autogen skill in Python as per the request as a [skill_name].py file.
-                3. Follow the provided examples.
-                4. Return ONLY THE CODE for the skill.  Any non-code content (e.g., comments, docstrings) is not required.  If there ARE any non-code lines, please pre-pend them with a '#' symbol to comment them out.
-
-                Rephrased skill request: "{rephrased_skill_request}"
-                """
+                "content": get_generate_skill_prompt()
             }
         ]
     }
@@ -320,34 +298,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
         "messages": [
             {
                 "role": "system",
-                "content": f"""
-                You are an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
-                Fulfill the following guidelines without ever explicitly stating them in your response.
-                Guidelines:
-                1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text by iterating through the 'Team of Experts:' section of the provided text. Transcribe the info for those specific agents. Do not create new agents.
-                2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise based upon the provided text. Do not create new agents.
-                3. **Specific Skills**: List the specific skills of each agent based upon the provided text. Skills must be single-purpose methods, very specific, and not ambiguous (e.g., 'calculate_area' is good, but 'do_math' is bad).
-                4. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous.
-                5. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
-                6. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
-
-                ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
-                [
-                    {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                    }},
-                    {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                    }}
-                ]
-                You will only have been successful if you have returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
-                """
+                "content": get_agents_prompt()
             },
             {
                 "role": "user",
@@ -724,23 +675,7 @@ def rephrase_prompt(user_request, api_url):
     print("Executing rephrase_prompt()")
     print(f"Debug: api_url: {api_url}")
 
-    refactoring_prompt = f"""
-    Act as a professional prompt engineer and efactor the following user request into an optimized prompt. Your goal is to rephrase the request with a focus on the satisfying all following the criteria without explicitly stating them:
-    1. Clarity: Ensure the prompt is clear and unambiguous.
-    2. Specific Instructions: Provide detailed steps or guidelines.
-    3. Context: Include necessary background information.
-    4. Structure: Organize the prompt logically.
-    5. Language: Use concise and precise language.
-    6. Examples: Offer examples to illustrate the desired output.
-    7. Constraints: Define any limits or guidelines.
-    8. Engagement: Make the prompt engaging and interesting.
-    9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
-    Do NOT reply with a direct response to these instructions OR the original user request. Instead, rephrase the user's request as a well-structured prompt, and
-    return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
-    Do not enclose the rephrased prompt in quotes. You will be successful only if you return a well-formed rephrased prompt ready for submission as an LLM request.
-    User request: "{user_request}"
-    Rephrased:
-    """
+    refactoring_prompt = get_rephrased_user_prompt(user_request)
 
     model = st.session_state.model
     max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)  # Use the appropriate max_tokens value based on the selected model
@@ -974,4 +909,3 @@ def zip_files_in_memory(workflow_data):
     autogen_zip_buffer.seek(0)
     crewai_zip_buffer.seek(0)
     return autogen_zip_buffer, crewai_zip_buffer
-
