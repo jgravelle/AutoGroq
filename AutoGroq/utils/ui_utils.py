@@ -16,7 +16,7 @@ from current_project import Current_Project
 from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
-from utils.db_utils import export_skill_to_autogen
+from utils.db_utils import export_skill_to_autogen, export_to_autogen
 from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
     
@@ -145,6 +145,14 @@ def display_download_button():
             mime="application/zip",
             key=f"crewai_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
         )
+
+
+def display_download_and_export_buttons():
+    if "agents" in st.session_state and st.session_state.agents:
+        if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
+            display_download_button() 
+            if st.button("Export to Autogen"):
+                export_to_autogen() 
 
 
 def display_user_input():
@@ -611,16 +619,24 @@ def key_prompt():
         st.warning(f"{llm}_API_KEY not found. Please enter your API key.")
         return
 
+
 def load_skill_functions():
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    skill_folder = os.path.join(project_root, "skills")
-    skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+    # Get the parent directory of the current script
+    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Define the path to the 'skills' folder in the parent directory
+    skills_folder_path = os.path.join(parent_directory, 'skills')
+
+    # List all files in the 'skills' folder
+    skill_files = [f for f in os.listdir(skills_folder_path) if f.endswith('.py')]
+
     skill_functions = {}
     for skill_file in skill_files:
         skill_name = os.path.splitext(skill_file)[0]
         skill_module = importlib.import_module(f"skills.{skill_name}")
         if hasattr(skill_module, skill_name):
             skill_functions[skill_name] = getattr(skill_module, skill_name)
+
     st.session_state.skill_functions = skill_functions
 
 
@@ -784,17 +800,109 @@ def save_skill(skill_name, edited_skill):
     st.success(f"Skill {skill_name} saved successfully!")
 
 
-def set_css():
-    # Construct the relative path to the CSS file
-    css_file = "AutoGroq/style.css"
+def select_model():
+    selected_model = st.selectbox(
+            'Select Model',
+            options=list(MODEL_TOKEN_LIMITS.keys()),
+            index=0,
+            key='model_selection'
+        )
+    st.session_state.model = selected_model
+    st.session_state.max_tokens = MODEL_TOKEN_LIMITS[selected_model]
 
-    # Check if the CSS file exists
+
+def set_css():
+    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    css_file = os.path.join(parent_directory, "style.css")
+
     if os.path.exists(css_file):
         with open(css_file) as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     else:
         st.error(f"CSS file not found: {os.path.abspath(css_file)}")
+
+
+def set_temperature():
+    temperature = st.slider(
+            "Set Temperature",
+            min_value=0.0,
+            max_value=1.0,
+            value=st.session_state.get('temperature', 0.3),
+            step=0.01,
+            key='temperature'
+        )
+
+
+def show_interfaces():
+    if st.session_state.get("rephrased_request", "") == "":
+            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
+            display_user_request_input()
+
+    st.markdown('<div class="discussion-whiteboard">', unsafe_allow_html=True)
+    display_discussion_and_whiteboard()
+    st.markdown('</div>', unsafe_allow_html=True)
     
+    st.markdown('<div class="user-input">', unsafe_allow_html=True)
+    display_user_input()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def show_skills():
+    with st.expander("Skills"):
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        skill_folder = os.path.join(project_root, "skills")
+        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+
+        selected_skills = []
+        select_all = st.checkbox("Select All", key="select_all_skills")
+        for skill_file in skill_files:
+            skill_name = os.path.splitext(skill_file)[0]
+            if select_all:
+                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=True, key=f"skill_{skill_name}")
+            else:
+                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=False, key=f"skill_{skill_name}")
+            if skill_checkbox:
+                selected_skills.append(skill_name)
+
+        if select_all:
+            st.session_state.selected_skills = [os.path.splitext(f)[0] for f in skill_files]
+        else:
+            st.session_state.selected_skills = selected_skills
+
+        regenerate_zip_files()
+
+        if st.button("Add Skill", key="add_skill_button"):
+            st.session_state.show_skill_input = True  # Flag to show the input field
+            st.session_state.skill_request = ""  # Clear previous request
+
+        if st.session_state.get('show_skill_input'):
+            skill_request = st.text_input("Need a new skill? Describe what it should do:", key="skill_request_input")
+            if skill_request:
+                st.session_state.skill_request = skill_request  # Store in session state
+                rephrased_skill_request = rephrase_skill(skill_request)
+                if rephrased_skill_request:
+                    proposed_skill = generate_skill(rephrased_skill_request)
+                    if proposed_skill:
+                        st.session_state.proposed_skill = proposed_skill
+                        match = re.search(r"def\s+(\w+)\(", proposed_skill)
+                        if match:
+                            skill_name = match.group(1)
+                            st.session_state.skill_name = skill_name
+                            st.write(f"Proposed Skill: {skill_name}")
+                            st.session_state.proposed_skill = st.text_area("Edit Proposed Skill", value=proposed_skill, height=300)
+
+        if 'proposed_skill' in st.session_state and 'skill_name' in st.session_state:
+            if st.button("Attempt to Export Skill to Autogen (experimental)", key=f"export_button_{st.session_state.skill_name}"):
+                skill_name = st.session_state.skill_name
+                proposed_skill = st.session_state.proposed_skill
+                print(f"Exporting skill {skill_name} to Autogen")
+                export_skill_to_autogen(skill_name, proposed_skill)
+                st.success(f"Skill {skill_name} exported to Autogen successfully!")
+                st.session_state.show_skill_input = False  # Reset input flag
+                st.session_state.proposed_skill = None  # Clear proposed skill
+                st.session_state.skill_name = None  # Clear skill name
+                st.experimental_rerun()
+
 
 def update_discussion_and_whiteboard(agent_name, response, user_input):
     if user_input:
@@ -816,8 +924,8 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
 def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    skill_folder = os.path.join(project_root, "skills")
+    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skill_folder = os.path.join(parent_directory, "skills")
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
@@ -866,3 +974,4 @@ def zip_files_in_memory(workflow_data):
     autogen_zip_buffer.seek(0)
     crewai_zip_buffer.seek(0)
     return autogen_zip_buffer, crewai_zip_buffer
+

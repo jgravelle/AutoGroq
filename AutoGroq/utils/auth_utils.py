@@ -22,6 +22,7 @@ def get_api_key():
                 api_key = st.session_state.get(api_key_env_var)
     return api_key
 
+
 def get_api_url():
     api_url_env_var = f"{LLM_PROVIDER.upper()}_API_URL"
     api_url = os.environ.get(api_url_env_var)

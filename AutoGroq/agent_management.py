@@ -138,7 +138,7 @@ def display_agent_edit_form(agent, edit_index):
                 else:
                     print(f"Failed to regenerate description for {agent['config']['name']}")
         with col2:
-            if st.button("Save Changes", key=f"save_{edit_index}"):
+            if st.button("Save", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
                 agent['description'] = agent.get('new_description', new_description)
                 

@@ -54,8 +54,9 @@ def send_request_with_retry(url, data, headers, api_key):
                 print("Retry failed.")
     return response    
 
+
 def set_llm_provider_title():
-    # If the LLM Provider is "groq", the title is "AutoGroq"
+    # "What's life without whimsy?" ~Sheldon Cooper
     if LLM_PROVIDER == "groq":
         st.title("AutoGroq™")
     elif LLM_PROVIDER == "ollama":

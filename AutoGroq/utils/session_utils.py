@@ -2,6 +2,7 @@ import streamlit as st
 
 from current_project import Current_Project
 
+
 def initialize_session_variables():
     if "agents" not in st.session_state:
         st.session_state.agents = []
