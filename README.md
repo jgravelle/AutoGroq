@@ -17,10 +17,6 @@ Agent Data: {
 Agent created successfully. Output saved to: agent.json  
 PS C:\AutoGroq\AutoGroq\cli> dir  
   
-    Directory: C:\AutoGroq\AutoGroq\cli  
-  
-Mode                 LastWriteTime         Length Name  
-----                 -------------         ------ ----  
 -a---           5/31/2024  3:15 PM           4441 agent.json  
   
 ## NEW:  Py2Md!
