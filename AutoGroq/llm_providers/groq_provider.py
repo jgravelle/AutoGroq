@@ -1,4 +1,3 @@
-
 import json
 import requests
 
@@ -7,8 +6,8 @@ from utils.auth_utils import get_api_key
 
 
 class GroqProvider(BaseLLMProvider):
-    def __init__(self, api_url):
-        self.api_key = get_api_key()
+    def __init__(self, api_url, api_key):
+        self.api_key = api_key
         self.api_url = api_url
 
 
@@ -31,4 +30,3 @@ class GroqProvider(BaseLLMProvider):
             json_data = data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
-    

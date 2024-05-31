@@ -17,6 +17,18 @@ def create_project_manager_prompt(rephrased_text):
                 """
 
 
+def get_agent_prompt(rephrased_request):
+    return f"""
+    Based on the following user request, please create a detailed and comprehensive description of an AI agent that can effectively assist with the request:
+
+    User Request: "{rephrased_request}"
+
+    Provide a clear and concise description of the agent's capabilities, expertise, and any specific skills or tools it should possess to best address the user's needs. The description should be written in a professional and engaging manner, highlighting the agent's ability to understand and respond to the request efficiently.
+
+    Agent Description:
+    """
+
+
 def get_agents_prompt():
     return f"""
                 You are an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
@@ -46,7 +58,6 @@ def get_agents_prompt():
                 ]
                 You will only have been successful if you have returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
                 """
-
 
 # Contributed by ScruffyNerf
 def get_generate_skill_prompt(rephrased_skill_request):

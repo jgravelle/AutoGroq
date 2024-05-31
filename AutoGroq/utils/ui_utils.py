@@ -23,6 +23,7 @@ from utils.workflow_utils import get_workflow_from_agents
     
     
 def create_project_manager(rephrased_text, api_url):
+    print(f"Creating Project Manager; API_URL: {api_url}")
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
@@ -38,7 +39,8 @@ def create_project_manager(rephrased_text, api_url):
         ]
     }
 
-    llm_provider = get_llm_provider(api_url)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     
     if response.status_code == 200:
@@ -276,7 +278,8 @@ def generate_skill(rephrased_skill_request):
             }
         ]
     }
-    llm_provider = get_llm_provider(API_URL)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
         response_data = llm_provider.process_response(response)
@@ -306,7 +309,8 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
             }
         ]
     }
-    llm_provider = get_llm_provider(api_url)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     retry_count = 0
     while retry_count < max_retries:
         try:
@@ -466,7 +470,9 @@ def handle_user_request(session_state):
     for retry in range(max_retries):
         try:
             print("Debug: Sending request to rephrase_prompt")
-            rephrased_text = rephrase_prompt(user_request, API_URL)  # Pass the API_URL to rephrase_prompt
+            model = session_state.model
+            print(f"Debug: Model: {model}")
+            rephrased_text = rephrase_prompt(user_request, model)  # Pass the API_URL to rephrase_prompt
             print(f"Debug: Rephrased text: {rephrased_text}")
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
@@ -591,8 +597,7 @@ def load_skill_functions():
     st.session_state.skill_functions = skill_functions
 
 
-def process_skill_request():
-    skill_request = st.session_state.skill_request_input
+def process_skill_request(skill_request):
     if skill_request:
         print(f"Skill Request: {skill_request}")
         rephrased_skill_request = rephrase_skill(skill_request)
@@ -601,17 +606,24 @@ def process_skill_request():
             proposed_skill = generate_skill(rephrased_skill_request)
             print(f"Proposed Skill: {proposed_skill}")
             if proposed_skill:
-                skill_name = re.search(r"def\s+(\w+)\(", proposed_skill).group(1)
-                st.write(f"Proposed Skill: {skill_name}")
-                st.code(proposed_skill)
-                if st.button("Export to Autogen", key=f"export_button_{skill_name}"):
-                    print(f"Exporting skill {skill_name} to Autogen")
-                    export_skill_to_autogen(skill_name, proposed_skill)
-                    st.success(f"Skill {skill_name} exported to Autogen successfully!")
-                    st.experimental_rerun()
-                if st.button("Discard", key=f"discard_button_{skill_name}"):
-                    st.warning("Skill discarded.")
-                    st.experimental_rerun()
+                match = re.search(r"def\s+(\w+)\(", proposed_skill)
+                if match:
+                    skill_name = match.group(1)
+                    st.write(f"Proposed Skill: {skill_name}")
+                    st.code(proposed_skill)
+                    if st.button("Export to Autogen", key=f"export_button_{skill_name}"):
+                        print(f"Exporting skill {skill_name} to Autogen")
+                        export_skill_to_autogen(skill_name, proposed_skill)
+                        st.success(f"Skill {skill_name} exported to Autogen successfully!")
+                        st.experimental_rerun()
+                    if st.button("Discard", key=f"discard_button_{skill_name}"):
+                        st.warning("Skill discarded.")
+                        st.experimental_rerun()
+                else:
+                    st.error("Failed to extract skill name from the proposed skill.")
+            else:
+                st.error("No proposed skill generated.")
+
 
 
 def regenerate_json_files_and_zip():
@@ -659,7 +671,8 @@ def rephrase_skill(skill_request):
             }
         ]
     }
-    llm_provider = get_llm_provider(API_URL)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
         response_data = llm_provider.process_response(response)
@@ -670,19 +683,16 @@ def rephrase_skill(skill_request):
     return None
 
 
-def rephrase_prompt(user_request, api_url):
-    temperature_value = st.session_state.get('temperature', 0.1)
+def rephrase_prompt(user_request, model):
     print("Executing rephrase_prompt()")
-    print(f"Debug: api_url: {api_url}")
 
     refactoring_prompt = get_rephrased_user_prompt(user_request)
 
-    model = st.session_state.model
     max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)  # Use the appropriate max_tokens value based on the selected model
 
     llm_request_data = {
         "model": model,
-        "temperature": temperature_value,
+        "temperature": 0.1,
         "max_tokens": max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -694,15 +704,14 @@ def rephrase_prompt(user_request, api_url):
         ],
     }
 
-    llm_provider = get_llm_provider(api_url)  # Pass the api_url to get_llm_provider
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key)
 
     try:
         print("Sending request to LLM API...")
         print(f"Request Details:")
-        print(f" URL: {api_url}")  # Print the API URL
         print(f" Model: {model}")
         print(f" Max Tokens: {max_tokens}")
-        print(f" Temperature: {temperature_value}")
         print(f" Messages: {llm_request_data['messages']}")
 
         response = llm_provider.send_request(llm_request_data)
@@ -813,18 +822,8 @@ def show_skills():
         if st.session_state.get('show_skill_input'):
             skill_request = st.text_input("Need a new skill? Describe what it should do:", key="skill_request_input")
             if skill_request:
-                st.session_state.skill_request = skill_request  # Store in session state
-                rephrased_skill_request = rephrase_skill(skill_request)
-                if rephrased_skill_request:
-                    proposed_skill = generate_skill(rephrased_skill_request)
-                    if proposed_skill:
-                        st.session_state.proposed_skill = proposed_skill
-                        match = re.search(r"def\s+(\w+)\(", proposed_skill)
-                        if match:
-                            skill_name = match.group(1)
-                            st.session_state.skill_name = skill_name
-                            st.write(f"Proposed Skill: {skill_name}")
-                            st.session_state.proposed_skill = st.text_area("Edit Proposed Skill", value=proposed_skill, height=300)
+                st.session_state.skill_request = skill_request  # Store in a separate session state variable
+                process_skill_request(skill_request)  # Pass the skill_request to the process_skill_request function
 
         if selected_skills or 'proposed_skill' in st.session_state:
             if st.button("Attempt to Export Skill to Autogen (experimental)", key=f"export_button_{st.session_state.skill_name}"):

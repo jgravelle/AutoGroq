@@ -4,7 +4,7 @@ import os
 import re
 import streamlit as st
 
-from config import API_URL, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from config import LLM_PROVIDER , MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from utils.ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
 
@@ -198,7 +198,8 @@ def process_agent_interaction(agent_index):
     request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, skill_results)
     print(f"Request: {request}")
     # Use the dynamic LLM provider to send the request
-    llm_provider = get_llm_provider(API_URL)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
         "temperature": st.session_state.get('temperature', 0.1),
@@ -241,7 +242,8 @@ def regenerate_agent_description(agent):
     """
     print(f"regenerate_agent_description called with agent_name: {agent_name}")
     print(f"regenerate_agent_description called with prompt: {prompt}")
-    llm_provider = get_llm_provider(API_URL)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
         "temperature": st.session_state.get('temperature', 0.1),
@@ -272,6 +274,7 @@ def retrieve_agent_information(agent_index):
 
 
 def send_request(agent_name, request):
-    llm_provider = get_llm_provider(API_URL)
+    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(request)
     return response

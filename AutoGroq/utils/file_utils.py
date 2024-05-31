@@ -7,14 +7,14 @@ import streamlit as st
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
-    description = agent['description']
+    description = agent['config'].get('description', '')  # Get description from config, default to empty string if missing
     current_timestamp = datetime.datetime.now().isoformat()
 
     formatted_expert_name = sanitize_text(expert_name)
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
 
     sanitized_description = sanitize_text(description)
-    temperature_value = st.session_state.get('temperature', 0.1)
+    temperature_value = 0.1  # Default value for temperature
 
     autogen_agent_data = {
         "type": "assistant",
@@ -25,7 +25,7 @@ def create_agent_data(agent):
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
-                        "model": st.session_state.model,
+                        "model": agent['config']['llm_config']['config_list'][0]['model'],
                         "base_url": None,
                         "api_type": None,
                         "api_version": None,
@@ -72,7 +72,7 @@ def create_agent_data(agent):
     }
 
     return autogen_agent_data, crewai_agent_data
-        
+
 
 def create_skill_data(python_code):
     # Extract the function name from the Python code
