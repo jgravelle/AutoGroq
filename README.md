@@ -1,3 +1,9 @@
+## NEW:  Py2Md!
+
+Users wanted the entire code available as markup (versus PDF)  
+Here's the new utility we use to do it:  https://github.com/jgravelle/Py2md  
+It's the easiest way to get your code into ChatGPT, Claude, etc.  
+
 # AutoGroq™
 
 AutoGroq is a groundbreaking tool that revolutionizes the way users interact with AI assistants. By dynamically generating tailored teams of AI agents based on your project requirements, AutoGroq eliminates the need for manual configuration and allows you to tackle any question, problem, or project with ease and efficiency.
