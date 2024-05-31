@@ -1,8 +1,8 @@
 ## NEW:  Py2Md!
 
-Users wanted the entire code available as markup (versus PDF)
-Here's the new utility we use to do it:  https://github.com/jgravelle/Py2md
-It's the easiest way to get your code into ChatGPT, Claude, etc.
+Users wanted the entire code available as markup (versus PDF)  
+Here's the new utility we use to do it:  https://github.com/jgravelle/Py2md  
+It's the easiest way to get your code into ChatGPT, Claude, etc.  
 
 # AutoGroq™
 
