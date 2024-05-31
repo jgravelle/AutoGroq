@@ -1,3 +1,28 @@
+## NEW:  CLI SUPPORT!  WUT WUT...?!!!
+
+PS C:\AutoGroq\AutoGroq> cd cli        
+PS C:\AutoGroq\AutoGroq\cli> python create_agent.py --request "Create an expert Python developer agent to assist with code optimization and best practices" --output agent.json
+>> 
+Agent Data: {
+  "type": "assistant",
+  "config": {
+    "name": "Create an expert Python developer agent to assist with code optimization and best practices",
+    "llm_config": {
+      "config_list": [
+        {
+          "user_id":
+...
+  "skills": []
+}
+Agent created successfully. Output saved to: agent.json
+PS C:\AutoGroq\AutoGroq\cli> dir
+
+    Directory: C:\AutoGroq\AutoGroq\cli
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           5/31/2024  3:15 PM           4441 agent.json
+
 ## NEW:  Py2Md!
 
 Users wanted the entire code available as markup (versus PDF)  
