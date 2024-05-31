@@ -445,7 +445,10 @@ def main():
 
     with st.sidebar:
         display_agents()
-        show_skills()
+        if "agents" in st.session_state and st.session_state.agents:
+            show_skills()
+        else:
+            st.empty()  
 
     with st.container():
         show_interfaces()
@@ -513,17 +516,58 @@ def get_agents_prompt():
                 """
 
 
+# Contributed by ScruffyNerf
 def get_generate_skill_prompt(rephrased_skill_request):
-    return f"""
+    return f'''
                 Based on the rephrased skill request below, please do the following:
 
                 1. Do step-by-step reasoning and think to understand the request better.
                 2. Code the best Autogen Studio Python skill as per the request as a [skill_name].py file.
-                3. Follow the provided examples.
-                4. Return ONLY THE CODE for the skill.  Any non-code content (e.g., comments, docstrings) is not required.  If there ARE any non-code lines, please pre-pend them with a '#' symbol to comment them out.
+                3. Return only the skill file, no commentary, intro, or other extra text. If there ARE any non-code lines, please pre-pend them with a '#' symbol to comment them out.
+                4. A proper skill will have these parts:
+                   a. Imports (import libraries needed for the skill)
+                   b. Function definition AND docstrings (this helps the LLM understand what the function does and how to use it)
+                   c. Function body (the actual code that implements the function)
+                   d. (optional) Example usage - ALWAYS commented out
+                   Here is an example of a well formatted skill:
+
+                   # skill filename: save_file_to_disk.py
+                   # Import necessary module(s)
+                   import os
+
+                   def save_file_to_disk(contents, file_name):
+                   # docstrings
+                   """
+                   Saves the given contents to a file with the given file name.
+
+                   Parameters:
+                   contents (str): The string contents to save to the file.
+                   file_name (str): The name of the file, including its extension.
+
+                   Returns:
+                   str: A message indicating the success of the operation.
+                   """
+
+                   # Body of skill
+
+                   # Ensure the directory exists; create it if it doesn't
+                   directory = os.path.dirname(file_name)
+                   if directory and not os.path.exists(directory):
+                      os.makedirs(directory)
+
+                   # Write the contents to the file
+                   with open(file_name, 'w') as file:
+                      file.write(contents)
+    
+                   return f"File file_name has been saved successfully."
+
+                   # Example usage:
+                   # contents_to_save = "Hello, world!"
+                   # file_name = "example.txt"
+                   # print(save_file_to_disk(contents_to_save, file_name))
 
                 Rephrased skill request: "{rephrased_skill_request}"
-                """
+                '''
 
 
 def get_rephrased_user_prompt(user_request):
@@ -2292,8 +2336,8 @@ def initialize_session_variables():
 #    if "project_manager_output" not in st.session_state:
 #        st.session_state.project_manager_output = ""
 
-    if "proposed_skill" not in st.session_state:
-        st.session_state.proposed_skill = None
+#    if "proposed_skill" not in st.session_state:
+#        st.session_state.proposed_skill = None
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}
@@ -2613,7 +2657,7 @@ def generate_skill(rephrased_skill_request):
         "messages": [
             {
                 "role": "user",
-                "content": get_generate_skill_prompt()
+                "content": get_generate_skill_prompt(rephrased_skill_request)
             }
         ]
     }
@@ -3167,7 +3211,7 @@ def show_skills():
                             st.write(f"Proposed Skill: {skill_name}")
                             st.session_state.proposed_skill = st.text_area("Edit Proposed Skill", value=proposed_skill, height=300)
 
-        if 'proposed_skill' in st.session_state and 'skill_name' in st.session_state:
+        if selected_skills or 'proposed_skill' in st.session_state:
             if st.button("Attempt to Export Skill to Autogen (experimental)", key=f"export_button_{st.session_state.skill_name}"):
                 skill_name = st.session_state.skill_name
                 proposed_skill = st.session_state.proposed_skill

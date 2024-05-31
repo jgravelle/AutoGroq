@@ -32,7 +32,10 @@ def main():
 
     with st.sidebar:
         display_agents()
-        show_skills()
+        if "agents" in st.session_state and st.session_state.agents:
+            show_skills()
+        else:
+            st.empty()  
 
     with st.container():
         show_interfaces()

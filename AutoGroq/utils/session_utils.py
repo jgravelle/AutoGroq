@@ -40,8 +40,8 @@ def initialize_session_variables():
 #    if "project_manager_output" not in st.session_state:
 #        st.session_state.project_manager_output = ""
 
-    if "proposed_skill" not in st.session_state:
-        st.session_state.proposed_skill = None
+#    if "proposed_skill" not in st.session_state:
+#        st.session_state.proposed_skill = None
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}

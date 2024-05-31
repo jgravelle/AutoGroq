@@ -272,7 +272,7 @@ def generate_skill(rephrased_skill_request):
         "messages": [
             {
                 "role": "user",
-                "content": get_generate_skill_prompt()
+                "content": get_generate_skill_prompt(rephrased_skill_request)
             }
         ]
     }
@@ -826,7 +826,7 @@ def show_skills():
                             st.write(f"Proposed Skill: {skill_name}")
                             st.session_state.proposed_skill = st.text_area("Edit Proposed Skill", value=proposed_skill, height=300)
 
-        if 'proposed_skill' in st.session_state and 'skill_name' in st.session_state:
+        if selected_skills or 'proposed_skill' in st.session_state:
             if st.button("Attempt to Export Skill to Autogen (experimental)", key=f"export_button_{st.session_state.skill_name}"):
                 skill_name = st.session_state.skill_name
                 proposed_skill = st.session_state.proposed_skill
