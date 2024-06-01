@@ -1,5 +1,5 @@
 #APIs
-LLM_PROVIDER = "groq" # Supported values: "groq", "openai", "ollama", "lmstudio"
+LLM_PROVIDER = "openai" # Supported values: "groq", "openai", "ollama", "lmstudio"
 
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -15,7 +15,7 @@ if LLM_PROVIDER == "groq":
 elif LLM_PROVIDER == "lmstudio":
     API_KEY_NAME = None
     API_URL = LMSTUDIO_API_URL
-elif LLM_PROVIDER == "openai":
+elif LLM_PROVIDER == "openai":  
     API_KEY_NAME = "OPENAI_API_KEY"
     API_URL = OPENAI_API_URL
 elif LLM_PROVIDER == "ollama":

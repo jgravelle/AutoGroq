@@ -601,11 +601,12 @@ def get_rephrased_user_prompt(user_request):
 ```python
 
 import argparse
+import datetime
 import json
 import os
-import sys
 import requests
-import datetime
+import sys
+
 
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -613,7 +614,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts import get_agent_prompt
 from utils.file_utils import create_agent_data, sanitize_text
 
-def create_agent(request, model, temperature, max_tokens, agent_type, output_file):
+def create_agent(request, model, temperature, max_tokens, output_file):
     # Get the API key from the environment variable
     api_key = os.getenv('GROQ_API_KEY')
     if not api_key:
@@ -1642,8 +1643,8 @@ def draw_geometric_structure(file_name, base_circles=4, base_circle_color='blue'
     return save_path
 
 # Example usage:
-file_name = 'custom_geometric_structure'
-image_path = draw_geometric_structure(file_name, base_circles=8, base_circle_color='blue', top_circle_color='orange', line_color='grey', line_width=2)
+#file_name = 'custom_geometric_structure'
+#image_path = draw_geometric_structure(file_name, base_circles=8, base_circle_color='blue', top_circle_color='orange', line_color='grey', line_width=2)
 ```
 
 # AutoGroq\skills\save_file_to_disk.py

@@ -8,7 +8,6 @@ class LmstudioProvider(BaseLLMProvider):
     def __init__(self, api_url):
         self.api_url = api_url
 
-
     def process_response(self, response):
         if response.status_code == 200:
             response_data = response.json()
@@ -51,3 +50,4 @@ class LmstudioProvider(BaseLLMProvider):
 
         response = requests.post(f"{self.api_url}", data=json_data, headers=headers)
         return response
+    

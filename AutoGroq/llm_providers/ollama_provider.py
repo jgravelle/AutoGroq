@@ -8,7 +8,6 @@ class OllamaProvider(BaseLLMProvider):
     def __init__(self, api_url):
         self.api_url = api_url
 
-
     def process_response(self, response):
         if response.status_code == 200:
             response_data = response.json()
@@ -52,3 +51,4 @@ class OllamaProvider(BaseLLMProvider):
             json_data = ollama_request_data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
+    

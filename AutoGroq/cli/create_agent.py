@@ -1,36 +1,38 @@
 
 import argparse
+import datetime
 import json
 import os
 import sys
-import requests
-import datetime
 
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from config import MODEL_TOKEN_LIMITS
 from prompts import get_agent_prompt
+from utils.api_utils import get_llm_provider
+from utils.auth_utils import get_api_key
 from utils.file_utils import create_agent_data, sanitize_text
 
-def create_agent(request, model, temperature, max_tokens, agent_type, output_file):
-    # Get the API key from the environment variable
-    api_key = os.getenv('GROQ_API_KEY')
-    if not api_key:
-        raise ValueError("GROQ_API_KEY environment variable is not set.")
+def create_agent(request, provider, model, temperature, max_tokens, output_file):
+    # Get the API key and provider
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
 
     # Generate the prompt using get_agent_prompt
     prompt = get_agent_prompt(request)
 
+    # Adjust the token limit based on the selected model
+    max_tokens = MODEL_TOKEN_LIMITS.get(provider, {}).get(model, 4096)
+
     # Make the request to the LLM API
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}"},
-        json={
-            "model": model,
-            "max_tokens": max_tokens,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-    )
+    llm_request_data = {
+        "model": model,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    response = llm_provider.send_request(llm_request_data)
 
     if response.status_code != 200:
         print(f"Error: Received status code {response.status_code}")
@@ -101,6 +103,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_tokens", type=int, default=32768, help="The maximum number of tokens for the agent.")
     parser.add_argument("--agent_type", default="autogen", choices=["autogen", "crewai"], help="The type of agent to create.")
     parser.add_argument("--output", default="agent.json", help="The output file path for the agent JSON.")
+    parser.add_argument("--provider", default="groq", help="The LLM provider to use (e.g., 'openai', 'anthropic').")
     
     args = parser.parse_args()
-    create_agent(args.request, args.model, args.temperature, args.max_tokens, args.agent_type, args.output)
+    create_agent(args.request, args.provider, args.model, args.temperature, args.max_tokens, args.output)
+    
