@@ -91,7 +91,7 @@ To get started with AutoGroq, follow these steps:
 To customize the configurations for your local environment, follow these steps:  
   
 1. Create a new file called `config_local.py` in the same directory as `config.py`.  
-2. Copy the contents of `config_local_example.py` into `config_local.py`.  
+2. Copy the contents of `config_local.py.example` into `config_local.py`.  
 3. Modify the values in `config_local.py` according to your specific setup, such as API keys and URLs.  
 4. Save the `config_local.py` file.  
   
