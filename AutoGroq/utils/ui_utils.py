@@ -39,7 +39,7 @@ def create_project_manager(rephrased_text, api_url):
         ]
     }
 
-    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     
@@ -60,13 +60,10 @@ def create_zip_file(zip_buffer, file_data):
 
 def display_api_key_input():
     llm = LLM_PROVIDER.upper()
-    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value=st.session_state.api_key, key="api_key_input")
-    
+    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value="", key="api_key_input")
     if api_key:
-        st.session_state.api_key = api_key
-        st.success("API key entered successfully.")
-        print(f"API Key: {api_key}")
-    
+        st.session_state[f"{LLM_PROVIDER.upper()}_API_KEY"] = api_key
+        st.success("API Key entered successfully.")
     return api_key
 
 
@@ -278,7 +275,7 @@ def generate_skill(rephrased_skill_request):
             }
         ]
     }
-    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
@@ -309,7 +306,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
             }
         ]
     }
-    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
     retry_count = 0
     while retry_count < max_retries:
@@ -671,7 +668,7 @@ def rephrase_skill(skill_request):
             }
         ]
     }
-    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
+    api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
@@ -704,8 +701,8 @@ def rephrase_prompt(user_request, model):
         ],
     }
 
-    api_key = os.environ.get(f"{LLM_PROVIDER.upper()}_API_KEY")
-    llm_provider = get_llm_provider(api_key)
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
 
     try:
         print("Sending request to LLM API...")
