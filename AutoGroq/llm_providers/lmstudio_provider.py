@@ -6,7 +6,7 @@ from llm_providers.base_provider import BaseLLMProvider
 
 class LmstudioProvider(BaseLLMProvider):
     def __init__(self, api_url):
-        self.api_url = api_url
+        self.api_url = "http://localhost:1234/v1/chat/completions"
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -26,7 +26,6 @@ class LmstudioProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'choices' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-        
 
     def send_request(self, data):
         headers = {
@@ -48,6 +47,6 @@ class LmstudioProvider(BaseLLMProvider):
         else:
             json_data = lm_studio_request_data
 
-        response = requests.post(f"{self.api_url}", data=json_data, headers=headers)
+        response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
     

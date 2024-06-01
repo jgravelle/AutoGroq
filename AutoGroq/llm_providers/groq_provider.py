@@ -1,22 +1,19 @@
+
 import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
-from utils.auth_utils import get_api_key
-
 
 class GroqProvider(BaseLLMProvider):
     def __init__(self, api_url, api_key):
         self.api_key = api_key
-        self.api_url = api_url
-
+        self.api_url = "https://api.groq.com/openai/v1/chat/completions"
 
     def process_response(self, response):
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-
 
     def send_request(self, data):
         headers = {
@@ -30,3 +27,4 @@ class GroqProvider(BaseLLMProvider):
             json_data = data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
+    

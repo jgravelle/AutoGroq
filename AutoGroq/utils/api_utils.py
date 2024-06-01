@@ -7,12 +7,14 @@ import time
 from config import API_URL, LLM_PROVIDER, RETRY_TOKEN_LIMIT
 
 
-def get_llm_provider(api_key=None, api_url=None):
+def get_llm_provider(api_key=None, api_url=None, provider=None):
+    if provider is None:
+        provider = LLM_PROVIDER
+    provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
+    provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
         api_url = API_URL
-    provider_module = importlib.import_module(f"llm_providers.{LLM_PROVIDER}_provider")
-    provider_class = getattr(provider_module, f"{LLM_PROVIDER.capitalize()}Provider")
-    return provider_class(api_url=api_url, api_key=api_key)     
+    return provider_class(api_url=api_url, api_key=api_key)
 
 
 def make_api_request(url, data, headers, api_key):

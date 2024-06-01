@@ -1,4 +1,3 @@
-
 import json
 import requests
 
@@ -6,7 +5,7 @@ from llm_providers.base_provider import BaseLLMProvider
 
 class OllamaProvider(BaseLLMProvider):
     def __init__(self, api_url):
-        self.api_url = api_url
+        self.api_url = "http://127.0.0.1:11434/api/generate"
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -29,7 +28,6 @@ class OllamaProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'response' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-        
 
     def send_request(self, data):
         headers = {
@@ -51,4 +49,3 @@ class OllamaProvider(BaseLLMProvider):
             json_data = ollama_request_data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
-    

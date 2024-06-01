@@ -680,12 +680,18 @@ def rephrase_skill(skill_request):
     return None
 
 
-def rephrase_prompt(user_request, model):
+def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, provider=None):
     print("Executing rephrase_prompt()")
 
     refactoring_prompt = get_rephrased_user_prompt(user_request)
 
-    max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)  # Use the appropriate max_tokens value based on the selected model
+    if llm_provider is None:
+        # Use the existing functionality for non-CLI calls
+        api_key = get_api_key()
+        llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+
+    if max_tokens is None:
+        max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)
 
     llm_request_data = {
         "model": model,
@@ -701,12 +707,11 @@ def rephrase_prompt(user_request, model):
         ],
     }
 
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-
     try:
         print("Sending request to LLM API...")
         print(f"Request Details:")
+        print(f"Provider: {provider}")
+        print(f"llm_provider: {llm_provider}")
         print(f" Model: {model}")
         print(f" Max Tokens: {max_tokens}")
         print(f" Messages: {llm_request_data['messages']}")
