@@ -84,8 +84,19 @@ To get started with AutoGroq, follow these steps:
    conda activate AutoGroq  
    git clone https://github.com/jgravelle/AutoGroq.git  
    pip install -r requirements.txt  
-   streamlit run c:\AutoGroq\AutoGroq\main.py  
+   streamlit run c:\AutoGroq\AutoGroq\main.py
 
+## Configuration
+
+To customize the configurations for your local environment, follow these steps:  
+  
+1. Create a new file called `config_local.py` in the same directory as `config.py`.  
+2. Copy the contents of `config_local.py.example` into `config_local.py`.  
+3. Modify the values in `config_local.py` according to your specific setup, such as API keys and URLs.  
+4. Save the `config_local.py` file.  
+  
+Note: The `config_local.py` file is not tracked by Git, so your customizations will not be overwritten when pulling updates from the repository.  
+  
 ## How It Works
 
 1. **Initiation**: Begin by entering your query or request in the designated input area.
