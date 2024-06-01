@@ -7,7 +7,7 @@ import streamlit as st
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
-    description = agent['config'].get('description', '')  # Get description from config, default to empty string if missing
+    description = agent['config'].get('description', agent.get('description', ''))  # Get description from config, default to empty string if missing
     current_timestamp = datetime.datetime.now().isoformat()
 
     formatted_expert_name = sanitize_text(expert_name)
