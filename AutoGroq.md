@@ -288,31 +288,33 @@ def send_request(agent_name, request):
 # AutoGroq\config.py
 
 ```python
-#APIs
-LLM_PROVIDER = "openai" # Supported values: "groq", "openai", "ollama", "lmstudio"
+import os
 
+# Get user home directory
+home_dir = os.path.expanduser("~")
+default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
 
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
-OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
+# Default configurations
+DEFAULT_LLM_PROVIDER = "groq"
+DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+DEFAULT_LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
+DEFAULT_OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
+DEFAULT_OPENAI_API_KEY = None
+DEFAULT_OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
-OPENAI_API_KEY = None
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+# Try to import user-specific configurations from config_local.py
+try:
+    from config_local import *
+except ImportError:
+    pass
 
-if LLM_PROVIDER == "groq":
-    API_KEY_NAME = "GROQ_API_KEY"
-    API_URL = GROQ_API_URL
-elif LLM_PROVIDER == "lmstudio":
-    API_KEY_NAME = None
-    API_URL = LMSTUDIO_API_URL
-elif LLM_PROVIDER == "openai":  
-    API_KEY_NAME = "OPENAI_API_KEY"
-    API_URL = OPENAI_API_URL
-elif LLM_PROVIDER == "ollama":
-    API_KEY_NAME = None
-    API_URL = OLLAMA_API_URL
-else:
-    raise ValueError(f"Unsupported LLM provider: {LLM_PROVIDER}")
+# Set the configurations using the user-specific values if available, otherwise use the defaults
+LLM_PROVIDER = locals().get('LLM_PROVIDER', DEFAULT_LLM_PROVIDER)
+GROQ_API_URL = locals().get('GROQ_API_URL', DEFAULT_GROQ_API_URL)
+LMSTUDIO_API_URL = locals().get('LMSTUDIO_API_URL', DEFAULT_LMSTUDIO_API_URL)
+OLLAMA_API_URL = locals().get('OLLAMA_API_URL', DEFAULT_OLLAMA_API_URL)
+OPENAI_API_KEY = locals().get('OPENAI_API_KEY', DEFAULT_OPENAI_API_KEY)
+OPENAI_API_URL = locals().get('OPENAI_API_URL', DEFAULT_OPENAI_API_URL)
 
 API_KEY_NAMES = {
     "groq": "GROQ_API_KEY",
@@ -326,10 +328,10 @@ API_KEY_NAMES = {
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # in seconds
 RETRY_TOKEN_LIMIT = 5000
-LLM_URL = GROQ_API_URL
 
 # Model configurations
 if LLM_PROVIDER == "groq":
+    API_URL = GROQ_API_URL
     MODEL_TOKEN_LIMITS = {
         'mixtral-8x7b-32768': 32768,
         'llama3-70b-8192': 8192,
@@ -337,14 +339,17 @@ if LLM_PROVIDER == "groq":
         'gemma-7b-it': 8192,
     }
 elif LLM_PROVIDER == "lmstudio":
+    API_URL = LMSTUDIO_API_URL
     MODEL_TOKEN_LIMITS = {
         'instructlab/granite-7b-lab-GGUF': 2048,
     } 
 elif LLM_PROVIDER == "openai":
+    API_URL = OPENAI_API_URL
     MODEL_TOKEN_LIMITS = {
         'gpt-4o': 4096,
     }
 elif LLM_PROVIDER == "ollama":
+    API_URL = OLLAMA_API_URL
     MODEL_TOKEN_LIMITS = {
         'llama3': 8192,
     }   
@@ -353,7 +358,8 @@ else:
 
     
 # Database path
-AUTOGEN_DB_PATH = "C:\\Users\\j\\.autogenstudio\\database.sqlite"
+# AUTOGEN_DB_PATH="/path/to/custom/database.sqlite"
+AUTOGEN_DB_PATH = os.environ.get('AUTOGEN_DB_PATH', default_db_path)
 
 MODEL_CHOICES = {
     'default': None,
@@ -365,6 +371,19 @@ MODEL_CHOICES = {
     'llama3-8b-8192': 8192,
     'mixtral-8x7b-32768': 32768
 }
+```
+
+# AutoGroq\config_local.py
+
+```python
+# User-specific configurations
+
+LLM_PROVIDER = "openai"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
+OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
+# OPENAI_API_KEY = "your_openai_api_key"
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 ```
 
 # AutoGroq\current_project.py
@@ -711,6 +730,55 @@ if __name__ == "__main__":
     
 ```
 
+# AutoGroq\cli\rephrase_prompt.py
+
+```python
+
+import argparse
+import os
+import sys
+
+# Add the root directory to the Python module search path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
+from utils.api_utils import get_llm_provider
+from utils.auth_utils import get_api_key
+from utils.ui_utils import rephrase_prompt
+
+
+def rephrase_prompt_cli(prompt, provider, model, temperature, max_tokens):
+    # Get the API key
+    api_key = get_api_key()
+
+    # Use the provider specified in the CLI arguments
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+
+    # Override the model and max_tokens if specified in the command-line arguments
+    model_to_use = model if model else provider
+    max_tokens_to_use = MODEL_TOKEN_LIMITS.get(model_to_use, max_tokens)
+
+    rephrased_prompt = rephrase_prompt(prompt, model_to_use, max_tokens_to_use, llm_provider=llm_provider, provider=provider)
+
+    if rephrased_prompt:
+        print(f"Rephrased Prompt: {rephrased_prompt}")
+    else:
+        print("Error: Failed to rephrase the prompt.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Rephrase a user prompt.")
+    parser.add_argument("--prompt", required=True, help="The user prompt to rephrase.")
+    parser.add_argument("--model", default=None, help="The model to use for rephrasing.")
+    parser.add_argument("--temperature", type=float, default=0.5, help="The temperature value for rephrasing.")
+    parser.add_argument("--max_tokens", type=int, default=32768, help="The maximum number of tokens for rephrasing.")
+    parser.add_argument("--provider", default=None, help="The LLM provider to use (e.g., 'openai', 'anthropic').")
+    
+    args = parser.parse_args()
+    rephrase_prompt_cli(args.prompt, args.provider, args.model, args.temperature, args.max_tokens)
+
+```
+
 # AutoGroq\llm_providers\base_provider.py
 
 ```python
@@ -731,25 +799,22 @@ class BaseLLMProvider(ABC):
 # AutoGroq\llm_providers\groq_provider.py
 
 ```python
+
 import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
-from utils.auth_utils import get_api_key
-
 
 class GroqProvider(BaseLLMProvider):
     def __init__(self, api_url, api_key):
         self.api_key = api_key
-        self.api_url = api_url
-
+        self.api_url = "https://api.groq.com/openai/v1/chat/completions"
 
     def process_response(self, response):
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-
 
     def send_request(self, data):
         headers = {
@@ -763,7 +828,7 @@ class GroqProvider(BaseLLMProvider):
             json_data = data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
-
+    
 ```
 
 # AutoGroq\llm_providers\lmstudio_provider.py
@@ -777,7 +842,7 @@ from llm_providers.base_provider import BaseLLMProvider
 
 class LmstudioProvider(BaseLLMProvider):
     def __init__(self, api_url):
-        self.api_url = api_url
+        self.api_url = "http://localhost:1234/v1/chat/completions"
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -797,7 +862,6 @@ class LmstudioProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'choices' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-        
 
     def send_request(self, data):
         headers = {
@@ -819,7 +883,7 @@ class LmstudioProvider(BaseLLMProvider):
         else:
             json_data = lm_studio_request_data
 
-        response = requests.post(f"{self.api_url}", data=json_data, headers=headers)
+        response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
     
 ```
@@ -827,7 +891,6 @@ class LmstudioProvider(BaseLLMProvider):
 # AutoGroq\llm_providers\ollama_provider.py
 
 ```python
-
 import json
 import requests
 
@@ -835,7 +898,7 @@ from llm_providers.base_provider import BaseLLMProvider
 
 class OllamaProvider(BaseLLMProvider):
     def __init__(self, api_url):
-        self.api_url = api_url
+        self.api_url = "http://127.0.0.1:11434/api/generate"
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -858,7 +921,6 @@ class OllamaProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'response' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
-        
 
     def send_request(self, data):
         headers = {
@@ -880,7 +942,6 @@ class OllamaProvider(BaseLLMProvider):
             json_data = ollama_request_data
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
-    
 ```
 
 # AutoGroq\llm_providers\openai_provider.py
@@ -888,14 +949,15 @@ class OllamaProvider(BaseLLMProvider):
 ```python
 
 import json
+import os
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
 
 class OpenaiProvider(BaseLLMProvider):
     def __init__(self, api_url, api_key):
-        self.api_key = api_key
-        self.api_url = api_url
+        self.api_key = os.environ.get("OPENAI_API_KEY")
+        self.api_url = "https://api.openai.com/v1/chat/completions"
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -904,6 +966,7 @@ class OpenaiProvider(BaseLLMProvider):
             raise Exception(f"Request failed with status code {response.status_code}")
 
     def send_request(self, data):
+        print("self.api_url: ", self.api_url)
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -2019,12 +2082,14 @@ import time
 from config import API_URL, LLM_PROVIDER, RETRY_TOKEN_LIMIT
 
 
-def get_llm_provider(api_key=None, api_url=None):
+def get_llm_provider(api_key=None, api_url=None, provider=None):
+    if provider is None:
+        provider = LLM_PROVIDER
+    provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
+    provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
         api_url = API_URL
-    provider_module = importlib.import_module(f"llm_providers.{LLM_PROVIDER}_provider")
-    provider_class = getattr(provider_module, f"{LLM_PROVIDER.capitalize()}Provider")
-    return provider_class(api_url=api_url, api_key=api_key)     
+    return provider_class(api_url=api_url, api_key=api_key)
 
 
 def make_api_request(url, data, headers, api_key):
@@ -3169,12 +3234,18 @@ def rephrase_skill(skill_request):
     return None
 
 
-def rephrase_prompt(user_request, model):
+def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, provider=None):
     print("Executing rephrase_prompt()")
 
     refactoring_prompt = get_rephrased_user_prompt(user_request)
 
-    max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)  # Use the appropriate max_tokens value based on the selected model
+    if llm_provider is None:
+        # Use the existing functionality for non-CLI calls
+        api_key = get_api_key()
+        llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+
+    if max_tokens is None:
+        max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)
 
     llm_request_data = {
         "model": model,
@@ -3190,12 +3261,11 @@ def rephrase_prompt(user_request, model):
         ],
     }
 
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-
     try:
         print("Sending request to LLM API...")
         print(f"Request Details:")
+        print(f"Provider: {provider}")
+        print(f"llm_provider: {llm_provider}")
         print(f" Model: {model}")
         print(f" Max Tokens: {max_tokens}")
         print(f" Messages: {llm_request_data['messages']}")
