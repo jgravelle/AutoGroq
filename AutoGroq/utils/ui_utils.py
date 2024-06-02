@@ -142,8 +142,8 @@ def display_download_and_export_buttons():
 
 
 def display_user_input():
-    user_input = st.text_area("Additional Input:", key="user_input", height=100)
-    reference_url = st.text_input("URL:", key="reference_url")
+    user_input = st.text_area("Additional Input:", value=st.session_state.get("user_input", ""), key="user_input_widget", height=100, on_change=update_user_input)
+    reference_url = st.text_input("URL:", key="reference_url_widget")
 
     if user_input:
         url_pattern = re.compile(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
@@ -789,7 +789,12 @@ def show_interfaces():
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="user-input">', unsafe_allow_html=True)
-    display_user_input()
+    auto_moderate = st.checkbox("Auto-moderate (slow, eats tokens, but very cool)", key="auto_moderate", on_change=trigger_moderator_agent_if_checked)
+    if auto_moderate and not st.session_state.get("user_input"):
+        moderator_response = trigger_moderator_agent()
+        if moderator_response:
+            st.session_state.user_input = moderator_response
+    user_input, reference_url = display_user_input()
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -840,6 +845,50 @@ def show_skills():
                 st.experimental_rerun()
 
 
+def trigger_moderator_agent():
+    goal = st.session_state.current_project.re_engineered_prompt
+    last_speaker = st.session_state.last_agent
+    last_comment = st.session_state.last_comment
+    discussion_history = st.session_state.discussion_history
+
+    team_members = []
+    for agent in st.session_state.agents:
+        team_members.append(f"{agent['config']['name']}: {agent['description']}")
+    team_members_str = "\n".join(team_members)
+
+    moderator_prompt = f"You are Moderator Bot. Your goal is to mediate the conversation between a team of AI agents in a manner that persuades them to act in the most expeditious and thorough manner to accomplish their goal. This will entail considering the user's stated goal, the conversation thus far, the descriptions of all the available agent/experts in the current team, the last speaker, and their remark. Use logic and reasoning to decide who should speak next. Then draft a prompt directed at that agent that persuades them to act in the most expeditious and thorough manner toward helping this team of agents accomplish their goal.\n\nTheir goal is: {goal}.\nThe last speaker was {last_speaker}, who said: {last_comment}\nHere is the current conversational discussion history: {discussion_history}\nAnd here are the team members and their descriptions:\n{team_members_str}\n\nYour response should be JUST the requested prompt addressed to the next agent, and should not contain any introduction, narrative, or any other superfluous text whatsoever."
+
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": st.session_state.get('temperature', 0.3),
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": moderator_prompt
+            }
+        ]
+    }
+    response = llm_provider.send_request(llm_request_data)
+
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            content = response_data["choices"][0]["message"]["content"]
+            return content.strip()
+
+    return None
+
+
+def trigger_moderator_agent_if_checked():
+    if st.session_state.get("auto_moderate", False):
+        trigger_moderator_agent()
+
+
 def update_discussion_and_whiteboard(agent_name, response, user_input):
     if user_input:
         user_input_text = f"\n\n\n\n{user_input}\n\n"
@@ -855,7 +904,24 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     st.session_state.whiteboard = code_blocks
     st.session_state.last_agent = agent_name
     st.session_state.last_comment = response_text
-    
+
+    if st.session_state.get("auto_moderate", False):
+        moderator_response = trigger_moderator_agent()
+        if moderator_response:
+            st.session_state.user_input = moderator_response
+        else:
+            st.session_state.user_input = ""
+        
+        # Update the 'Additional Input:' text area with the moderator response or an empty string
+        # st.text_area("Additional Input:", value=st.session_state.user_input, key="user_input_widget_auto_moderate", height=100, on_change=update_user_input)
+
+
+def update_user_input():
+    if st.session_state.get("auto_moderate"):
+        st.session_state.user_input = st.session_state.user_input_widget_auto_moderate
+    else:
+        st.session_state.user_input = st.session_state.user_input_widget
+
 
 def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()

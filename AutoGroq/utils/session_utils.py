@@ -77,6 +77,9 @@ def initialize_session_variables():
     if "user_input" not in st.session_state:
         st.session_state.user_input = ""
 
+    if "user_input_widget_auto_moderate" not in st.session_state:
+            st.session_state.user_input_widget_auto_moderate = ""
+
     if "user_request" not in st.session_state:
         st.session_state.user_request = ""
 

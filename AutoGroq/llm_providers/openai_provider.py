@@ -30,5 +30,7 @@ class OpenaiProvider(BaseLLMProvider):
             json_data = data
         
         response = requests.post(self.api_url, data=json_data, headers=headers)
+        print("response.status_code: ", response.status_code)
+        print("response.text: ", response.text)
         return response
     
