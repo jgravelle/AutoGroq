@@ -378,7 +378,7 @@ MODEL_CHOICES = {
 ```python
 # User-specific configurations
 
-LLM_PROVIDER = "lmstudio"
+LLM_PROVIDER = "groq"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
 OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
@@ -3028,15 +3028,15 @@ def handle_user_request(session_state):
             print("Debug: Sending request to rephrase_prompt")
             model = session_state.model
             print(f"Debug: Model: {model}")
-            rephrased_text = rephrase_prompt(user_request, model)  # Pass the API_URL to rephrase_prompt
+            rephrased_text = rephrase_prompt(user_request, model)
             print(f"Debug: Rephrased text: {rephrased_text}")
             if rephrased_text:
                 session_state.rephrased_request = rephrased_text
-                break  # Exit the loop if successful
+                break
             else:
                 print("Error: Failed to rephrase the user request.")
                 st.warning("Failed to rephrase the user request. Please try again.")
-                return  # Exit the function if rephrasing fails
+                return
         except Exception as e:
             print(f"Error occurred in handle_user_request: {str(e)}")
             if retry < max_retries - 1:
@@ -3045,7 +3045,7 @@ def handle_user_request(session_state):
             else:
                 print("Max retries exceeded.")
                 st.warning("An error occurred. Please try again.")
-                return  # Exit the function if max retries are exceeded
+                return
 
     if "rephrased_request" not in session_state:
         st.warning("Failed to rephrase the user request. Please try again.")
@@ -3054,7 +3054,6 @@ def handle_user_request(session_state):
     rephrased_text = session_state.rephrased_request
 
     if "project_manager_output" not in session_state:
-        # Create the Project Manager agent only if it hasn't been created before
         project_manager_output = create_project_manager(rephrased_text, API_URL)
 
         if not project_manager_output:
@@ -3064,11 +3063,9 @@ def handle_user_request(session_state):
 
         session_state.project_manager_output = project_manager_output
 
-        # Create an instance of the Current_Project class
         current_project = Current_Project()
         current_project.set_re_engineered_prompt(rephrased_text)
 
-        # Extract objectives and deliverables from the project manager's output
         objectives_pattern = r"Objectives:\n(.*?)(?=Deliverables|$)"
         deliverables_pattern = r"Deliverables:\n(.*?)(?=Timeline|Team of Experts|$)"
 
@@ -3086,41 +3083,46 @@ def handle_user_request(session_state):
 
         session_state.current_project = current_project
 
-        # Update the discussion and whiteboard with the Project Manager's initial response
         update_discussion_and_whiteboard("Project Manager", project_manager_output, "")
     else:
-        # Retrieve the previously created Project Manager's output from the session state
         project_manager_output = session_state.project_manager_output
 
-    team_of_experts_pattern = r"Team of Experts:\n(.*)"
-    match = re.search(team_of_experts_pattern, project_manager_output, re.DOTALL)
-    if match:
-        team_of_experts_text = match.group(1).strip()
+    team_of_experts_patterns = [
+        r"\*\*Team of Experts:\*\*\n(.*)",
+        r"Team of Experts:\n(.*)"
+    ]
+
+    team_of_experts_text = None
+    for pattern in team_of_experts_patterns:
+        match = re.search(pattern, project_manager_output, re.DOTALL)
+        if match:
+            team_of_experts_text = match.group(1).strip()
+            break
+
+    if team_of_experts_text:
+        autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text, API_URL)
+
+        print(f"Debug: AutoGen Agents: {autogen_agents}")
+        print(f"Debug: CrewAI Agents: {crewai_agents}")
+
+        if not autogen_agents:
+            print("Error: No agents created.")
+            st.warning("Failed to create agents. Please try again.")
+            return
+
+        session_state.agents = autogen_agents
+
+        workflow_data, _ = get_workflow_from_agents(autogen_agents)
+        print(f"Debug: Workflow data: {workflow_data}")
+        print(f"Debug: CrewAI agents: {crewai_agents}")
+
+        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+        session_state.autogen_zip_buffer = autogen_zip_buffer
+        session_state.crewai_zip_buffer = crewai_zip_buffer
     else:
-        print("Error: 'ts' section not found in Project Manager's output.")
+        print("Error: 'Team of Experts' section not found in Project Manager's output.")
         st.warning("Failed to extract the team of experts from the Project Manager's output. Please try again.")
         return
-
-    autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text, API_URL)
-
-    print(f"Debug: AutoGen Agents: {autogen_agents}")
-    print(f"Debug: CrewAI Agents: {crewai_agents}")
-
-    if not autogen_agents:
-        print("Error: No agents created.")
-        st.warning("Failed to create agents. Please try again.")
-        return
-
-    # Set the agents attribute in the session state
-    session_state.agents = autogen_agents
-
-    workflow_data, _ = get_workflow_from_agents(autogen_agents)
-    print(f"Debug: Workflow data: {workflow_data}")
-    print(f"Debug: CrewAI agents: {crewai_agents}")
-
-    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-    session_state.autogen_zip_buffer = autogen_zip_buffer
-    session_state.crewai_zip_buffer = crewai_zip_buffer
 
 
 def key_prompt():
