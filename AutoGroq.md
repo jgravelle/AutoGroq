@@ -594,9 +594,26 @@ def get_generate_skill_prompt(rephrased_skill_request):
                 '''
 
 
-def get_rephrased_user_prompt(user_request):
+def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,team_members_str): 
     return f"""
-        Act as a professional prompt engineer and efactor the following user request into an optimized prompt. Your goal is to rephrase the request with a focus on the satisfying all following the criteria without explicitly stating them:
+        You are Moderator Bot. Your goal is to mediate the conversation between a team of AI agents 
+        in a manner that persuades them to act in the most expeditious and thorough manner to accomplish their goal. 
+        This will entail considering the user's stated goal, the conversation thus far, the descriptions 
+        of all the available agent/experts in the current team, the last speaker, and their remark. 
+        Based upon a holistic analysis of all the facts at hand, use logic and reasoning to decide who should speak next. 
+        Then draft a prompt directed at that agent that persuades them to act in the most expeditious and thorough manner toward helping this team of agents 
+        accomplish their goal.\n\nTheir goal is: {goal}.\nThe last speaker was {last_speaker}, who said: 
+        {last_comment}\nHere is the current conversational discussion history: {discussion_history}\n
+        And here are the team members and their descriptions:\n{team_members_str}\n\n
+        Your response should be JUST the requested prompt addressed to the next agent, and should not contain 
+        any introduction, narrative, or any other superfluous text whatsoever.
+    """
+
+
+def get_rephrased_user_prompt(user_request):
+    return f"""Act as a professional prompt engineer and efactor the following 
+                user request into an optimized prompt. Your goal is to rephrase the request 
+                with a focus on the satisfying all following the criteria without explicitly stating them:
         1. Clarity: Ensure the prompt is clear and unambiguous.
         2. Specific Instructions: Provide detailed steps or guidelines.
         3. Context: Include necessary background information.
@@ -613,6 +630,7 @@ def get_rephrased_user_prompt(user_request):
         Rephrased:
     """
 
+        
 ```
 
 # AutoGroq\cli\create_agent.py
@@ -2579,6 +2597,7 @@ from utils.auth_utils import get_api_key
 from utils.db_utils import export_skill_to_autogen, export_to_autogen
 from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
+from prompts import get_moderator_prompt
     
     
 def create_project_manager(rephrased_text, api_url):
@@ -3417,7 +3436,7 @@ def trigger_moderator_agent():
         team_members.append(f"{agent['config']['name']}: {agent['description']}")
     team_members_str = "\n".join(team_members)
 
-    moderator_prompt = f"You are Moderator Bot. Your goal is to mediate the conversation between a team of AI agents in a manner that persuades them to act in the most expeditious and thorough manner to accomplish their goal. This will entail considering the user's stated goal, the conversation thus far, the descriptions of all the available agent/experts in the current team, the last speaker, and their remark. Use logic and reasoning to decide who should speak next. Then draft a prompt directed at that agent that persuades them to act in the most expeditious and thorough manner toward helping this team of agents accomplish their goal.\n\nTheir goal is: {goal}.\nThe last speaker was {last_speaker}, who said: {last_comment}\nHere is the current conversational discussion history: {discussion_history}\nAnd here are the team members and their descriptions:\n{team_members_str}\n\nYour response should be JUST the requested prompt addressed to the next agent, and should not contain any introduction, narrative, or any other superfluous text whatsoever."
+    moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,team_members_str)
 
     api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
