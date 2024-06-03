@@ -6,4 +6,4 @@ tiktoken==0.7.0
 matplotlib==3.9.0
 markdown2==2.4.13
 openai == 0.27.10
-xhtml2pdf==0.2.5    
+reportlab == 5.2.0

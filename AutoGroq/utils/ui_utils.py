@@ -111,17 +111,15 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_undone(index)
 
     with tab6:
-        if "discussion_history" in st.session_state:
-            pdf_data = generate_pdf(st.session_state.discussion_history)
-            st.download_button(
-                label="Download Discussion History",
-                data=pdf_data,
-                file_name="discussion_history.pdf",
-                mime="application/pdf",
-                key=f"discussion_history_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
-            )
-        if "agents" in st.session_state and st.session_state.agents:
-            display_download_and_export_buttons()
+        # Download discussion_history as PDF
+        pdf_data = generate_pdf(st.session_state.discussion_history)
+        st.download_button(
+            label="Download Discussion History",
+            data=pdf_data,
+            file_name="discussion_history.pdf",
+            mime="application/pdf",
+            key=f"discussion_history_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+        )
                             
 
 def display_download_button():
