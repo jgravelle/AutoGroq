@@ -1,41 +1,6 @@
-## NEW:  CLI SUPPORT!  WUT WUT...?!!!
+## NEW:  MODERATOR-BOT!!!
 
-C:\AutoGroq\AutoGroq\cli>python create_agent.py -h  
-usage: create_agent.py [-h] --request REQUEST [--model MODEL] [--temperature TEMPERATURE] [--max_tokens MAX_TOKENS]  
-                       [--agent_type {autogen,crewai}] [--output OUTPUT]  
-  
-Create an agent based on a user request.  
-  
-options:  
-  -h, --help            show this help message and exit  
-  --request REQUEST     The user request for creating the agent.  
-  --model MODEL         The model to use for the agent.  
-  --temperature TEMPERATURE  
-                        The temperature value for the agent.  
-  --max_tokens MAX_TOKENS  
-                        The maximum number of tokens for the agent.  
-  --agent_type {autogen,crewai}  
-                        The type of agent to create.  
-  --output OUTPUT       The output file path for the agent JSON.  
-  
-PS C:\AutoGroq\AutoGroq> cd cli  
-PS C:\AutoGroq\AutoGroq\cli> python create_agent.py --request "Create an expert Python developer agent to assist with code optimization and best practices" --output agent.json  
->>   
-Agent Data: {  
-  "type": "assistant",  
-  "config": {  
-    "name": "Create an expert Python developer agent to assist with code optimization and best practices",  
-    "llm_config": {  
-      "config_list": [  
-        {  
-          "user_id":  
-...  
-  "skills": []  
-}  
-Agent created successfully. Output saved to: agent.json  
-PS C:\AutoGroq\AutoGroq\cli> dir  
-  
--a---           5/31/2024  3:15 PM           4441 agent.json  
+See:  https://www.youtube.com/watch?v=MGEXFuK7RDY
   
 ## NEW:  Py2Md!
 
