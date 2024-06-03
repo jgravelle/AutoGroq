@@ -130,7 +130,7 @@ def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,te
 
 
 def get_rephrased_user_prompt(user_request):
-    return f"""Act as a professional prompt engineer and efactor the following 
+    return f"""Act as a professional prompt engineer and refactor the following 
                 user request into an optimized prompt. Your goal is to rephrase the request 
                 with a focus on the satisfying all following the criteria without explicitly stating them:
         1. Clarity: Ensure the prompt is clear and unambiguous.

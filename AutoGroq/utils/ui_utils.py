@@ -512,20 +512,43 @@ def handle_user_request(session_state):
         current_project = Current_Project()
         current_project.set_re_engineered_prompt(rephrased_text)
 
-        objectives_pattern = r"Objectives:\n(.*?)(?=Deliverables|$)"
-        deliverables_pattern = r"Deliverables:\n(.*?)(?=Timeline|Team of Experts|$)"
+        objectives_patterns = [
+            r"Objectives:\n(.*?)(?=Deliverables|Key Deliverables|$)",
+            r"\*\*Objectives:\*\*\n(.*?)(?=\*\*Deliverables|\*\*Key Deliverables|$)"
+        ]
 
-        objectives_match = re.search(objectives_pattern, project_manager_output, re.DOTALL)
-        if objectives_match:
-            objectives = objectives_match.group(1).strip().split("\n")
+        deliverables_patterns = [
+            r"(?:Deliverables|Key Deliverables):\n(.*?)(?=Timeline|Team of Experts|$)",
+            r"\*\*(?:Deliverables|Key Deliverables):\*\*\n(.*?)(?=\*\*Timeline|\*\*Team of Experts|$)"
+        ]
+
+        objectives_text = None
+        for pattern in objectives_patterns:
+            match = re.search(pattern, project_manager_output, re.DOTALL)
+            if match:
+                objectives_text = match.group(1).strip()
+                break
+
+        if objectives_text:
+            objectives = objectives_text.split("\n")
             for objective in objectives:
                 current_project.add_objective(objective.strip())
+        else:
+            print("Warning: 'Objectives' section not found in Project Manager's output.")
 
-        deliverables_match = re.search(deliverables_pattern, project_manager_output, re.DOTALL)
-        if deliverables_match:
-            deliverables = deliverables_match.group(1).strip().split("\n")
+        deliverables_text = None
+        for pattern in deliverables_patterns:
+            match = re.search(pattern, project_manager_output, re.DOTALL)
+            if match:
+                deliverables_text = match.group(1).strip()
+                break
+
+        if deliverables_text:
+            deliverables = re.findall(r'\d+\.\s*(.*)', deliverables_text)
             for deliverable in deliverables:
                 current_project.add_deliverable(deliverable.strip())
+        else:
+            print("Warning: 'Deliverables' or 'Key Deliverables' section not found in Project Manager's output.")
 
         session_state.current_project = current_project
 
@@ -876,6 +899,8 @@ def trigger_moderator_agent():
             }
         ]
     }
+    # wait for RETRY_DELAY seconds
+    time.sleep(RETRY_DELAY)
     response = llm_provider.send_request(llm_request_data)
 
     if response.status_code == 200:
