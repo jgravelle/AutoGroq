@@ -6,7 +6,8 @@ from agent_management import display_agents
 from utils.api_utils import set_llm_provider_title
 from utils.session_utils import initialize_session_variables
 from utils.ui_utils import ( display_download_and_export_buttons,
-    display_reset_and_upload_buttons, key_prompt, 
+    display_goal, display_reset_and_upload_buttons, 
+    display_user_request_input, handle_user_request, key_prompt, 
     load_skill_functions, select_model, set_css, 
     set_temperature, show_interfaces, show_skills
 )
@@ -32,17 +33,20 @@ def main():
     with st.sidebar:
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
+            display_goal()
             show_skills()
         else:
             st.empty()  
 
     with st.container():
-        show_interfaces()
+        if st.session_state.get("rephrased_request", "") == "":
+            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
+            display_user_request_input()
+        if "agents" in st.session_state and st.session_state.agents:
+            show_interfaces()
+            display_reset_and_upload_buttons()
+            display_download_and_export_buttons()
         
-
-    display_reset_and_upload_buttons()
-    display_download_and_export_buttons()
-    
 
 if __name__ == "__main__":
     main()

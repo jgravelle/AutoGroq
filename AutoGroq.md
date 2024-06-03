@@ -434,7 +434,8 @@ from agent_management import display_agents
 from utils.api_utils import set_llm_provider_title
 from utils.session_utils import initialize_session_variables
 from utils.ui_utils import ( display_download_and_export_buttons,
-    display_reset_and_upload_buttons, key_prompt, 
+    display_goal, display_reset_and_upload_buttons, 
+    display_user_request_input, handle_user_request, key_prompt, 
     load_skill_functions, select_model, set_css, 
     set_temperature, show_interfaces, show_skills
 )
@@ -460,17 +461,20 @@ def main():
     with st.sidebar:
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
+            display_goal()
             show_skills()
         else:
             st.empty()  
 
     with st.container():
-        show_interfaces()
+        if st.session_state.get("rephrased_request", "") == "":
+            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
+            display_user_request_input()
+        if "agents" in st.session_state and st.session_state.agents:
+            show_interfaces()
+            display_reset_and_upload_buttons()
+            display_download_and_export_buttons()
         
-
-    display_reset_and_upload_buttons()
-    display_download_and_export_buttons()
-    
 
 if __name__ == "__main__":
     main()
@@ -2648,7 +2652,7 @@ def display_api_key_input():
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Goal"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables"])
 
     with tab1:
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
@@ -2686,10 +2690,7 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_done(index)
                         else:
                             current_project.mark_deliverable_undone(index)
-    
-    with tab6:
-        rephrased_request = st.text_area("Re-engineered Prompt:", value=st.session_state.get('rephrased_request', ''), height=100, key="rephrased_request_area")
-
+                            
 
 def display_download_button():
     col1, col2 = st.columns(2)
@@ -2717,6 +2718,13 @@ def display_download_and_export_buttons():
             display_download_button() 
             if st.button("Export to Autogen"):
                 export_to_autogen() 
+
+
+def display_goal():
+    if "current_project" in st.session_state:
+        current_project = st.session_state.current_project
+        if current_project.re_engineered_prompt:
+            st.expander("Goal").markdown(f"**OUR CURRENT GOAL:**\n\r {current_project.re_engineered_prompt}")
 
 
 def display_user_input():
@@ -3360,10 +3368,6 @@ def set_temperature():
 
 
 def show_interfaces():
-    if st.session_state.get("rephrased_request", "") == "":
-            user_request = st.text_input("Enter your request:", key="user_request", value=st.session_state.get("user_request", ""), on_change=handle_user_request, args=(st.session_state,))
-            display_user_request_input()
-
     st.markdown('<div class="discussion-whiteboard">', unsafe_allow_html=True)
     display_discussion_and_whiteboard()
     st.markdown('</div>', unsafe_allow_html=True)
