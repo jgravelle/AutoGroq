@@ -2359,17 +2359,9 @@ def export_skill_to_autogen(skill_name, edited_skill):
 
 ```python
 
-import datetime
-import markdown2
+import datetime 
 import os
 import re 
-
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import inch
-from xml.sax.saxutils import escape
 
 
 def create_agent_data(agent):
@@ -2478,54 +2470,6 @@ def create_workflow_data(workflow):
     sanitized_workflow_name = sanitized_workflow_name.lower().replace(' ', '_')
 
     return workflow
-
-
-def generate_pdf(text):
-    # Convert Markdown to HTML
-    html = markdown2.markdown(text)
-
-    # Define styles
-    styles = getSampleStyleSheet()
-    style_normal = styles["Normal"]
-    style_heading1 = styles["Heading1"]
-    style_heading2 = styles["Heading2"]
-    style_code = styles["Code"]
-
-    # Create a BytesIO object to store the PDF data
-    pdf_buffer = BytesIO()
-
-    # Create a SimpleDocTemplate object
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
-
-    # Create a list to hold the flowables (paragraphs, spacers, etc.)
-    story = []
-
-    # Split the HTML into lines
-    lines = html.split("\n")
-
-    # Parse the HTML and create styled paragraphs
-    for line in lines:
-        if line.startswith("<h1>"):
-            text = line.replace("<h1>", "").replace("</h1>", "")
-            story.append(Paragraph(escape(text), style_heading1))
-            story.append(Spacer(1, 0.2 * inch))
-        elif line.startswith("<h2>"):
-            text = line.replace("<h2>", "").replace("</h2>", "")
-            story.append(Paragraph(escape(text), style_heading2))
-            story.append(Spacer(1, 0.1 * inch))
-        elif line.startswith("<code>"):
-            text = line.replace("<code>", "").replace("</code>", "")
-            story.append(Paragraph(escape(text), style_code))
-        else:
-            story.append(Paragraph(escape(line), style_normal))
-
-    # Build the PDF document
-    doc.build(story)
-
-    # Get the PDF data from the BytesIO object
-    pdf_data = pdf_buffer.getvalue()
-
-    return pdf_data
 
 
 def sanitize_text(text): 
@@ -2653,7 +2597,7 @@ from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.db_utils import export_skill_to_autogen, export_to_autogen
-from utils.file_utils import create_agent_data, create_skill_data, generate_pdf, sanitize_text
+from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -2717,7 +2661,7 @@ def display_discussion_and_whiteboard():
     with tab3:
         st.write(discussion_history)
 
-    with tab4:
+    with tab4:  
         if "current_project" in st.session_state:
             current_project = st.session_state.current_project
             for index, objective in enumerate(current_project.objectives):
@@ -2746,15 +2690,9 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_undone(index)
 
     with tab6:
-        # Download discussion_history as PDF
-        pdf_data = generate_pdf(st.session_state.discussion_history)
-        st.download_button(
-            label="Download Discussion History",
-            data=pdf_data,
-            file_name="discussion_history.pdf",
-            mime="application/pdf",
-            key=f"discussion_history_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
-        )
+        display_download_button() 
+        if st.button("Export to Autogen"):
+            export_to_autogen()
                             
 
 def display_download_button():
@@ -2778,11 +2716,9 @@ def display_download_button():
 
 
 def display_download_and_export_buttons():
-    if "agents" in st.session_state and st.session_state.agents:
-        if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
-            display_download_button() 
-            if st.button("Export to Autogen"):
-                export_to_autogen() 
+    display_download_button() 
+    if st.button("Export to Autogen"):
+            export_to_autogen() 
 
 
 def display_goal():

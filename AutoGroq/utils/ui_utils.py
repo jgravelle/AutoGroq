@@ -18,7 +18,7 @@ from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.db_utils import export_skill_to_autogen, export_to_autogen
-from utils.file_utils import create_agent_data, create_skill_data, generate_pdf, sanitize_text
+from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -82,7 +82,7 @@ def display_discussion_and_whiteboard():
     with tab3:
         st.write(discussion_history)
 
-    with tab4:
+    with tab4:  
         if "current_project" in st.session_state:
             current_project = st.session_state.current_project
             for index, objective in enumerate(current_project.objectives):
@@ -111,15 +111,9 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_undone(index)
 
     with tab6:
-        # Download discussion_history as PDF
-        pdf_data = generate_pdf(st.session_state.discussion_history)
-        st.download_button(
-            label="Download Discussion History",
-            data=pdf_data,
-            file_name="discussion_history.pdf",
-            mime="application/pdf",
-            key=f"discussion_history_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
-        )
+        display_download_button() 
+        if st.button("Export to Autogen"):
+            export_to_autogen()
                             
 
 def display_download_button():
@@ -143,11 +137,9 @@ def display_download_button():
 
 
 def display_download_and_export_buttons():
-    if "agents" in st.session_state and st.session_state.agents:
-        if "autogen_zip_buffer" in st.session_state and "crewai_zip_buffer" in st.session_state:
-            display_download_button() 
-            if st.button("Export to Autogen"):
-                export_to_autogen() 
+    display_download_button() 
+    if st.button("Export to Autogen"):
+            export_to_autogen() 
 
 
 def display_goal():
