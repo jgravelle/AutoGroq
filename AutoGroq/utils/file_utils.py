@@ -2,7 +2,10 @@
 import datetime
 import os
 import re 
-import streamlit as st
+
+from io import BytesIO
+import markdown2
+from xhtml2pdf import pisa
 
 
 def create_agent_data(agent):
@@ -111,6 +114,22 @@ def create_workflow_data(workflow):
     sanitized_workflow_name = sanitized_workflow_name.lower().replace(' ', '_')
 
     return workflow
+
+
+def generate_pdf(text):
+    # Convert Markdown to HTML
+    html = markdown2.markdown(text)
+
+    # Create a BytesIO object to store the PDF data
+    pdf_buffer = BytesIO()
+
+    # Generate the PDF from the HTML content
+    pisa.CreatePDF(html, dest=pdf_buffer)
+
+    # Get the PDF data from the BytesIO object
+    pdf_data = pdf_buffer.getvalue()
+
+    return pdf_data
 
 
 def sanitize_text(text): 

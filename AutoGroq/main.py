@@ -5,7 +5,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 from agent_management import display_agents
 from utils.api_utils import set_llm_provider_title
 from utils.session_utils import initialize_session_variables
-from utils.ui_utils import ( display_download_and_export_buttons,
+from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, key_prompt, 
     load_skill_functions, select_model, set_css, 
@@ -45,7 +45,6 @@ def main():
         if "agents" in st.session_state and st.session_state.agents:
             show_interfaces()
             display_reset_and_upload_buttons()
-            display_download_and_export_buttons()
         
 
 if __name__ == "__main__":

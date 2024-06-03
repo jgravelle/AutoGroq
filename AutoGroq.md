@@ -433,7 +433,7 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 from agent_management import display_agents
 from utils.api_utils import set_llm_provider_title
 from utils.session_utils import initialize_session_variables
-from utils.ui_utils import ( display_download_and_export_buttons,
+from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, key_prompt, 
     load_skill_functions, select_model, set_css, 
@@ -473,7 +473,6 @@ def main():
         if "agents" in st.session_state and st.session_state.agents:
             show_interfaces()
             display_reset_and_upload_buttons()
-            display_download_and_export_buttons()
         
 
 if __name__ == "__main__":
@@ -2363,7 +2362,10 @@ def export_skill_to_autogen(skill_name, edited_skill):
 import datetime
 import os
 import re 
-import streamlit as st
+
+from io import BytesIO
+import markdown2
+from xhtml2pdf import pisa
 
 
 def create_agent_data(agent):
@@ -2472,6 +2474,22 @@ def create_workflow_data(workflow):
     sanitized_workflow_name = sanitized_workflow_name.lower().replace(' ', '_')
 
     return workflow
+
+
+def generate_pdf(text):
+    # Convert Markdown to HTML
+    html = markdown2.markdown(text)
+
+    # Create a BytesIO object to store the PDF data
+    pdf_buffer = BytesIO()
+
+    # Generate the PDF from the HTML content
+    pisa.CreatePDF(html, dest=pdf_buffer)
+
+    # Get the PDF data from the BytesIO object
+    pdf_data = pdf_buffer.getvalue()
+
+    return pdf_data
 
 
 def sanitize_text(text): 
@@ -2599,7 +2617,7 @@ from skills.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.db_utils import export_skill_to_autogen, export_to_autogen
-from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+from utils.file_utils import create_agent_data, create_skill_data, generate_pdf, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -2652,7 +2670,7 @@ def display_api_key_input():
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Downloads"])
 
     with tab1:
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
@@ -2690,6 +2708,19 @@ def display_discussion_and_whiteboard():
                             current_project.mark_deliverable_done(index)
                         else:
                             current_project.mark_deliverable_undone(index)
+
+    with tab6:
+        if "discussion_history" in st.session_state:
+            pdf_data = generate_pdf(st.session_state.discussion_history)
+            st.download_button(
+                label="Download Discussion History",
+                data=pdf_data,
+                file_name="discussion_history.pdf",
+                mime="application/pdf",
+                key=f"discussion_history_download_button_{int(time.time())}"  # Generate a unique key based on timestamp
+            )
+        if "agents" in st.session_state and st.session_state.agents:
+            display_download_and_export_buttons()
                             
 
 def display_download_button():
@@ -3481,7 +3512,8 @@ def trigger_moderator_agent():
         ]
     }
     # wait for RETRY_DELAY seconds
-    time.sleep(RETRY_DELAY)
+    retry_delay = RETRY_DELAY
+    time.sleep(retry_delay)
     response = llm_provider.send_request(llm_request_data)
 
     if response.status_code == 200:
