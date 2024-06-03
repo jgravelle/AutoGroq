@@ -5,7 +5,7 @@ import requests
 from llm_providers.base_provider import BaseLLMProvider
 
 class LmstudioProvider(BaseLLMProvider):
-    def __init__(self, api_url):
+    def __init__(self, api_url, api_key=None):
         self.api_url = "http://localhost:1234/v1/chat/completions"
 
     def process_response(self, response):

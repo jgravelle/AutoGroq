@@ -378,7 +378,7 @@ MODEL_CHOICES = {
 ```python
 # User-specific configurations
 
-LLM_PROVIDER = "openai"
+LLM_PROVIDER = "lmstudio"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
 OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
@@ -841,7 +841,7 @@ import requests
 from llm_providers.base_provider import BaseLLMProvider
 
 class LmstudioProvider(BaseLLMProvider):
-    def __init__(self, api_url):
+    def __init__(self, api_url, api_key=None):
         self.api_url = "http://localhost:1234/v1/chat/completions"
 
     def process_response(self, response):
@@ -897,7 +897,7 @@ import requests
 from llm_providers.base_provider import BaseLLMProvider
 
 class OllamaProvider(BaseLLMProvider):
-    def __init__(self, api_url):
+    def __init__(self, api_url, api_key=None):
         self.api_url = "http://127.0.0.1:11434/api/generate"
 
     def process_response(self, response):

@@ -4,7 +4,7 @@ import requests
 from llm_providers.base_provider import BaseLLMProvider
 
 class OllamaProvider(BaseLLMProvider):
-    def __init__(self, api_url):
+    def __init__(self, api_url, api_key=None):
         self.api_url = "http://127.0.0.1:11434/api/generate"
 
     def process_response(self, response):
