@@ -328,6 +328,10 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                 if "choices" in response_data and response_data["choices"]:
                     content = response_data["choices"][0]["message"]["content"]
                     print(f"Content: {content}")
+
+                    # Preprocess the JSON string
+                    content = content.replace("\\n", "\n").replace('\\"', '"')
+
                     try:
                         json_data = json.loads(content)
                         if isinstance(json_data, list):
@@ -361,8 +365,10 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 }
                                             ],
                                             "temperature": temperature_value,
+                                            "cache_seed": 42,
                                             "timeout": 600,
-                                            "cache_seed": 42
+                                            "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
+                                            "extra_body": None
                                         },
                                         "human_input_mode": "NEVER",
                                         "max_consecutive_auto_reply": 8,

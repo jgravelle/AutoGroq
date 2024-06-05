@@ -342,6 +342,7 @@ elif LLM_PROVIDER == "lmstudio":
     API_URL = LMSTUDIO_API_URL
     MODEL_TOKEN_LIMITS = {
         'instructlab/granite-7b-lab-GGUF': 2048,
+        'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
     } 
 elif LLM_PROVIDER == "openai":
     API_URL = OPENAI_API_URL
@@ -366,6 +367,7 @@ MODEL_CHOICES = {
     'gemma-7b-it': 8192,
     'gpt-4o': 4096,
     'instructlab/granite-7b-lab-GGUF': 2048,
+    'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
     'llama3': 8192,
     'llama3-70b-8192': 8192,
     'llama3-8b-8192': 8192,
@@ -2907,6 +2909,10 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                 if "choices" in response_data and response_data["choices"]:
                     content = response_data["choices"][0]["message"]["content"]
                     print(f"Content: {content}")
+
+                    # Preprocess the JSON string
+                    content = content.replace("\\n", "\n").replace('\\"', '"')
+
                     try:
                         json_data = json.loads(content)
                         if isinstance(json_data, list):
@@ -2940,8 +2946,10 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                 }
                                             ],
                                             "temperature": temperature_value,
+                                            "cache_seed": 42,
                                             "timeout": 600,
-                                            "cache_seed": 42
+                                            "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
+                                            "extra_body": None
                                         },
                                         "human_input_mode": "NEVER",
                                         "max_consecutive_auto_reply": 8,

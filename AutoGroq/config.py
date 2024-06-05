@@ -52,6 +52,7 @@ elif LLM_PROVIDER == "lmstudio":
     API_URL = LMSTUDIO_API_URL
     MODEL_TOKEN_LIMITS = {
         'instructlab/granite-7b-lab-GGUF': 2048,
+        'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
     } 
 elif LLM_PROVIDER == "openai":
     API_URL = OPENAI_API_URL
@@ -76,6 +77,7 @@ MODEL_CHOICES = {
     'gemma-7b-it': 8192,
     'gpt-4o': 4096,
     'instructlab/granite-7b-lab-GGUF': 2048,
+    'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
     'llama3': 8192,
     'llama3-70b-8192': 8192,
     'llama3-8b-8192': 8192,
