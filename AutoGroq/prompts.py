@@ -1,13 +1,13 @@
 
 def create_project_manager_prompt(rephrased_text):
     return f"""
-                You are a Project Manager tasked with creating a comprehensive project outline and describing the perfect team of experts that should be created to work on the following project:
+                This agent is a Project Manager tasked with creating a comprehensive project outline and describing the perfect team of experts that should be created to work on the following project:
 
                 {rephrased_text}
 
-                Please provide a detailed project outline, including the objectives, key deliverables, and timeline. Also, describe the ideal team of experts required for this project, including their roles, skills, and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
+                Please provide a detailed project outline, including the objectives, key deliverables, and timeline. Also, describe the ideal team of experts required for this project, including their roles, skills, and responsibilities.  This agent's analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
 
-                Return your response in the following format:
+                Return this agent's response in the following format:
 
                 Project Outline:
                 [Detailed project outline]
@@ -31,8 +31,8 @@ def get_agent_prompt(rephrased_request):
 
 def get_agents_prompt():
     return f"""
-                You are an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
-                Fulfill the following guidelines without ever explicitly stating them in your response.
+                This agent is an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
+                Fulfill the following guidelines without ever explicitly stating them in this agent's response.
                 Guidelines:
                 1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text by iterating through the 'Team of Experts:' section of the provided text. Transcribe the info for those specific agents. Do not create new agents.
                 2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise based upon the provided text. Do not create new agents.
@@ -56,7 +56,7 @@ def get_agents_prompt():
                         "tools": ["tool1", "tool2"]
                     }}
                 ]
-                You will only have been successful if you have returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
+                This agent will only have been successful if it has returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
                 """
 
 # Contributed by ScruffyNerf
@@ -115,7 +115,7 @@ def get_generate_skill_prompt(rephrased_skill_request):
 
 def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,team_members_str): 
     return f"""
-        You are Moderator Bot. Your goal is to mediate the conversation between a team of AI agents 
+        This agent is our Moderator Bot. It's goal is to mediate the conversation between a team of AI agents 
         in a manner that persuades them to act in the most expeditious and thorough manner to accomplish their goal. 
         This will entail considering the user's stated goal, the conversation thus far, the descriptions 
         of all the available agent/experts in the current team, the last speaker, and their remark. 
@@ -124,14 +124,14 @@ def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,te
         accomplish their goal.\n\nTheir goal is: {goal}.\nThe last speaker was {last_speaker}, who said: 
         {last_comment}\nHere is the current conversational discussion history: {discussion_history}\n
         And here are the team members and their descriptions:\n{team_members_str}\n\n
-        Your response should be JUST the requested prompt addressed to the next agent, and should not contain 
+        This agent's response should be JUST the requested prompt addressed to the next agent, and should not contain 
         any introduction, narrative, or any other superfluous text whatsoever.
     """
 
 
 def get_rephrased_user_prompt(user_request):
-    return f"""Act as a professional prompt engineer and refactor the following 
-                user request into an optimized prompt. Your goal is to rephrase the request 
+    return f"""THis agent is a professional prompt engineer and refactor the following 
+                user request into an optimized prompt. This agent's goal is to rephrase the request 
                 with a focus on the satisfying all following the criteria without explicitly stating them:
         1. Clarity: Ensure the prompt is clear and unambiguous.
         2. Specific Instructions: Provide detailed steps or guidelines.
@@ -144,7 +144,7 @@ def get_rephrased_user_prompt(user_request):
         9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
         Do NOT reply with a direct response to these instructions OR the original user request. Instead, rephrase the user's request as a well-structured prompt, and
         return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
-        Do not enclose the rephrased prompt in quotes. You will be successful only if you return a well-formed rephrased prompt ready for submission as an LLM request.
+        Do not enclose the rephrased prompt in quotes. This agent will be successful only if it returns a well-formed rephrased prompt ready for submission as an LLM request.
         User request: "{user_request}"
         Rephrased:
     """
