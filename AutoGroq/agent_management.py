@@ -155,9 +155,7 @@ def display_agent_edit_form(agent, edit_index):
                     del st.session_state['edit_agent_index']
                 if 'new_description' in agent:
                     del agent['new_description']
-                st.session_state.agents[edit_index] = agent
-                regenerate_json_files_and_zip()
-                st.session_state['show_edit'] = False
+                st.session_state.agents[edit_index] = agent 
 
 
 def download_agent_file(expert_name):
