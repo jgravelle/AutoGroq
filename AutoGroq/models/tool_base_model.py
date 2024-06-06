@@ -1,13 +1,11 @@
 
-from typing import Dict, List, Optional
+from typing import List, Dict, Optional
 
 class ToolBaseModel:
     def __init__(
         self,
         name: str,
         description: str,
-        parameters: Dict,
-        command: str,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -22,14 +20,12 @@ class ToolBaseModel:
         self.id = id
         self.name = name
         self.description = description
-        self.parameters = parameters  # Dict of parameter name and type
-        self.command = command  # The command or function that the tool executes
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
         self.content = content
         self.secrets = secrets
-        self.libraries = libraries or []
+        self.libraries = libraries
         self.file_name = file_name
         self.timestamp = timestamp
         self.title = title
@@ -39,8 +35,6 @@ class ToolBaseModel:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "parameters": self.parameters,
-            "command": self.command,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "user_id": self.user_id,
@@ -58,8 +52,6 @@ class ToolBaseModel:
             id=data.get("id"),
             name=data["name"],
             description=data["description"],
-            parameters=data["parameters"],
-            command=data["command"],
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             user_id=data.get("user_id"),
@@ -70,3 +62,4 @@ class ToolBaseModel:
             timestamp=data.get("timestamp"),
             title=data.get("title")
         )
+    
