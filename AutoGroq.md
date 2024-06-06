@@ -60,7 +60,7 @@ def display_agents():
         st.sidebar.warning(f"No agents have yet been created. Please enter a new request.")
         st.sidebar.warning(f"NOTE: GPT models can only be used locally, not in the online demo.")
         st.sidebar.warning(f"ALSO: If no agents are created, do a hard reset (CTL-F5) and try switching models. LLM results can be unpredictable.")
-        st.sidebar.warning(f"SOURCE:  https://github.com/jgravelle/AutoGroq\n\r\n\r https://j.gravelle.us")
+        st.sidebar.warning(f"SOURCE:  https://github.com/jgravelle/AutoGroq\n\r\n\r https://j.gravelle.us\n\r\n\r DISCORD: https://discord.gg/DXjFPX84gs \n\r\n\r YouTube: https://www.youtube.com/playlist?list=PLPu97iZ5SLTsGX3WWJjQ5GNHy7ZX66ryP")
 
 
 def display_agent_buttons(agents):
@@ -1042,6 +1042,436 @@ class OpenaiProvider(BaseLLMProvider):
         print("response.status_code: ", response.status_code)
         print("response.text: ", response.text)
         return response
+    
+```
+
+# AutoGroq\models\agent_base_model.py
+
+```python
+
+from skill_base_model import SkillBaseModel
+from typing import List, Dict, Optional
+
+class AgentBaseModel:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        skills: List[Dict],
+        config: Dict,
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        user_id: Optional[str] = None,
+        workflows: Optional[str] = None,
+        type: Optional[str] = None,
+        models: Optional[List[Dict]] = None,
+        verbose: Optional[bool] = None,
+        allow_delegation: Optional[bool] = None,
+        new_description: Optional[str] = None,
+        timestamp: Optional[str] = None,
+        tools: Optional[List[str]] = None
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.skills = [SkillBaseModel(**skill) for skill in skills]  # List of SkillBaseModel instances
+        self.config = config  # Dict containing agent-specific configurations
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.user_id = user_id
+        self.workflows = workflows
+        self.type = type
+        self.models = models
+        self.verbose = verbose
+        self.allow_delegation = allow_delegation
+        self.new_description = new_description
+        self.timestamp = timestamp
+        self.tools = tools
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "skills": [skill.to_dict() for skill in self.skills],
+            "config": self.config,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": self.user_id,
+            "workflows": self.workflows,
+            "type": self.type,
+            "models": self.models,
+            "verbose": self.verbose,
+            "allow_delegation": self.allow_delegation,
+            "new_description": self.new_description,
+            "timestamp": self.timestamp,
+            "tools": self.tools
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            id=data.get("id"),
+            name=data["name"],
+            description=data["description"],
+            skills=data["skills"],
+            config=data["config"],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
+            workflows=data.get("workflows"),
+            type=data.get("type"),
+            models=data.get("models"),
+            verbose=data.get("verbose"),
+            allow_delegation=data.get("allow_delegation"),
+            new_description=data.get("new_description"),
+            timestamp=data.get("timestamp"),
+            tools=data.get("tools")
+        )
+    
+```
+
+# AutoGroq\models\project_base_model.py
+
+```python
+
+from typing import List, Dict, Optional
+
+class ProjectBaseModel:
+    def __init__(
+        self,
+        re_engineered_prompt: str = "",
+        objectives: List[Dict] = None,
+        deliverables: List[Dict] = None,
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        user_id: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        due_date: Optional[str] = None,
+        priority: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        attachments: Optional[List[str]] = None,
+        notes: Optional[str] = None,
+        collaborators: Optional[List[str]] = None
+    ):
+        self.id = id
+        self.re_engineered_prompt = re_engineered_prompt
+        self.objectives = objectives or []
+        self.deliverables = deliverables or []
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.user_id = user_id
+        self.name = name
+        self.description = description
+        self.status = status
+        self.due_date = due_date
+        self.priority = priority
+        self.tags = tags
+        self.attachments = attachments
+        self.notes = notes
+        self.collaborators = collaborators
+
+    def add_deliverable(self, deliverable: str):
+        self.deliverables.append({"text": deliverable, "done": False})
+
+    def add_objective(self, objective: str):
+        self.objectives.append({"text": objective, "done": False})
+
+    def mark_deliverable_done(self, index: int):
+        if 0 <= index < len(self.deliverables):
+            self.deliverables[index]["done"] = True
+
+    def mark_deliverable_undone(self, index: int):
+        if 0 <= index < len(self.deliverables):
+            self.deliverables[index]["done"] = False
+
+    def mark_objective_done(self, index: int):
+        if 0 <= index < len(self.objectives):
+            self.objectives[index]["done"] = True
+
+    def mark_objective_undone(self, index: int):
+        if 0 <= index < len(self.objectives):
+            self.objectives[index]["done"] = False
+
+    def set_re_engineered_prompt(self, prompt: str):
+        self.re_engineered_prompt = prompt
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "re_engineered_prompt": self.re_engineered_prompt,
+            "objectives": self.objectives,
+            "deliverables": self.deliverables,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "status": self.status,
+            "due_date": self.due_date,
+            "priority": self.priority,
+            "tags": self.tags,
+            "attachments": self.attachments,
+            "notes": self.notes,
+            "collaborators": self.collaborators
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            id=data.get("id"),
+            re_engineered_prompt=data.get("re_engineered_prompt", ""),
+            objectives=data.get("objectives", []),
+            deliverables=data.get("deliverables", []),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
+            name=data.get("name"),
+            description=data.get("description"),
+            status=data.get("status"),
+            due_date=data.get("due_date"),
+            priority=data.get("priority"),
+            tags=data.get("tags"),
+            attachments=data.get("attachments"),
+            notes=data.get("notes"),
+            collaborators=data.get("collaborators")
+        )
+    
+```
+
+# AutoGroq\models\skill_base_model.py
+
+```python
+
+from tool_base_model import ToolBaseModel
+from typing import List, Dict, Optional
+
+class SkillBaseModel:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        tools: List[Dict],
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        user_id: Optional[str] = None,
+        content: Optional[str] = None,
+        secrets: Optional[Dict] = None,
+        libraries: Optional[List[str]] = None,
+        file_name: Optional[str] = None,
+        timestamp: Optional[str] = None,
+        title: Optional[str] = None
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.tools = [ToolBaseModel(**tool) for tool in tools]  # List of ToolBaseModel instances
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.user_id = user_id
+        self.content = content
+        self.secrets = secrets
+        self.libraries = libraries
+        self.file_name = file_name
+        self.timestamp = timestamp
+        self.title = title
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "tools": [tool.to_dict() for tool in self.tools],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": self.user_id,
+            "content": self.content,
+            "secrets": self.secrets,
+            "libraries": self.libraries,
+            "file_name": self.file_name,
+            "timestamp": self.timestamp,
+            "title": self.title
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            id=data.get("id"),
+            name=data["name"],
+            description=data["description"],
+            tools=data["tools"],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
+            content=data.get("content"),
+            secrets=data.get("secrets"),
+            libraries=data.get("libraries"),
+            file_name=data.get("file_name"),
+            timestamp=data.get("timestamp"),
+            title=data.get("title")
+        )
+    
+```
+
+# AutoGroq\models\tool_base_model.py
+
+```python
+
+from typing import Dict, List, Optional
+
+class ToolBaseModel:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        parameters: Dict,
+        command: str,
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        user_id: Optional[str] = None,
+        content: Optional[str] = None,
+        secrets: Optional[Dict] = None,
+        libraries: Optional[List[str]] = None,
+        file_name: Optional[str] = None,
+        timestamp: Optional[str] = None,
+        title: Optional[str] = None
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.parameters = parameters  # Dict of parameter name and type
+        self.command = command  # The command or function that the tool executes
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.user_id = user_id
+        self.content = content
+        self.secrets = secrets
+        self.libraries = libraries or []
+        self.file_name = file_name
+        self.timestamp = timestamp
+        self.title = title
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
+            "command": self.command,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": self.user_id,
+            "content": self.content,
+            "secrets": self.secrets,
+            "libraries": self.libraries,
+            "file_name": self.file_name,
+            "timestamp": self.timestamp,
+            "title": self.title
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            id=data.get("id"),
+            name=data["name"],
+            description=data["description"],
+            parameters=data["parameters"],
+            command=data["command"],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
+            content=data.get("content"),
+            secrets=data.get("secrets"),
+            libraries=data.get("libraries"),
+            file_name=data.get("file_name"),
+            timestamp=data.get("timestamp"),
+            title=data.get("title")
+        )
+
+```
+
+# AutoGroq\models\workflow_base_model.py
+
+```python
+
+from agent_base_model import AgentBaseModel
+from typing import List, Dict, Optional
+
+class WorkflowBaseModel:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        agents: List[Dict],
+        settings: Dict,
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        user_id: Optional[str] = None,
+        type: Optional[str] = None,
+        summary_method: Optional[str] = None,
+        sender: Optional[Dict] = None,
+        receiver: Optional[Dict] = None,
+        groupchat_config: Optional[Dict] = None,
+        timestamp: Optional[str] = None
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.agents = [AgentBaseModel(**agent) for agent in agents]  # List of AgentBaseModel instances
+        self.settings = settings  # Dict containing workflow-specific settings
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.user_id = user_id
+        self.type = type
+        self.summary_method = summary_method
+        self.sender = sender
+        self.receiver = receiver
+        self.groupchat_config = groupchat_config
+        self.timestamp = timestamp
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "agents": [agent.to_dict() for agent in self.agents],
+            "settings": self.settings,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": self.user_id,
+            "type": self.type,
+            "summary_method": self.summary_method,
+            "sender": self.sender,
+            "receiver": self.receiver,
+            "groupchat_config": self.groupchat_config,
+            "timestamp": self.timestamp
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            id=data.get("id"),
+            name=data["name"],
+            description=data["description"],
+            agents=data["agents"],
+            settings=data["settings"],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
+            type=data.get("type"),
+            summary_method=data.get("summary_method"),
+            sender=data.get("sender"),
+            receiver=data.get("receiver"),
+            groupchat_config=data.get("groupchat_config"),
+            timestamp=data.get("timestamp")
+        )
     
 ```
 
