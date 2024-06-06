@@ -2259,6 +2259,7 @@ import uuid
 
 from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
+from typing import Optional
 from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
@@ -2392,6 +2393,66 @@ def export_skill_to_autogen(skill_name, edited_skill):
         st.error(f"Error exporting skill to Autogen: {str(e)}")
         print(f"Error exporting skill to Autogen: {str(e)}")
 
+
+
+#FUTURE functions for exporting to new Autogen Studio schema:
+
+def create_or_update_agent(agent: dict, db_path: str):
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO Agent (id, skills, created_at, updated_at, user_id, workflows, type, config, models)
+            VALUES (:id, :skills, :created_at, :updated_at, :user_id, :workflows, :type, :config, :models)
+        """, agent)
+        conn.commit()
+
+def create_or_update_skill(skill: dict, db_path: str):
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO Skill (id, created_at, updated_at, user_id, name, content, description, secrets, libraries)
+            VALUES (:id, :created_at, :updated_at, :user_id, :name, :content, :description, :secrets, :libraries)
+        """, skill)
+        conn.commit()
+
+def create_or_update_workflow(workflow: dict, db_path: str):
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO Workflow (id, agents, created_at, updated_at, user_id, name, description, type, summary_method)
+            VALUES (:id, :agents, :created_at, :updated_at, :user_id, :name, :description, :type, :summary_method)
+        """, workflow)
+        conn.commit()
+
+def get_agent_by_id(agent_id: int, db_path: str) -> Optional[dict]:
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Agent WHERE id = ?", (agent_id,))
+        row = cursor.fetchone()
+        if row:
+            columns = [column[0] for column in cursor.description]
+            return dict(zip(columns, row))
+    return None
+
+def get_skill_by_id(skill_id: int, db_path: str) -> Optional[dict]:
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Skill WHERE id = ?", (skill_id,))
+        row = cursor.fetchone()
+        if row:
+            columns = [column[0] for column in cursor.description]
+            return dict(zip(columns, row))
+    return None
+
+def get_workflow_by_id(workflow_id: int, db_path: str) -> Optional[dict]:
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Workflow WHERE id = ?", (workflow_id,))
+        row = cursor.fetchone()
+        if row:
+            columns = [column[0] for column in cursor.description]
+            return dict(zip(columns, row))
+    return None
 ```
 
 # AutoGroq\utils\file_utils.py
