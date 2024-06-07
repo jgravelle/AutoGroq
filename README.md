@@ -48,6 +48,7 @@ To get started with AutoGroq, follow these steps:
    conda create -n AutoGroq python=3.11  
    conda activate AutoGroq  
    git clone https://github.com/jgravelle/AutoGroq.git  
+   cd AutoGroq
    pip install -r requirements.txt  
    streamlit run c:\AutoGroq\AutoGroq\main.py
 
