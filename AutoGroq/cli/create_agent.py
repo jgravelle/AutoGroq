@@ -80,7 +80,7 @@ def create_agent(request, provider, model, temperature, max_tokens, output_file)
         },
         "timestamp": datetime.datetime.now().isoformat(),
         "user_id": "default",
-        "skills": []
+        "tools": []
     }
 
     # Debug print to verify agent_data

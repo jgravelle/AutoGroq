@@ -7,10 +7,10 @@ import os
 import re
 import streamlit as st
 
-from config import LLM_PROVIDER , MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from utils.auth_utils import get_api_key
-from utils.ui_utils import get_llm_provider, regenerate_json_files_and_zip, update_discussion_and_whiteboard
+from utils.ui_utils import get_llm_provider, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):
@@ -26,7 +26,7 @@ def agent_button_callback(agent_index):
     return callback
 
 
-def construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, skill_results):
+def construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results):
     request = f"Act as the {agent_name} who {description}."
     if user_request:
         request += f" Original request was: {user_request}."
@@ -39,8 +39,8 @@ def construct_request(agent_name, description, user_request, user_input, rephras
         request += f" Reference URL content: {html_content}."
     if st.session_state.discussion:
         request += f" The discussion so far has been {st.session_state.discussion[-50000:]}."
-    if skill_results:
-        request += f" Skill results: {skill_results}."
+    if tool_results:
+        request += f" tool results: {tool_results}."
     return request
 
 
@@ -188,16 +188,16 @@ def process_agent_interaction(agent_index):
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
     reference_url = st.session_state.get('reference_url', '')
-    # Execute associated skills for the agent
+    # Execute associated tools for the agent
     agent = st.session_state.agents[agent_index]
-    agent_skills = agent.get("skills", [])
-    skill_results = {}
-    for skill_name in agent_skills:
-        if skill_name in st.session_state.skill_functions:
-            skill_function = st.session_state.skill_functions[skill_name]
-            skill_result = skill_function()
-            skill_results[skill_name] = skill_result
-    request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, skill_results)
+    agent_tools = agent.get("tools", [])
+    tool_results = {}
+    for tool_name in agent_tools:
+        if tool_name in st.session_state.tool_functions:
+            tool_function = st.session_state.tool_functions[tool_name]
+            tool_result = tool_function()
+            tool_results[tool_name] = tool_result
+    request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results)
     print(f"Request: {request}")
     # Use the dynamic LLM provider to send the request
     api_key = get_api_key()
@@ -292,6 +292,9 @@ import os
 home_dir = os.path.expanduser("~")
 default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
 
+# Debug
+DEFAULT_DEBUG = False
+
 # Default configurations
 DEFAULT_LLM_PROVIDER = "groq"
 DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -307,6 +310,8 @@ except ImportError:
     pass
 
 # Set the configurations using the user-specific values if available, otherwise use the defaults
+DEBUG = locals().get('DEBUG', DEFAULT_DEBUG)
+
 LLM_PROVIDER = locals().get('LLM_PROVIDER', DEFAULT_LLM_PROVIDER)
 GROQ_API_URL = locals().get('GROQ_API_URL', DEFAULT_GROQ_API_URL)
 LMSTUDIO_API_URL = locals().get('LMSTUDIO_API_URL', DEFAULT_LMSTUDIO_API_URL)
@@ -384,6 +389,8 @@ LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
 OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
 # OPENAI_API_KEY = "your_openai_api_key"
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+
+DEBUG = True
 ```
 
 # AutoGroq\current_project.py
@@ -392,31 +399,22 @@ OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
 class Current_Project:
     def __init__(self):
-        self.re_engineered_prompt = ""
-        self.objectives = []
         self.deliverables = []
+        self.re_engineered_prompt = ""
 
     def add_deliverable(self, deliverable):
         self.deliverables.append({"text": deliverable, "done": False})
 
-    def add_objective(self, objective):
-        self.objectives.append({"text": objective, "done": False})
 
     def mark_deliverable_done(self, index):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = True
 
+
     def mark_deliverable_undone(self, index):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = False
 
-    def mark_objective_done(self, index):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = True
-
-    def mark_objective_undone(self, index):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = False
 
     def set_re_engineered_prompt(self, prompt):
         self.re_engineered_prompt = prompt
@@ -436,15 +434,15 @@ from utils.session_utils import initialize_session_variables
 from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, key_prompt, 
-    load_skill_functions, select_model, set_css, 
-    set_temperature, show_interfaces, show_skills
+    load_tool_functions, select_model, set_css, 
+    set_temperature, show_interfaces, show_tools
 )
 
 
 def main():
     set_css()
     initialize_session_variables()
-    load_skill_functions()
+    load_tool_functions()
     key_prompt()
     set_llm_provider_title()
 
@@ -462,7 +460,7 @@ def main():
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
             display_goal()
-            show_skills()
+            show_tools()
         else:
             st.empty()  
 
@@ -485,13 +483,22 @@ if __name__ == "__main__":
 
 def create_project_manager_prompt(rephrased_text):
     return f"""
-                This agent is a Project Manager tasked with creating a comprehensive project outline and describing the perfect team of experts that should be created to work on the following project:
+                You are a Project Manager tasked with creating a comprehensive project outline 
+                and describing the perfect team of experts that should be created to work on the following project:
 
                 {rephrased_text}
 
-                Please provide a detailed project outline, including the objectives, key deliverables, and timeline. Also, describe the ideal team of experts required for this project, including their roles, skills, and responsibilities.  This agent's analysis shall consider the complexity, domain, and specific needs of the request to assemble a multidisciplinary team of experts. The team should be as small as possible while still providing a complete and comprehensive talent pool able to properly address the user's request. Each recommended agent shall come with a defined role, a brief but thorough description of their expertise, their specific skills, and the specific tools they would utilize to achieve the user's goal.
+                Please provide a detailed project outline, including a single block of key deliverables listed in 
+                logical order of accomplishment. Label the deliverables with "Deliverables:" or "Key Deliverables" 
+                and list them in a clear and concise manner. 
 
-                Return this agent's response in the following format:
+                Also, describe the ideal team of experts required for this project, including their roles,
+                and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs 
+                of the request to assemble a multidisciplinary team of experts. The team should be as small as possible 
+                while still providing a complete and comprehensive talent pool able to properly address the user's request. 
+                Each recommended agent shall come with a defined role, and a brief but thorough description of their expertise.
+
+                Return your response in the following format:
 
                 Project Outline:
                 [Detailed project outline]
@@ -503,62 +510,64 @@ def create_project_manager_prompt(rephrased_text):
 
 def get_agent_prompt(rephrased_request):
     return f"""
-    Based on the following user request, please create a detailed and comprehensive description of an AI agent that can effectively assist with the request:
+        Based on the following user request, please create a detailed and comprehensive description 
+        of an AI agent that can effectively assist with the request:
 
-    User Request: "{rephrased_request}"
+        User Request: "{rephrased_request}"
 
-    Provide a clear and concise description of the agent's capabilities, expertise, and any specific skills or tools it should possess to best address the user's needs. The description should be written in a professional and engaging manner, highlighting the agent's ability to understand and respond to the request efficiently.
+        Provide a clear and concise description of the agent's role, capabilities, and expertise.
+        The description should be efficiently written in a concise, professional and engaging manner, 
+        highlighting the agent's ability to understand and respond to the request efficiently.
 
-    Agent Description:
-    """
+        Agent Description:
+        """
 
 
 def get_agents_prompt():
     return f"""
-                This agent is an expert system designed to format the JSON describing each member of the team of AI agents specifically listed in this provided text: $text.
-                Fulfill the following guidelines without ever explicitly stating them in this agent's response.
-                Guidelines:
-                1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text by iterating through the 'Team of Experts:' section of the provided text. Transcribe the info for those specific agents. Do not create new agents.
-                2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise based upon the provided text. Do not create new agents.
-                3. **Specific Skills**: List the specific skills of each agent based upon the provided text. Skills must be single-purpose methods, very specific, and not ambiguous (e.g., 'calculate_area' is good, but 'do_math' is bad).
-                4. **Specific Tools**: List the specific tools each agent would utilize. Tools must be single-purpose methods, very specific, and not ambiguous.
-                5. **Format**: Return the results in JSON format with values labeled as expert_name, description, skills, and tools. 'expert_name' should be the agent's title, not their given name. Skills and tools should be arrays (one agent can have multiple specific skills and use multiple specific tools).
-                6. **Naming Conventions**: Skills and tools should be in lowercase with underscores instead of spaces, named per their functionality (e.g., calculate_surface_area, or search_web).
+        This agent is an expert system designed to format the JSON describing each member of the team 
+        of AI agents specifically listed in this provided text: $text.
+        Fulfill the following guidelines without ever explicitly stating them in this agent's response.
+        Guidelines:
+        1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text 
+            by iterating through the 'Team of Experts:' section of the provided text. Transcribe 
+            the info for those specific agents. Do not create new agents.
+        2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise 
+            based upon the provided text. Do not create new agents.
+        3. **Format**: Return the results in JSON format with values labeled as expert_name, and description.
+            'expert_name' should be the agent's title, not their given or proper name.
 
-                ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, or superfluous text of any kind:
-                [
-                    {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                    }},
-                    {{
-                        "expert_name": "agent_title",
-                        "description": "agent_description",
-                        "skills": ["skill1", "skill2"],
-                        "tools": ["tool1", "tool2"]
-                    }}
-                ]
-                This agent will only have been successful if it has returned the results in the above format and followed these guidelines precisely by transcribing the provided text and returning the results in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, and taking care to only transcribe the agents from the provided text without creating new agents.
-                """
+        ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, 
+        or superfluous text of any kind:
+        [
+            {{
+                "expert_name": "agent_title",
+                "description": "agent_description",
+            }}
+        ]
+        This agent will only have been successful if it has returned the results in the above format 
+        and followed these guidelines precisely by transcribing the provided text and returning the results 
+        in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, 
+        and taking care to only transcribe the agents from the provided text without creating new agents.
+        """
 
 # Contributed by ScruffyNerf
-def get_generate_skill_prompt(rephrased_skill_request):
+def get_generate_tool_prompt(rephrased_tool_request):
     return f'''
-                Based on the rephrased skill request below, please do the following:
+                Based on the rephrased tool request below, please do the following:
 
-                1. Do step-by-step reasoning and think to understand the request better.
-                2. Code the best Autogen Studio Python skill as per the request as a [skill_name].py file.
-                3. Return only the skill file, no commentary, intro, or other extra text. If there ARE any non-code lines, please pre-pend them with a '#' symbol to comment them out.
-                4. A proper skill will have these parts:
-                   a. Imports (import libraries needed for the skill)
+                1. Do step-by-step reasoning and think to better understand the request.
+                2. Code the best Autogen Studio Python tool as per the request as a [tool_name].py file.
+                3. Return only the tool file, no commentary, intro, or other extra text. If there ARE any non-code lines, 
+                    please pre-pend them with a '#' symbol to comment them out.
+                4. A proper tool will have these parts:
+                   a. Imports (import libraries needed for the tool)
                    b. Function definition AND docstrings (this helps the LLM understand what the function does and how to use it)
                    c. Function body (the actual code that implements the function)
                    d. (optional) Example usage - ALWAYS commented out
-                   Here is an example of a well formatted skill:
+                   Here is an example of a well formatted tool:
 
-                   # skill filename: save_file_to_disk.py
+                   # Tool filename: save_file_to_disk.py
                    # Import necessary module(s)
                    import os
 
@@ -575,7 +584,7 @@ def get_generate_skill_prompt(rephrased_skill_request):
                    str: A message indicating the success of the operation.
                    """
 
-                   # Body of skill
+                   # Body of tool
 
                    # Ensure the directory exists; create it if it doesn't
                    directory = os.path.dirname(file_name)
@@ -593,7 +602,7 @@ def get_generate_skill_prompt(rephrased_skill_request):
                    # file_name = "example.txt"
                    # print(save_file_to_disk(contents_to_save, file_name))
 
-                Rephrased skill request: "{rephrased_skill_request}"
+                Rephrased tool request: "{rephrased_tool_request}"
                 '''
 
 
@@ -721,7 +730,7 @@ def create_agent(request, provider, model, temperature, max_tokens, output_file)
         },
         "timestamp": datetime.datetime.now().isoformat(),
         "user_id": "default",
-        "skills": []
+        "tools": []
     }
 
     # Debug print to verify agent_data
@@ -1049,16 +1058,20 @@ class OpenaiProvider(BaseLLMProvider):
 
 ```python
 
-from skill_base_model import SkillBaseModel
-from typing import List, Dict, Optional
+from models.tool_base_model import ToolBaseModel
+from typing import List, Dict, Optional, Callable
+
 
 class AgentBaseModel:
     def __init__(
         self,
         name: str,
         description: str,
-        skills: List[Dict],
+        tools: List[Dict],
         config: Dict,
+        role: str,
+        goal: str,
+        backstory: str,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -1066,17 +1079,28 @@ class AgentBaseModel:
         workflows: Optional[str] = None,
         type: Optional[str] = None,
         models: Optional[List[Dict]] = None,
-        verbose: Optional[bool] = None,
-        allow_delegation: Optional[bool] = None,
+        verbose: Optional[bool] = False,
+        allow_delegation: Optional[bool] = True,
         new_description: Optional[str] = None,
         timestamp: Optional[str] = None,
-        tools: Optional[List[str]] = None
+        is_termination_msg: Optional[bool] = None,
+        code_execution_config: Optional[Dict] = None,
+        llm: Optional[str] = None,
+        function_calling_llm: Optional[str] = None,
+        max_iter: Optional[int] = 25,
+        max_rpm: Optional[int] = None,
+        max_execution_time: Optional[int] = None,
+        step_callback: Optional[Callable] = None,
+        cache: Optional[bool] = True
     ):
         self.id = id
         self.name = name
         self.description = description
-        self.skills = [SkillBaseModel(**skill) for skill in skills]  # List of SkillBaseModel instances
-        self.config = config  # Dict containing agent-specific configurations
+        self.tools = [ToolBaseModel(**tool) for tool in tools]
+        self.config = config
+        self.role = role
+        self.goal = goal
+        self.backstory = backstory
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
@@ -1087,15 +1111,27 @@ class AgentBaseModel:
         self.allow_delegation = allow_delegation
         self.new_description = new_description
         self.timestamp = timestamp
-        self.tools = tools
+        self.is_termination_msg = is_termination_msg
+        self.code_execution_config = code_execution_config
+        self.llm = llm
+        self.function_calling_llm = function_calling_llm
+        self.max_iter = max_iter
+        self.max_rpm = max_rpm
+        self.max_execution_time = max_execution_time
+        self.step_callback = step_callback
+        self.cache = cache
+
 
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "skills": [skill.to_dict() for skill in self.skills],
+            "tools": [tool.to_dict() for tool in self.tools],
             "config": self.config,
+            "role": self.role,
+            "goal": self.goal,
+            "backstory": self.backstory,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "user_id": self.user_id,
@@ -1106,8 +1142,17 @@ class AgentBaseModel:
             "allow_delegation": self.allow_delegation,
             "new_description": self.new_description,
             "timestamp": self.timestamp,
-            "tools": self.tools
+            "is_termination_msg": self.is_termination_msg,
+            "code_execution_config": self.code_execution_config,
+            "llm": self.llm,
+            "function_calling_llm": self.function_calling_llm,
+            "max_iter": self.max_iter,
+            "max_rpm": self.max_rpm,
+            "max_execution_time": self.max_execution_time,
+            "step_callback": self.step_callback,
+            "cache": self.cache
         }
+
 
     @classmethod
     def from_dict(cls, data: Dict):
@@ -1115,19 +1160,30 @@ class AgentBaseModel:
             id=data.get("id"),
             name=data["name"],
             description=data["description"],
-            skills=data["skills"],
+            tools=data["tools"],
             config=data["config"],
+            role=data.get("role", ""),
+            goal=data.get("goal", ""),
+            backstory=data.get("backstory", ""),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             user_id=data.get("user_id"),
             workflows=data.get("workflows"),
             type=data.get("type"),
             models=data.get("models"),
-            verbose=data.get("verbose"),
-            allow_delegation=data.get("allow_delegation"),
+            verbose=data.get("verbose", False),
+            allow_delegation=data.get("allow_delegation", True),
             new_description=data.get("new_description"),
             timestamp=data.get("timestamp"),
-            tools=data.get("tools")
+            is_termination_msg=data.get("is_termination_msg"),
+            code_execution_config=data.get("code_execution_config"),
+            llm=data.get("llm"),
+            function_calling_llm=data.get("function_calling_llm"),
+            max_iter=data.get("max_iter", 25),
+            max_rpm=data.get("max_rpm"),
+            max_execution_time=data.get("max_execution_time"),
+            step_callback=data.get("step_callback"),
+            cache=data.get("cache", True)
         )
     
 ```
@@ -1135,14 +1191,13 @@ class AgentBaseModel:
 # AutoGroq\models\project_base_model.py
 
 ```python
-
 from typing import List, Dict, Optional
+from datetime import datetime
 
 class ProjectBaseModel:
     def __init__(
         self,
         re_engineered_prompt: str = "",
-        objectives: List[Dict] = None,
         deliverables: List[Dict] = None,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
@@ -1156,46 +1211,40 @@ class ProjectBaseModel:
         tags: Optional[List[str]] = None,
         attachments: Optional[List[str]] = None,
         notes: Optional[str] = None,
-        collaborators: Optional[List[str]] = None
+        collaborators: Optional[List[str]] = None,
+        workflows: Optional[List[Dict]] = None
     ):
-        self.id = id
+        self.id = id or 1
         self.re_engineered_prompt = re_engineered_prompt
-        self.objectives = objectives or []
         self.deliverables = deliverables or []
-        self.created_at = created_at
+        self.created_at = created_at or datetime.now().isoformat()
         self.updated_at = updated_at
-        self.user_id = user_id
-        self.name = name
+        self.user_id = user_id or "user"
+        self.name = name or "project"
         self.description = description
-        self.status = status
+        self.status = status or "not started"
         self.due_date = due_date
         self.priority = priority
-        self.tags = tags
-        self.attachments = attachments
+        self.tags = tags or []
+        self.attachments = attachments or []
         self.notes = notes
-        self.collaborators = collaborators
+        self.collaborators = collaborators or []
+        self.workflows = workflows or []
+
 
     def add_deliverable(self, deliverable: str):
         self.deliverables.append({"text": deliverable, "done": False})
 
-    def add_objective(self, objective: str):
-        self.objectives.append({"text": objective, "done": False})
 
     def mark_deliverable_done(self, index: int):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = True
 
+
     def mark_deliverable_undone(self, index: int):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = False
 
-    def mark_objective_done(self, index: int):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = True
-
-    def mark_objective_undone(self, index: int):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = False
 
     def set_re_engineered_prompt(self, prompt: str):
         self.re_engineered_prompt = prompt
@@ -1204,7 +1253,6 @@ class ProjectBaseModel:
         return {
             "id": self.id,
             "re_engineered_prompt": self.re_engineered_prompt,
-            "objectives": self.objectives,
             "deliverables": self.deliverables,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -1217,7 +1265,8 @@ class ProjectBaseModel:
             "tags": self.tags,
             "attachments": self.attachments,
             "notes": self.notes,
-            "collaborators": self.collaborators
+            "collaborators": self.collaborators,
+            "workflows": self.workflows
         }
 
     @classmethod
@@ -1225,7 +1274,6 @@ class ProjectBaseModel:
         return cls(
             id=data.get("id"),
             re_engineered_prompt=data.get("re_engineered_prompt", ""),
-            objectives=data.get("objectives", []),
             deliverables=data.get("deliverables", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
@@ -1243,197 +1291,39 @@ class ProjectBaseModel:
     
 ```
 
-# AutoGroq\models\skill_base_model.py
-
-```python
-
-from tool_base_model import ToolBaseModel
-from typing import List, Dict, Optional
-
-class SkillBaseModel:
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        tools: List[Dict],
-        id: Optional[int] = None,
-        created_at: Optional[str] = None,
-        updated_at: Optional[str] = None,
-        user_id: Optional[str] = None,
-        content: Optional[str] = None,
-        secrets: Optional[Dict] = None,
-        libraries: Optional[List[str]] = None,
-        file_name: Optional[str] = None,
-        timestamp: Optional[str] = None,
-        title: Optional[str] = None
-    ):
-        self.id = id
-        self.name = name
-        self.description = description
-        self.tools = [ToolBaseModel(**tool) for tool in tools]  # List of ToolBaseModel instances
-        self.created_at = created_at
-        self.updated_at = updated_at
-        self.user_id = user_id
-        self.content = content
-        self.secrets = secrets
-        self.libraries = libraries
-        self.file_name = file_name
-        self.timestamp = timestamp
-        self.title = title
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "tools": [tool.to_dict() for tool in self.tools],
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "user_id": self.user_id,
-            "content": self.content,
-            "secrets": self.secrets,
-            "libraries": self.libraries,
-            "file_name": self.file_name,
-            "timestamp": self.timestamp,
-            "title": self.title
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict):
-        return cls(
-            id=data.get("id"),
-            name=data["name"],
-            description=data["description"],
-            tools=data["tools"],
-            created_at=data.get("created_at"),
-            updated_at=data.get("updated_at"),
-            user_id=data.get("user_id"),
-            content=data.get("content"),
-            secrets=data.get("secrets"),
-            libraries=data.get("libraries"),
-            file_name=data.get("file_name"),
-            timestamp=data.get("timestamp"),
-            title=data.get("title")
-        )
-    
-```
-
 # AutoGroq\models\tool_base_model.py
 
 ```python
 
-from typing import Dict, List, Optional
+from typing import List, Dict, Optional
 
 class ToolBaseModel:
     def __init__(
         self,
         name: str,
         description: str,
-        parameters: Dict,
-        command: str,
+        title: str,
+        file_name: str,
+        content: str,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         user_id: Optional[str] = None,
-        content: Optional[str] = None,
-        secrets: Optional[Dict] = None,
+        secrets: Optional[Dict] = None, # Optional[Dict] means it can be a dictionary or None
         libraries: Optional[List[str]] = None,
-        file_name: Optional[str] = None,
-        timestamp: Optional[str] = None,
-        title: Optional[str] = None
-    ):
-        self.id = id
-        self.name = name
-        self.description = description
-        self.parameters = parameters  # Dict of parameter name and type
-        self.command = command  # The command or function that the tool executes
-        self.created_at = created_at
-        self.updated_at = updated_at
-        self.user_id = user_id
-        self.content = content
-        self.secrets = secrets
-        self.libraries = libraries or []
-        self.file_name = file_name
-        self.timestamp = timestamp
-        self.title = title
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.parameters,
-            "command": self.command,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "user_id": self.user_id,
-            "content": self.content,
-            "secrets": self.secrets,
-            "libraries": self.libraries,
-            "file_name": self.file_name,
-            "timestamp": self.timestamp,
-            "title": self.title
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict):
-        return cls(
-            id=data.get("id"),
-            name=data["name"],
-            description=data["description"],
-            parameters=data["parameters"],
-            command=data["command"],
-            created_at=data.get("created_at"),
-            updated_at=data.get("updated_at"),
-            user_id=data.get("user_id"),
-            content=data.get("content"),
-            secrets=data.get("secrets"),
-            libraries=data.get("libraries"),
-            file_name=data.get("file_name"),
-            timestamp=data.get("timestamp"),
-            title=data.get("title")
-        )
-
-```
-
-# AutoGroq\models\workflow_base_model.py
-
-```python
-
-from agent_base_model import AgentBaseModel
-from typing import List, Dict, Optional
-
-class WorkflowBaseModel:
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        agents: List[Dict],
-        settings: Dict,
-        id: Optional[int] = None,
-        created_at: Optional[str] = None,
-        updated_at: Optional[str] = None,
-        user_id: Optional[str] = None,
-        type: Optional[str] = None,
-        summary_method: Optional[str] = None,
-        sender: Optional[Dict] = None,
-        receiver: Optional[Dict] = None,
-        groupchat_config: Optional[Dict] = None,
         timestamp: Optional[str] = None
     ):
         self.id = id
         self.name = name
         self.description = description
-        self.agents = [AgentBaseModel(**agent) for agent in agents]  # List of AgentBaseModel instances
-        self.settings = settings  # Dict containing workflow-specific settings
+        self.title = title
+        self.file_name = file_name
+        self.content = content
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
-        self.type = type
-        self.summary_method = summary_method
-        self.sender = sender
-        self.receiver = receiver
-        self.groupchat_config = groupchat_config
+        self.secrets = secrets
+        self.libraries = libraries
         self.timestamp = timestamp
 
     def to_dict(self):
@@ -1441,16 +1331,14 @@ class WorkflowBaseModel:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "agents": [agent.to_dict() for agent in self.agents],
-            "settings": self.settings,
+            "title": self.title,
+            "file_name": self.file_name,
+            "content": self.content,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "user_id": self.user_id,
-            "type": self.type,
-            "summary_method": self.summary_method,
-            "sender": self.sender,
-            "receiver": self.receiver,
-            "groupchat_config": self.groupchat_config,
+            "secrets": self.secrets,
+            "libraries": self.libraries,
             "timestamp": self.timestamp
         }
 
@@ -1458,24 +1346,160 @@ class WorkflowBaseModel:
     def from_dict(cls, data: Dict):
         return cls(
             id=data.get("id"),
-            name=data["name"],
-            description=data["description"],
-            agents=data["agents"],
-            settings=data["settings"],
+            name=data.get("name", ""),  # Default to empty string if 'name' is missing
+            description=data.get("description", ""),  # Default to empty string if 'description' is missing
+            title=data["title"],
+            file_name=data["file_name"],
+            content=data["content"],
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             user_id=data.get("user_id"),
-            type=data.get("type"),
-            summary_method=data.get("summary_method"),
-            sender=data.get("sender"),
-            receiver=data.get("receiver"),
-            groupchat_config=data.get("groupchat_config"),
+            secrets=data.get("secrets"),
+            libraries=data.get("libraries"),
             timestamp=data.get("timestamp")
         )
     
 ```
 
-# AutoGroq\skills\document_indexer.py
+# AutoGroq\models\workflow_base_model.py
+
+```python
+
+from typing import List, Dict, Optional
+from models.agent_base_model import AgentBaseModel
+
+class Sender:
+    def __init__(
+        self,
+        type: str,
+        config: Dict,
+        timestamp: str,
+        user_id: str,
+        tools: List[Dict],
+    ):
+        self.type = type
+        self.config = config
+        self.timestamp = timestamp
+        self.user_id = user_id
+        self.tools = tools
+
+class Receiver:
+    def __init__(
+        self,
+        type: str,
+        config: Dict,
+        groupchat_config: Dict,
+        timestamp: str,
+        user_id: str,
+        tools: List[Dict],
+        agents: List[AgentBaseModel],
+    ):
+        self.type = type
+        self.config = config
+        self.groupchat_config = groupchat_config
+        self.timestamp = timestamp
+        self.user_id = user_id
+        self.tools = tools
+        self.agents = agents
+
+class WorkflowBaseModel:
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        agents: List[Dict],
+        sender: Sender,
+        receiver: Receiver,
+        type: str,
+        user_id: str,
+        timestamp: str,
+        summary_method: str,
+        settings: Dict = None,
+        groupchat_config: Dict = None,
+        id: Optional[int] = None,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+    ):
+        self.id = id
+        self.name = name
+        self.description = description
+        self.agents = [AgentBaseModel(**agent) for agent in agents] 
+        self.sender = sender
+        self.receiver = receiver
+        self.type = type
+        self.user_id = user_id
+        self.timestamp = timestamp
+        self.summary_method = summary_method
+        self.settings = settings or {}
+        self.groupchat_config = groupchat_config or {}
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "agents": [agent.to_dict() for agent in self.agents],
+            "sender": {
+                "type": self.sender.type,
+                "config": self.sender.config,
+                "timestamp": self.sender.timestamp,
+                "user_id": self.sender.user_id,
+                "tools": self.sender.tools,
+            },
+            "receiver": {
+                "type": self.receiver.type,
+                "config": self.receiver.config,
+                "groupchat_config": self.receiver.groupchat_config,
+                "timestamp": self.receiver.timestamp,
+                "user_id": self.receiver.user_id,
+                "tools": self.receiver.tools,
+                "agents": [agent.to_dict() for agent in self.receiver.agents],
+            },
+            "type": self.type,
+            "user_id": self.user_id,
+            "timestamp": self.timestamp,
+            "summary_method": self.summary_method,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        sender = Sender(
+            type=data["sender"]["type"],
+            config=data["sender"]["config"],
+            timestamp=data["sender"]["timestamp"],
+            user_id=data["sender"]["user_id"],
+            tools=data["sender"]["tools"],
+        )
+        receiver = Receiver(
+            type=data["receiver"]["type"],
+            config=data["receiver"]["config"],
+            groupchat_config=data["receiver"]["groupchat_config"],
+            timestamp=data["receiver"]["timestamp"],
+            user_id=data["receiver"]["user_id"],
+            tools=data["receiver"]["tools"],
+            agents=[AgentBaseModel.from_dict(agent) for agent in data["receiver"].get("agents", [])],
+        )
+        return cls(
+            id=data.get("id"),
+            name=data["name"],
+            description=data["description"],
+            agents=data.get("agents", []),
+            sender=sender,
+            receiver=receiver,
+            type=data["type"],
+            user_id=data["user_id"],
+            timestamp=data["timestamp"],
+            summary_method=data["summary_method"],
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+```
+
+# AutoGroq\tools\document_indexer.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1807,7 +1831,7 @@ if __name__ == "__main__":
     print(f"Saved vectorstore to {args.output_path}")
 ```
 
-# AutoGroq\skills\document_retriever.py
+# AutoGroq\tools\document_retriever.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -1950,7 +1974,7 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# AutoGroq\skills\execute_powershell_command.py
+# AutoGroq\tools\execute_powershell_command.py
 
 ```python
 # Thanks to aj47:  https://github.com/aj47 
@@ -1981,7 +2005,7 @@ if __name__ == "__main__":
     print(output)
 ```
 
-# AutoGroq\skills\fetch_web_content.py
+# AutoGroq\tools\fetch_web_content.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2028,7 +2052,7 @@ def fetch_web_content(url: str) -> Optional[str]:
         return None
 ```
 
-# AutoGroq\skills\generate_sd_images.py
+# AutoGroq\tools\generate_sd_images.py
 
 ```python
 # Thanks to marc-shade:  https://github.com/marc-shade
@@ -2103,7 +2127,45 @@ def generate_sd_images(query: str, image_size: str = "512x512", team_name: str =
     return saved_files
 ```
 
-# AutoGroq\skills\get_weather.py
+# AutoGroq\tools\get_complementary_colors.py
+
+```python
+# Tool filename: complementary_colors.py
+# Import necessary module(s)
+import colorsys
+
+def get_complementary_colors(color):
+    # docstrings
+    """
+    Returns a list of complementary colors for the given color.
+
+    Parameters:
+    color (str): The color in hexadecimal format (e.g., '#FF0000' for red).
+
+    Returns:
+    list: A list of complementary colors in hexadecimal format.
+    """
+
+    # Body of tool
+    # Convert the color from hexadecimal to RGB
+    r, g, b = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+    # Convert RGB to HSV
+    h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+    # Calculate the complementary hue
+    h_compl = (h + 0.5) % 1
+    # Convert the complementary hue back to RGB
+    r_compl, g_compl, b_compl = colorsys.hsv_to_rgb(h_compl, 1, 1)
+    # Convert RGB to hexadecimal
+    color_compl = '#{:02x}{:02x}{:02x}'.format(int(r_compl*255), int(g_compl*255), int(b_compl*255))
+    # Return the complementary color
+    return [color_compl]
+
+    # Example usage:
+    # color = '#FF0000'
+    # print(get_complementary_colors(color))
+```
+
+# AutoGroq\tools\get_weather.py
 
 ```python
 import requests
@@ -2142,7 +2204,7 @@ def get_weather(zipcode: str, api_key: str) -> Optional[dict]:
 
 ```
 
-# AutoGroq\skills\plot_diagram.py
+# AutoGroq\tools\plot_diagram.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2196,7 +2258,7 @@ def draw_geometric_structure(file_name, base_circles=4, base_circle_color='blue'
 #image_path = draw_geometric_structure(file_name, base_circles=8, base_circle_color='blue', top_circle_color='orange', line_color='grey', line_width=2)
 ```
 
-# AutoGroq\skills\save_file_to_disk.py
+# AutoGroq\tools\save_file_to_disk.py
 
 ```python
 # Thanks to aj47:  https://github.com/aj47
@@ -2231,7 +2293,7 @@ def save_file_to_disk(contents, file_name):
 # print(save_file_to_disk(contents_to_save, file_name))
 ```
 
-# AutoGroq\skills\slackoverflow_teams.py
+# AutoGroq\tools\slackoverflow_teams.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2303,7 +2365,7 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# AutoGroq\skills\slack_search.py
+# AutoGroq\tools\slack_search.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2398,7 +2460,16 @@ if __name__ == "__main__":
     print(results)
 ```
 
-# AutoGroq\skills\webscrape.py
+# AutoGroq\tools\test.py
+
+```python
+# bfrglz; = 
+# return
+
+# import json
+```
+
+# AutoGroq\tools\webscrape.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2440,7 +2511,7 @@ def save_webpage_as_text(url, output_filename):
 #     save_webpage_as_text(url, output_filename)
 ```
 
-# AutoGroq\skills\web_search.py
+# AutoGroq\tools\web_search.py
 
 ```python
 #  Thanks to MADTANK:  https://github.com/madtank
@@ -2689,8 +2760,8 @@ import uuid
 
 from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-from typing import Optional
-from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+# from typing import Optional
+from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
 
@@ -2740,7 +2811,7 @@ def export_data(db_path):
                     datetime.datetime.now().isoformat(),
                     json.dumps(autogen_agent_data['config']),
                     autogen_agent_data['type'],
-                    json.dumps(autogen_agent_data['skills'])
+                    json.dumps(autogen_agent_data['tools'])
                 )
                 cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
                 print(f"Inserted agent: {formatted_agent_name}")
@@ -2752,7 +2823,7 @@ def export_data(db_path):
                     skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
                     with open(skill_file_path, 'r') as file:
                         skill_data = file.read()
-                        skill_json = create_skill_data(skill_data)
+                        skill_json = create_tool_data(skill_data)
                         skill_data = (
                             str(uuid.uuid4()),  # Generate a unique ID for the skill
                             'default',  # Set the user ID to 'default'
@@ -2793,14 +2864,14 @@ def export_data(db_path):
             print(f"Error exporting data to Autogen: {str(e)}")
 
 
-def export_skill_to_autogen(skill_name, edited_skill):
+def export_tool_to_autogen_as_skill(skill_name, edited_skill):
     print(f"Exporting skill '{skill_name}' to Autogen...")
     try:
         conn = sqlite3.connect(AUTOGEN_DB_PATH)
         cursor = conn.cursor()
         print("Connected to the database successfully.")
 
-        skill_data = create_skill_data(edited_skill)
+        skill_data = create_tool_data(edited_skill)
         print(f"Skill data: {skill_data}")
         skill_data = (
             str(uuid.uuid4()),  # Generate a unique ID for the skill
@@ -2827,62 +2898,62 @@ def export_skill_to_autogen(skill_name, edited_skill):
 
 #FUTURE functions for exporting to new Autogen Studio schema:
 
-def create_or_update_agent(agent: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Agent (id, skills, created_at, updated_at, user_id, workflows, type, config, models)
-            VALUES (:id, :skills, :created_at, :updated_at, :user_id, :workflows, :type, :config, :models)
-        """, agent)
-        conn.commit()
+# def create_or_update_agent(agent: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Agent (id, skills, created_at, updated_at, user_id, workflows, type, config, models)
+#             VALUES (:id, :skills, :created_at, :updated_at, :user_id, :workflows, :type, :config, :models)
+#         """, agent)
+#         conn.commit()
 
-def create_or_update_skill(skill: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Skill (id, created_at, updated_at, user_id, name, content, description, secrets, libraries)
-            VALUES (:id, :created_at, :updated_at, :user_id, :name, :content, :description, :secrets, :libraries)
-        """, skill)
-        conn.commit()
+# def create_or_update_skill(skill: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Skill (id, created_at, updated_at, user_id, name, content, description, secrets, libraries)
+#             VALUES (:id, :created_at, :updated_at, :user_id, :name, :content, :description, :secrets, :libraries)
+#         """, skill)
+#         conn.commit()
 
-def create_or_update_workflow(workflow: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Workflow (id, agents, created_at, updated_at, user_id, name, description, type, summary_method)
-            VALUES (:id, :agents, :created_at, :updated_at, :user_id, :name, :description, :type, :summary_method)
-        """, workflow)
-        conn.commit()
+# def create_or_update_workflow(workflow: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Workflow (id, agents, created_at, updated_at, user_id, name, description, type, summary_method)
+#             VALUES (:id, :agents, :created_at, :updated_at, :user_id, :name, :description, :type, :summary_method)
+#         """, workflow)
+#         conn.commit()
 
-def get_agent_by_id(agent_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Agent WHERE id = ?", (agent_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_agent_by_id(agent_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Agent WHERE id = ?", (agent_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
 
-def get_skill_by_id(skill_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Skill WHERE id = ?", (skill_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_skill_by_id(skill_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Skill WHERE id = ?", (skill_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
 
-def get_workflow_by_id(workflow_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Workflow WHERE id = ?", (workflow_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_workflow_by_id(workflow_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Workflow WHERE id = ?", (workflow_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
 ```
 
 # AutoGroq\utils\file_utils.py
@@ -2937,21 +3008,21 @@ def create_agent_data(agent):
         },
         "timestamp": current_timestamp,
         "user_id": "default",
-        "skills": []
+        "tools": []
     }
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    skill_folder = os.path.join(project_root, "skills")
-    skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+    tool_folder = os.path.join(project_root, "tools")
+    tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
 
-    for skill_file in skill_files:
-        skill_name = os.path.splitext(skill_file)[0]
-        if agent.get(skill_name, False):
-            skill_file_path = os.path.join(skill_folder, skill_file)
-            with open(skill_file_path, 'r') as file:
-                skill_data = file.read()
-            skill_json = create_skill_data(skill_data)
-            autogen_agent_data["skills"].append(skill_json)
+    for tool_file in tool_files:
+        tool_name = os.path.splitext(tool_file)[0]
+        if agent.get(tool_name, False):
+            tool_file_path = os.path.join(tool_folder, tool_file)
+            with open(tool_file_path, 'r') as file:
+                tool_data = file.read()
+            tool_json = create_tool_data(tool_data)
+            autogen_agent_data["tools"].append(tool_json)
 
     crewai_agent_data = {
         "name": expert_name,
@@ -2963,7 +3034,7 @@ def create_agent_data(agent):
     return autogen_agent_data, crewai_agent_data
 
 
-def create_skill_data(python_code):
+def create_tool_data(python_code):
     # Extract the function name from the Python code
     function_name_match = re.search(r"def\s+(\w+)\(", python_code)
     if function_name_match:
@@ -2971,27 +3042,27 @@ def create_skill_data(python_code):
     else:
         function_name = "unnamed_function"
 
-    # Extract the skill description from the docstring
+    # Extract the tool description from the docstring
     docstring_match = re.search(r'"""(.*?)"""', python_code, re.DOTALL)
     if docstring_match:
-        skill_description = docstring_match.group(1).strip()
+        tool_description = docstring_match.group(1).strip()
     else:
-        skill_description = "No description available"
+        tool_description = "No description available"
 
     # Get the current timestamp
     current_timestamp = datetime.datetime.now().isoformat()
 
-    # Create the skill data dictionary
-    skill_data = {
+    # Create the tool data dictionary
+    tool_data = {
         "title": function_name,
         "content": python_code,
         "file_name": f"{function_name}.json",
-        "description": skill_description,
+        "description": tool_description,
         "timestamp": current_timestamp,
         "user_id": "default"
     }
 
-    return skill_data
+    return tool_data
         
 
 def create_workflow_data(workflow):
@@ -3017,6 +3088,9 @@ def sanitize_text(text):
 
 import streamlit as st
 
+from datetime import datetime
+from models.project_base_model import ProjectBaseModel
+from models.workflow_base_model import WorkflowBaseModel
 from current_project import Current_Project
 
 
@@ -3051,14 +3125,15 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
+    if "project" not in st.session_state:
+        st.session_state.project = ProjectBaseModel()
+
     if "previous_user_request" not in st.session_state:
         st.session_state.previous_user_request = ""
 
 #    if "project_manager_output" not in st.session_state:
 #        st.session_state.project_manager_output = ""
 
-#    if "proposed_skill" not in st.session_state:
-#        st.session_state.proposed_skill = None
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}
@@ -3069,20 +3144,23 @@ def initialize_session_variables():
     if "rephrased_request" not in st.session_state:
         st.session_state.rephrased_request = ""
 
-    if "selected_skills" not in st.session_state:
-        st.session_state.selected_skills = []
+    if "selected_tools" not in st.session_state:
+        st.session_state.selected_tools = []
 
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
 
-    if "skill_functions" not in st.session_state:
-        st.session_state.skill_functions = {}
+    if "tools" not in st.session_state:
+        st.session_state.tools = [] 
 
-    if "skill_name" not in st.session_state:
-        st.session_state.skill_name = None
+    if "tool_functions" not in st.session_state:
+        st.session_state.tool_functions = {}
 
-    if "skill_request" not in st.session_state:
-        st.session_state.skill_request = ""
+    if "tool_name" not in st.session_state:
+        st.session_state.tool_name = None
+
+    if "tool_request" not in st.session_state:
+        st.session_state.tool_request = ""
 
 #    if "temperature" not in st.session_state:
 #           st.session_state.temperature = 0.3
@@ -3102,12 +3180,24 @@ def initialize_session_variables():
     if "whiteboard" not in st.session_state:
         st.session_state.whiteboard = ""
 
+    if "workflow" not in st.session_state:
+        st.session_state.workflow = WorkflowBaseModel(
+            name="",
+            created_at=datetime.now(),
+            description="",
+            agents=[],
+            sender=None,
+            receiver=None,
+            type="",
+            user_id="default",
+            timestamp=datetime.now(),
+            summary_method=""
+        )
 ```
 
 # AutoGroq\utils\ui_utils.py
 
 ```python
-
 import datetime
 import importlib
 import io
@@ -3119,15 +3209,18 @@ import streamlit as st
 import time
 import zipfile
 
-from config import API_URL, LLM_PROVIDER, MAX_RETRIES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from config import API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY
 
 from current_project import Current_Project
-from prompts import create_project_manager_prompt, get_agents_prompt, get_generate_skill_prompt,get_rephrased_user_prompt  
-from skills.fetch_web_content import fetch_web_content
+from datetime import date
+from models.agent_base_model import AgentBaseModel
+from models.workflow_base_model import WorkflowBaseModel
+from prompts import create_project_manager_prompt, get_agents_prompt, get_generate_tool_prompt,get_rephrased_user_prompt  
+from tools.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
-from utils.db_utils import export_skill_to_autogen, export_to_autogen
-from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+from utils.db_utils import export_tool_to_autogen_as_skill, export_to_autogen
+from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -3180,33 +3273,18 @@ def display_api_key_input():
 def display_discussion_and_whiteboard():
     discussion_history = get_discussion_history()
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Objectives", "Deliverables", "Downloads"])
+    tabs = st.tabs(["Most Recent Comment", "Whiteboard", "Discussion History", "Deliverables", "Downloads", "Debug"])
 
-    with tab1:
+    with tabs[0]:
         st.text_area("Most Recent Comment", value=st.session_state.last_comment, height=400, key="discussion")
 
-    with tab2:
+    with tabs[1]:
         st.text_area("Whiteboard", value=st.session_state.whiteboard, height=400, key="whiteboard")
 
-    with tab3:
+    with tabs[2]:
         st.write(discussion_history)
 
-    with tab4:  
-        if "current_project" in st.session_state:
-            current_project = st.session_state.current_project
-            for index, objective in enumerate(current_project.objectives):
-                if objective["text"].strip():  # Check if the objective text is not empty
-                    checkbox_key = f"objective_{index}"
-                    done = st.checkbox(objective["text"], value=objective["done"], key=checkbox_key)
-                    if done != objective["done"]:
-                        if done:
-                            current_project.mark_objective_done(index)
-                        else:
-                            current_project.mark_objective_undone(index)
-        else:
-            st.warning("No objectives found. Please enter a user request.")
-
-    with tab5:
+    with tabs[3]:
         if "current_project" in st.session_state:
             current_project = st.session_state.current_project
             for index, deliverable in enumerate(current_project.deliverables):
@@ -3219,10 +3297,122 @@ def display_discussion_and_whiteboard():
                         else:
                             current_project.mark_deliverable_undone(index)
 
-    with tab6:
+    with tabs[4]:
         display_download_button() 
         if st.button("Export to Autogen"):
             export_to_autogen()
+
+    with tabs[5]:
+        if DEBUG:
+            if "project" in st.session_state:
+                project = st.session_state.project
+                with st.expander("Project Details"):
+                    st.write("ID:", project.id)
+                    st.write("Re-engineered Prompt:", project.re_engineered_prompt)
+                    st.write("Deliverables:", project.deliverables)
+                    st.write("Created At:", project.created_at)
+                    st.write("Updated At:", project.updated_at)
+                    st.write("User ID:", project.user_id)
+                    st.write("Name:", project.name)
+                    st.write("Description:", project.description)
+                    st.write("Status:", project.status)
+                    st.write("Due Date:", project.due_date)
+                    st.write("Priority:", project.priority)
+                    st.write("Tags:", project.tags)
+                    st.write("Attachments:", project.attachments)
+                    st.write("Notes:", project.notes)
+                    st.write("Collaborators:", project.collaborators)
+                    st.write("Workflows:", project.workflows)
+
+            if "project" in st.session_state and st.session_state.project.workflows:
+                workflow_data = st.session_state.project.workflows[0]
+                workflow = WorkflowBaseModel.from_dict({**workflow_data, 'settings': workflow_data.get('settings', {})})
+                with st.expander("Workflow Details"):
+                    st.write("ID:", workflow.id)
+                    st.write("Name:", workflow.name)
+                    st.write("Description:", workflow.description)
+                    
+                    # Display the agents in the workflow
+                    st.write("Agents:")
+                    for agent in workflow.receiver.groupchat_config["agents"]:
+                        st.write(f"- {agent['config']['name']}")
+                    
+                    st.write("Settings:", workflow.settings)    
+                    st.write("Created At:", workflow.created_at)
+                    st.write("Updated At:", workflow.updated_at)
+                    st.write("User ID:", workflow.user_id)
+                    st.write("Type:", workflow.type)
+                    st.write("Summary Method:", workflow.summary_method)
+                    st.write("Sender:", workflow.sender)
+                    st.write("Receiver:", workflow.receiver)
+                    st.write("Groupchat Config:", workflow.groupchat_config)
+                    st.write("Timestamp:", workflow.timestamp)
+            else:
+                st.warning("No workflow data available.")
+
+            if "agents" in st.session_state:
+                with st.expander("Agent Details"):
+                    agent_names = ["Select one..."] + [agent.get('name', f"Agent {index + 1}") for index, agent in enumerate(st.session_state.agents)]
+                    selected_agent = st.selectbox("Select an agent:", agent_names)
+
+                    if selected_agent != "Select one...":
+                        agent_index = agent_names.index(selected_agent) - 1
+                        agent = st.session_state.agents[agent_index]
+
+                        st.subheader(selected_agent)
+                        st.write("ID:", agent.get('id'))
+                        st.write("Name:", agent.get('name'))
+                        st.write("Description:", agent.get('description'))
+                        
+                        # Display the selected tools for the agent
+                        st.write("Tools:", ", ".join(agent.get('tools', [])))
+                        
+                        st.write("Config:", agent.get('config'))
+                        st.write("Created At:", agent.get('created_at'))
+                        st.write("Updated At:", agent.get('updated_at'))
+                        st.write("User ID:", agent.get('user_id'))
+                        st.write("Workflows:", agent.get('workflows'))
+                        st.write("Type:", agent.get('type'))
+                        st.write("Models:", agent.get('models'))
+                        st.write("Verbose:", agent.get('verbose'))
+                        st.write("Allow Delegation:", agent.get('allow_delegation'))
+                        st.write("New Description:", agent.get('new_description'))
+                        st.write("Timestamp:", agent.get('timestamp'))
+            else:
+                st.warning("No agent data available.")
+            
+            if "tools" in st.session_state:
+                with st.expander("Tool Details"):
+                    tool_names = ["Select one..."] + [tool.get('name', f"Tool {index + 1}") for index, tool in enumerate(st.session_state.tools)]
+                    selected_tool = st.selectbox("Select a tool:", tool_names)
+
+                    if selected_tool != "Select one...":
+                        tool_index = tool_names.index(selected_tool) - 1
+                        tool = st.session_state.tools[tool_index]
+
+                        if isinstance(tool, dict):
+                            st.subheader(selected_tool)
+                            st.write("ID:", tool.get('id'))
+                            st.write("Name:", tool.get('name'))
+                            st.write("Description:", tool.get('description'))
+                            st.write("Created At:", tool.get('created_at'))
+                            st.write("Updated At:", tool.get('updated_at'))
+                            st.write("User ID:", tool.get('user_id'))
+                            st.markdown(tool.get('content', ''))  # Display content as markdown
+                            st.write("Secrets:", tool.get('secrets'))
+                            st.write("Libraries:", tool.get('libraries'))
+                            st.write("File Name:", tool.get('file_name'))
+                            st.write("Timestamp:", tool.get('timestamp'))
+                            st.write("Title:", tool.get('title'))
+                        else:
+                            st.warning(f"{selected_tool} is not a dictionary.")
+            else:
+                st.warning("No tool data available.")
+
+        else:
+            st.warning("Debugging disabled.")   
+
+        
                             
 
 def display_download_button():
@@ -3377,7 +3567,7 @@ def extract_json_objects(json_string):
     return parsed_objects
                 
 
-def generate_skill(rephrased_skill_request):
+def generate_tool(rephrased_tool_request):
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
@@ -3388,7 +3578,7 @@ def generate_skill(rephrased_skill_request):
         "messages": [
             {
                 "role": "user",
-                "content": get_generate_skill_prompt(rephrased_skill_request)
+                "content": get_generate_tool_prompt(rephrased_tool_request)
             }
         ]
     }
@@ -3397,10 +3587,17 @@ def generate_skill(rephrased_skill_request):
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
         response_data = llm_provider.process_response(response)
+        print (f"Response data: {response_data}")
         if "choices" in response_data and response_data["choices"]:
-            proposed_skill = response_data["choices"][0]["message"]["content"].strip()
-            return proposed_skill
-    return None
+            proposed_tool = response_data["choices"][0]["message"]["content"].strip()
+            match = re.search(r"def\s+(\w+)\(", proposed_tool)
+            if match:
+                tool_name = match.group(1)
+                return proposed_tool, tool_name
+            else:
+                print("Error: Failed to extract tool name from the proposed tool.")
+                return proposed_tool, None
+    return None, None
 
 
 def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
@@ -3446,7 +3643,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                         if isinstance(json_data, list):
                             autogen_agents = []
                             crewai_agents = []
-                            for agent_data in json_data:
+                            for index, agent_data in enumerate(json_data, start=1):
                                 expert_name = agent_data.get('expert_name', '')
                                 if not expert_name:
                                     print("Missing agent name. Retrying...")
@@ -3454,10 +3651,12 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                     time.sleep(retry_delay)
                                     continue
                                 description = agent_data.get('description', '')
-                                skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                agent_skills = st.session_state.selected_skills
+                                agent_tools = st.session_state.selected_tools
+                                current_timestamp = datetime.datetime.now().isoformat()
                                 autogen_agent_data = {
+                                    "id": index,
+                                    "name": expert_name,
                                     "type": "assistant",
                                     "config": {
                                         "name": expert_name,
@@ -3465,7 +3664,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                             "config_list": [
                                                 {
                                                     "user_id": "default",
-                                                    "timestamp": datetime.datetime.now().isoformat(),
+                                                    "timestamp": current_timestamp,
                                                     "model": st.session_state.model,
                                                     "base_url": None,
                                                     "api_type": None,
@@ -3484,14 +3683,19 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                         "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
                                     },
                                     "description": description,
-                                    "skills": agent_skills,
-                                    "tools": tools
+                                    "tools": agent_tools,
+                                    "created_at": current_timestamp,
+                                    "updated_at": current_timestamp,
+                                    "user_id": "default",
+                                    "models": [model for model in MODEL_CHOICES if model != "default"],
+                                    "verbose": False,
+                                    "allow_delegation": False,
+                                    "timestamp": current_timestamp
                                 }
                                 crewai_agent_data = {
                                     "name": expert_name,
                                     "description": description,
-                                    "skills": agent_skills,
-                                    "tools": tools,
+                                    "tools": agent_tools,
                                     "verbose": True,
                                     "allow_delegation": True
                                 }
@@ -3499,6 +3703,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                 crewai_agents.append(crewai_agent_data)
                             print(f"AutoGen Agents: {autogen_agents}")
                             print(f"CrewAI Agents: {crewai_agents}")
+                            st.session_state.workflow.agents = [AgentBaseModel.from_dict(agent) for agent in autogen_agents]
                             return autogen_agents, crewai_agents
                         else:
                             print("Invalid JSON format. Expected a list of agents.")
@@ -3510,7 +3715,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                         if json_data:
                             autogen_agents = []
                             crewai_agents = []
-                            for agent_data in json_data:
+                            for index, agent_data in enumerate(json_data, start=1):
                                 expert_name = agent_data.get('expert_name', '')
                                 if not expert_name:
                                     print("Missing agent name. Retrying...")
@@ -3518,10 +3723,12 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                     time.sleep(retry_delay)
                                     continue
                                 description = agent_data.get('description', '')
-                                skills = agent_data.get('skills', [])
                                 tools = agent_data.get('tools', [])
-                                agent_skills = st.session_state.selected_skills
+                                agent_tools = st.session_state.selected_tools
+                                current_timestamp = datetime.datetime.now().isoformat()
                                 autogen_agent_data = {
+                                    "id": index,
+                                    "name": expert_name,
                                     "type": "assistant",
                                     "config": {
                                         "name": expert_name,
@@ -3529,7 +3736,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                             "config_list": [
                                                 {
                                                     "user_id": "default",
-                                                    "timestamp": datetime.datetime.now().isoformat(),
+                                                    "timestamp": current_timestamp,
                                                     "model": st.session_state.model,
                                                     "base_url": None,
                                                     "api_type": None,
@@ -3546,14 +3753,19 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                         "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
                                     },
                                     "description": description,
-                                    "skills": agent_skills,
-                                    "tools": tools
+                                    "tools": agent_tools,
+                                    "created_at": current_timestamp,
+                                    "updated_at": current_timestamp,
+                                    "user_id": "default",
+                                    "models": [model for model in MODEL_CHOICES if model != "default"],
+                                    "verbose": False,
+                                    "allow_delegation": False,
+                                    "timestamp": current_timestamp
                                 }
                                 crewai_agent_data = {
                                     "name": expert_name,
                                     "description": description,
-                                    "skills": agent_skills,
-                                    "tools": tools,
+                                    "tools": agent_tools,
                                     "verbose": True,
                                     "allow_delegation": True
                                 }
@@ -3615,7 +3827,9 @@ def handle_user_request(session_state):
         st.warning("Failed to rephrase the user request. Please try again.")
         return
 
+    session_state.project.description = session_state.user_request
     rephrased_text = session_state.rephrased_request
+    session_state.project.set_re_engineered_prompt(rephrased_text)
 
     if "project_manager_output" not in session_state:
         project_manager_output = create_project_manager(rephrased_text, API_URL)
@@ -3630,29 +3844,10 @@ def handle_user_request(session_state):
         current_project = Current_Project()
         current_project.set_re_engineered_prompt(rephrased_text)
 
-        objectives_patterns = [
-            r"Objectives:\n(.*?)(?=Deliverables|Key Deliverables|$)",
-            r"\*\*Objectives:\*\*\n(.*?)(?=\*\*Deliverables|\*\*Key Deliverables|$)"
-        ]
-
         deliverables_patterns = [
             r"(?:Deliverables|Key Deliverables):\n(.*?)(?=Timeline|Team of Experts|$)",
             r"\*\*(?:Deliverables|Key Deliverables):\*\*\n(.*?)(?=\*\*Timeline|\*\*Team of Experts|$)"
         ]
-
-        objectives_text = None
-        for pattern in objectives_patterns:
-            match = re.search(pattern, project_manager_output, re.DOTALL)
-            if match:
-                objectives_text = match.group(1).strip()
-                break
-
-        if objectives_text:
-            objectives = objectives_text.split("\n")
-            for objective in objectives:
-                current_project.add_objective(objective.strip())
-        else:
-            print("Warning: 'Objectives' section not found in Project Manager's output.")
 
         deliverables_text = None
         for pattern in deliverables_patterns:
@@ -3665,6 +3860,7 @@ def handle_user_request(session_state):
             deliverables = re.findall(r'\d+\.\s*(.*)', deliverables_text)
             for deliverable in deliverables:
                 current_project.add_deliverable(deliverable.strip())
+                session_state.project.add_deliverable(deliverable.strip())
         else:
             print("Warning: 'Deliverables' or 'Key Deliverables' section not found in Project Manager's output.")
 
@@ -3698,10 +3894,21 @@ def handle_user_request(session_state):
             return
 
         session_state.agents = autogen_agents
+        session_state.workflow.agents = session_state.agents
+        print(f"Debug: session_state.workflow.agents: {session_state.workflow.agents}")
 
+        # Generate the workflow data
         workflow_data, _ = get_workflow_from_agents(autogen_agents)
+        workflow_data["created_at"] = datetime.datetime.now().isoformat()
         print(f"Debug: Workflow data: {workflow_data}")
         print(f"Debug: CrewAI agents: {crewai_agents}")
+
+        # Update the project session state with the workflow data
+        session_state.project.workflows = [workflow_data]
+
+        print("Debug: Agents in session state project workflow:")
+        for agent in workflow_data["receiver"]["groupchat_config"]["agents"]:
+            print(agent)
 
         autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
         session_state.autogen_zip_buffer = autogen_zip_buffer
@@ -3722,58 +3929,82 @@ def key_prompt():
         return
 
 
-def load_skill_functions():
+def load_tool_functions():
     # Get the parent directory of the current script
     parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    # Define the path to the 'skills' folder in the parent directory
-    skills_folder_path = os.path.join(parent_directory, 'skills')
+    # Define the path to the 'tools' folder in the parent directory
+    tools_folder_path = os.path.join(parent_directory, 'tools')
 
-    # List all files in the 'skills' folder
-    skill_files = [f for f in os.listdir(skills_folder_path) if f.endswith('.py')]
+    # List all files in the 'tools' folder
+    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py')]
 
-    skill_functions = {}
-    for skill_file in skill_files:
-        skill_name = os.path.splitext(skill_file)[0]
-        skill_module = importlib.import_module(f"skills.{skill_name}")
-        if hasattr(skill_module, skill_name):
-            skill_functions[skill_name] = getattr(skill_module, skill_name)
+    tool_functions = {}
+    for tool_file in tool_files:
+        tool_name = os.path.splitext(tool_file)[0]
+        tool_module = importlib.import_module(f"tools.{tool_name}")
+        if hasattr(tool_module, tool_name):
+            tool_functions[tool_name] = getattr(tool_module, tool_name)
 
-    st.session_state.skill_functions = skill_functions
+    st.session_state.tool_functions = tool_functions
 
 
-def process_skill_request(skill_request):
-    if skill_request:
-        print(f"Skill Request: {skill_request}")
-        rephrased_skill_request = rephrase_skill(skill_request)
-        if rephrased_skill_request:
-            print(f"Generating proposed skill...")
-            proposed_skill = generate_skill(rephrased_skill_request)
-            print(f"Proposed Skill: {proposed_skill}")
-            if proposed_skill:
-                match = re.search(r"def\s+(\w+)\(", proposed_skill)
+def process_tool_request():
+    if st.session_state.tool_request and not st.session_state.get('tool_processed', False):
+        tool_request = st.session_state.tool_request
+        parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        tool_folder = os.path.join(parent_directory, "tools")
+        print(f"Tool Request: {tool_request}")
+        rephrased_tool_request = rephrase_tool(tool_request)
+        if rephrased_tool_request:
+            print(f"Generating proposed tool...")
+            proposed_tool, tool_name = generate_tool(rephrased_tool_request)  # Unpack the tuple
+            print(f"Proposed tool: {proposed_tool}")
+            if proposed_tool:
+                match = re.search(r"def\s+(\w+(?:_\w+)*)\(", proposed_tool)  # Updated regex pattern
+                print(f"Match: {match}")
                 if match:
-                    skill_name = match.group(1)
-                    st.write(f"Proposed Skill: {skill_name}")
-                    st.code(proposed_skill)
-                    if st.button("Export to Autogen", key=f"export_button_{skill_name}"):
-                        print(f"Exporting skill {skill_name} to Autogen")
-                        export_skill_to_autogen(skill_name, proposed_skill)
-                        st.success(f"Skill {skill_name} exported to Autogen successfully!")
-                        st.experimental_rerun()
-                    if st.button("Discard", key=f"discard_button_{skill_name}"):
-                        st.warning("Skill discarded.")
-                        st.experimental_rerun()
-                else:
-                    st.error("Failed to extract skill name from the proposed skill.")
-            else:
-                st.error("No proposed skill generated.")
+                    tool_name = match.group(1)
+                    st.write(f"Proposed tool: {tool_name}")
+                    st.code(proposed_tool)
 
+                    with st.form(key=f"export_form_{tool_name}"):
+                        submit_export = st.form_submit_button("Export/Write")
+                        if submit_export:
+                            print(f"Exporting tool {tool_name} to Autogen")
+                            export_tool_to_autogen_as_skill(tool_name, proposed_tool)
+                            st.success(f"tool {tool_name} exported to Autogen successfully!")
+                            # Clear the tool_request input and hide the input field
+                            st.session_state.show_tool_input = False
+                            st.session_state.tool_request = ""
+                            # Clear the 'proposed_tool' and 'tool_name' from the session state
+                            st.session_state.proposed_tool = None
+                            st.session_state.tool_name = None
+                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
+                            st.experimental_rerun()
+                            
+                    with st.form(key=f"discard_form_{tool_name}"):
+                        submit_discard = st.form_submit_button("Clear")
+                        if submit_discard:
+                            st.warning("tool discarded.")
+                            # Clear the tool_request input and hide the input field
+                            st.session_state.show_tool_input = False
+                            st.session_state.tool_request = ""
+                            # Clear the 'proposed_tool' and 'tool_name' from the session state
+                            st.session_state.proposed_tool = None
+                            st.session_state.tool_name = None
+                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
+                            st.experimental_rerun()
+                else:
+                    st.error("Failed to extract tool name from the proposed tool.")
+            else:
+                st.error("No proposed tool generated.")
 
 
 def regenerate_json_files_and_zip():
     # Get the updated workflow data
     workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+    workflow_data["updated_at"] = datetime.datetime.now().isoformat()
     
     # Regenerate the zip files
     autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
@@ -3786,6 +4017,8 @@ def regenerate_json_files_and_zip():
 def regenerate_zip_files():
     if "agents" in st.session_state:
         workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+
+        workflow_data["updated_at"] = datetime.datetime.now().isoformat()
         autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
         st.session_state.autogen_zip_buffer = autogen_zip_buffer
         st.session_state.crewai_zip_buffer = crewai_zip_buffer
@@ -3794,8 +4027,8 @@ def regenerate_zip_files():
         print("No agents found. Skipping zip file regeneration.")
 
 
-def rephrase_skill(skill_request):
-    print("Debug: Rephrasing skill: ", skill_request)
+def rephrase_tool(tool_request):
+    print("Debug: Rephrasing tool: ", tool_request)
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
@@ -3807,9 +4040,9 @@ def rephrase_skill(skill_request):
             {
                 "role": "user",
                 "content": f"""
-                Act as a professional skill creator and rephrase the following skill request into an optimized prompt:
+                Act as a professional tool creator and rephrase the following tool request into an optimized prompt:
 
-                Skill request: "{skill_request}"
+                tool request: "{tool_request}"
 
                 Rephrased:
                 """
@@ -3823,7 +4056,7 @@ def rephrase_skill(skill_request):
         response_data = llm_provider.process_response(response)
         if "choices" in response_data and response_data["choices"]:
             rephrased = response_data["choices"][0]["message"]["content"].strip()
-            print(f"Debug: Rephrased skill: {rephrased}")
+            print(f"Debug: Rephrased tool: {rephrased}")
             return rephrased
     return None
 
@@ -3888,10 +4121,10 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
         return None
 
 
-def save_skill(skill_name, edited_skill):
-    with open(f"{skill_name}.py", "w") as f:
-        f.write(edited_skill)
-    st.success(f"Skill {skill_name} saved successfully!")
+def save_tool(tool_name, edited_tool):
+    with open(f"{tool_name}.py", "w") as f:
+        f.write(edited_tool)
+    st.success(f"tool {tool_name} saved successfully!")
 
 
 def select_model():
@@ -3942,50 +4175,72 @@ def show_interfaces():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def show_skills():
-    with st.expander("Skills"):
+def show_tools():
+    with st.expander("Tools"):
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        skill_folder = os.path.join(project_root, "skills")
-        skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+        tool_folder = os.path.join(project_root, "tools")
+        tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
 
-        selected_skills = []
-        select_all = st.checkbox("Select All", key="select_all_skills")
-        for skill_file in skill_files:
-            skill_name = os.path.splitext(skill_file)[0]
+        selected_tools = []
+        select_all = st.checkbox("Select All", key="select_all_tools")
+        for tool_file in tool_files:
+            tool_name = os.path.splitext(tool_file)[0]
             if select_all:
-                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=True, key=f"skill_{skill_name}")
+                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=True, key=f"tool_{tool_name}")
             else:
-                skill_checkbox = st.checkbox(f"Add {skill_name} skill to all agents", value=False, key=f"skill_{skill_name}")
-            if skill_checkbox:
-                selected_skills.append(skill_name)
+                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=False, key=f"tool_{tool_name}")
+            if tool_checkbox:
+                selected_tools.append(tool_name)
 
         if select_all:
-            st.session_state.selected_skills = [os.path.splitext(f)[0] for f in skill_files]
+            st.session_state.selected_tools = [os.path.splitext(f)[0] for f in tool_files]
         else:
-            st.session_state.selected_skills = selected_skills
+            st.session_state.selected_tools = selected_tools
+
+        # Create a list of tool dictionaries
+        tool_dicts = []
+        for index, tool_name in enumerate(st.session_state.selected_tools, start=1):
+            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
+            with open(tool_file_path, 'r') as file:
+                tool_data = file.read()
+                tool_dict = create_tool_data(tool_data)
+                tool_dict['id'] = index
+                tool_dict['name'] = tool_dict['title']
+                tool_dict['created_at'] = datetime.datetime.now().isoformat()
+                tool_dict['updated_at'] = datetime.datetime.now().isoformat()
+                tool_dict['content'] = f"```python\n{tool_dict['content']}\n```"
+                tool_dicts.append(tool_dict)
+
+        # Update the 'Tools' property of each agent with the selected tools
+        for agent in st.session_state.agents:
+            agent['tools'] = [tool_dict['name'] for tool_dict in tool_dicts if tool_dict['name'] in st.session_state.selected_tools]
+
+        # Assign the list of tool dictionaries to st.session_state.tools
+        st.session_state.tools = tool_dicts
 
         regenerate_zip_files()
 
-        if st.button("Add Skill", key="add_skill_button"):
-            st.session_state.show_skill_input = True  # Flag to show the input field
-            st.session_state.skill_request = ""  # Clear previous request
+        if st.button("Add tool", key="add_tool_button"):
+            st.session_state.show_tool_input = True
+            st.session_state.tool_request = ""
+            st.session_state.tool_processed = False 
 
-        if st.session_state.get('show_skill_input'):
-            skill_request = st.text_input("Need a new skill? Describe what it should do:", key="skill_request_input")
-            if skill_request:
-                st.session_state.skill_request = skill_request  # Store in a separate session state variable
-                process_skill_request(skill_request)  # Pass the skill_request to the process_skill_request function
+        if st.session_state.get('show_tool_input'):
+            tool_request = st.text_input("Need a new tool? Describe what it should do:", key="tool_request_input")
+            if tool_request:
+                st.session_state.tool_request = tool_request  # Store in a separate session state variable
+                process_tool_request()  # Pass the tool_request to the process_tool_request function
 
-        if selected_skills or 'proposed_skill' in st.session_state:
-            if st.button("Attempt to Export Skill to Autogen (experimental)", key=f"export_button_{st.session_state.skill_name}"):
-                skill_name = st.session_state.skill_name
-                proposed_skill = st.session_state.proposed_skill
-                print(f"Exporting skill {skill_name} to Autogen")
-                export_skill_to_autogen(skill_name, proposed_skill)
-                st.success(f"Skill {skill_name} exported to Autogen successfully!")
-                st.session_state.show_skill_input = False  # Reset input flag
-                st.session_state.proposed_skill = None  # Clear proposed skill
-                st.session_state.skill_name = None  # Clear skill name
+        if selected_tools or 'proposed_tool' in st.session_state:
+            if st.button("Attempt to Export tool to Autogen (experimental)", key=f"export_button_{st.session_state.tool_name}"):
+                tool_name = st.session_state.tool_name
+                proposed_tool = st.session_state.proposed_tool
+                print(f"Exporting tool {tool_name} to Autogen")
+                export_tool_to_autogen_as_skill(tool_name, proposed_tool)
+                st.success(f"tool {tool_name} exported to Autogen successfully!")
+                # Clear the tool_request input and hide the input field
+                st.session_state.show_tool_input = False
+                st.session_state.tool_request = ""
                 st.experimental_rerun()
 
 
@@ -4074,7 +4329,7 @@ def zip_files_in_memory(workflow_data):
     autogen_zip_buffer = io.BytesIO()
     crewai_zip_buffer = io.BytesIO()
     parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    skill_folder = os.path.join(parent_directory, "skills")
+    tool_folder = os.path.join(parent_directory, "tools")
     autogen_file_data = {}
     for agent in st.session_state.agents:
         agent_name = agent['config']['name']
@@ -4086,24 +4341,24 @@ def zip_files_in_memory(workflow_data):
         autogen_agent_data['config']['name'] = formatted_agent_name
         autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
         autogen_agent_data['config']['llm_config']['max_tokens'] = agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
-        autogen_agent_data['skills'] = []
+        autogen_agent_data['tools'] = []
         
-        for skill_name in st.session_state.selected_skills:
-            skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
-            with open(skill_file_path, 'r') as file:
-                skill_data = file.read()
-                skill_json = create_skill_data(skill_data)
-                autogen_agent_data['skills'].append(skill_json)
+        for tool_name in st.session_state.selected_tools:
+            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
+            with open(tool_file_path, 'r') as file:
+                tool_data = file.read()
+                tool_json = create_tool_data(tool_data)
+                autogen_agent_data['tools'].append(tool_json)
         agent_file_data = json.dumps(autogen_agent_data, indent=2)
         agent_file_data = agent_file_data.encode('utf-8')
         autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-    for skill_name in st.session_state.selected_skills:
-        skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
-        with open(skill_file_path, 'r') as file:
-            skill_data = file.read()
-            skill_json = json.dumps(create_skill_data(skill_data), indent=2)
-            skill_json = skill_json.encode('utf-8')
-            autogen_file_data[f"skills/{skill_name}.json"] = skill_json
+    for tool_name in st.session_state.selected_tools:
+        tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
+        with open(tool_file_path, 'r') as file:
+            tool_data = file.read()
+            tool_json = json.dumps(create_tool_data(tool_data), indent=2)
+            tool_json = tool_json.encode('utf-8')
+            autogen_file_data[f"tools/{tool_name}.json"] = tool_json
     workflow_file_name = "workflow.json"
     workflow_file_data = json.dumps(workflow_data, indent=2)
     workflow_file_data = workflow_file_data.encode('utf-8')
@@ -4163,7 +4418,7 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": []
+            "tools": []
         },
         "receiver": {
             "type": "groupchat",
@@ -4173,7 +4428,7 @@ def get_workflow_from_agents(agents):
                     "config_list": [
                         {
                             "user_id": "default",
-                            "timestamp": datetime.datetime.now().isoformat(),
+                            "timestamp": current_timestamp,
                             "model": st.session_state.model,
                             "base_url": None,
                             "api_type": None,
@@ -4205,7 +4460,7 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": []
+            "tools": []
         },
         "type": "groupchat",
         "user_id": "default",
@@ -4221,9 +4476,6 @@ def get_workflow_from_agents(agents):
         
         system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
         if index == 0:
-            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:] if a in st.session_state.agents]  # Filter out deleted agents
-            system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
-
             other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:]]
             system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
 
@@ -4235,7 +4487,7 @@ def get_workflow_from_agents(agents):
                     "config_list": [
                         {
                             "user_id": "default",
-                            "timestamp": datetime.datetime.now().isoformat(),
+                            "timestamp": current_timestamp,
                             "model": st.session_state.model,
                             "base_url": None,
                             "api_type": None,
@@ -4259,20 +4511,20 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "skills": []  # Set skills to null only in the workflow JSON
+            "tools": []  # Set tools to null only in the workflow JSON
         }
 
         workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
 
+    print("Debug: Workflow agents assigned:")
+    for agent in workflow["receiver"]["groupchat_config"]["agents"]:
+        print(agent)
+
     crewai_agents = []
     for agent in agents:
-        if agent not in st.session_state.agents:  # Check if the agent exists in st.session_state.agents
-            continue  # Skip the agent if it has been deleted
-        
         _, crewai_agent_data = create_agent_data(agent)
         crewai_agents.append(crewai_agent_data)
 
     return workflow, crewai_agents
-
 ```
 

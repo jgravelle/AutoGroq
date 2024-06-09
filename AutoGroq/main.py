@@ -8,15 +8,15 @@ from utils.session_utils import initialize_session_variables
 from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, key_prompt, 
-    load_skill_functions, select_model, set_css, 
-    set_temperature, show_interfaces, show_skills
+    load_tool_functions, select_model, set_css, 
+    set_temperature, show_interfaces, show_tools
 )
 
 
 def main():
     set_css()
     initialize_session_variables()
-    load_skill_functions()
+    load_tool_functions()
     key_prompt()
     set_llm_provider_title()
 
@@ -34,7 +34,7 @@ def main():
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
             display_goal()
-            show_skills()
+            show_tools()
         else:
             st.empty()  
 

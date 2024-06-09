@@ -1,11 +1,10 @@
-
 from typing import List, Dict, Optional
+from datetime import datetime
 
 class ProjectBaseModel:
     def __init__(
         self,
         re_engineered_prompt: str = "",
-        objectives: List[Dict] = None,
         deliverables: List[Dict] = None,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
@@ -19,46 +18,40 @@ class ProjectBaseModel:
         tags: Optional[List[str]] = None,
         attachments: Optional[List[str]] = None,
         notes: Optional[str] = None,
-        collaborators: Optional[List[str]] = None
+        collaborators: Optional[List[str]] = None,
+        workflows: Optional[List[Dict]] = None
     ):
-        self.id = id
+        self.id = id or 1
         self.re_engineered_prompt = re_engineered_prompt
-        self.objectives = objectives or []
         self.deliverables = deliverables or []
-        self.created_at = created_at
+        self.created_at = created_at or datetime.now().isoformat()
         self.updated_at = updated_at
-        self.user_id = user_id
-        self.name = name
+        self.user_id = user_id or "user"
+        self.name = name or "project"
         self.description = description
-        self.status = status
+        self.status = status or "not started"
         self.due_date = due_date
         self.priority = priority
-        self.tags = tags
-        self.attachments = attachments
+        self.tags = tags or []
+        self.attachments = attachments or []
         self.notes = notes
-        self.collaborators = collaborators
+        self.collaborators = collaborators or []
+        self.workflows = workflows or []
+
 
     def add_deliverable(self, deliverable: str):
         self.deliverables.append({"text": deliverable, "done": False})
 
-    def add_objective(self, objective: str):
-        self.objectives.append({"text": objective, "done": False})
 
     def mark_deliverable_done(self, index: int):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = True
 
+
     def mark_deliverable_undone(self, index: int):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = False
 
-    def mark_objective_done(self, index: int):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = True
-
-    def mark_objective_undone(self, index: int):
-        if 0 <= index < len(self.objectives):
-            self.objectives[index]["done"] = False
 
     def set_re_engineered_prompt(self, prompt: str):
         self.re_engineered_prompt = prompt
@@ -67,7 +60,6 @@ class ProjectBaseModel:
         return {
             "id": self.id,
             "re_engineered_prompt": self.re_engineered_prompt,
-            "objectives": self.objectives,
             "deliverables": self.deliverables,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -80,7 +72,8 @@ class ProjectBaseModel:
             "tags": self.tags,
             "attachments": self.attachments,
             "notes": self.notes,
-            "collaborators": self.collaborators
+            "collaborators": self.collaborators,
+            "workflows": self.workflows
         }
 
     @classmethod
@@ -88,7 +81,6 @@ class ProjectBaseModel:
         return cls(
             id=data.get("id"),
             re_engineered_prompt=data.get("re_engineered_prompt", ""),
-            objectives=data.get("objectives", []),
             deliverables=data.get("deliverables", []),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),

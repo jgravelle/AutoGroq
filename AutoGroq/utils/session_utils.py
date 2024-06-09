@@ -1,6 +1,9 @@
 
 import streamlit as st
 
+from datetime import datetime
+from models.project_base_model import ProjectBaseModel
+from models.workflow_base_model import WorkflowBaseModel
 from current_project import Current_Project
 
 
@@ -35,14 +38,15 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
+    if "project" not in st.session_state:
+        st.session_state.project = ProjectBaseModel()
+
     if "previous_user_request" not in st.session_state:
         st.session_state.previous_user_request = ""
 
 #    if "project_manager_output" not in st.session_state:
 #        st.session_state.project_manager_output = ""
 
-#    if "proposed_skill" not in st.session_state:
-#        st.session_state.proposed_skill = None
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}
@@ -53,20 +57,23 @@ def initialize_session_variables():
     if "rephrased_request" not in st.session_state:
         st.session_state.rephrased_request = ""
 
-    if "selected_skills" not in st.session_state:
-        st.session_state.selected_skills = []
+    if "selected_tools" not in st.session_state:
+        st.session_state.selected_tools = []
 
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
 
-    if "skill_functions" not in st.session_state:
-        st.session_state.skill_functions = {}
+    if "tools" not in st.session_state:
+        st.session_state.tools = [] 
 
-    if "skill_name" not in st.session_state:
-        st.session_state.skill_name = None
+    if "tool_functions" not in st.session_state:
+        st.session_state.tool_functions = {}
 
-    if "skill_request" not in st.session_state:
-        st.session_state.skill_request = ""
+    if "tool_name" not in st.session_state:
+        st.session_state.tool_name = None
+
+    if "tool_request" not in st.session_state:
+        st.session_state.tool_request = ""
 
 #    if "temperature" not in st.session_state:
 #           st.session_state.temperature = 0.3
@@ -85,3 +92,17 @@ def initialize_session_variables():
 
     if "whiteboard" not in st.session_state:
         st.session_state.whiteboard = ""
+
+    if "workflow" not in st.session_state:
+        st.session_state.workflow = WorkflowBaseModel(
+            name="",
+            created_at=datetime.now(),
+            description="",
+            agents=[],
+            sender=None,
+            receiver=None,
+            type="",
+            user_id="default",
+            timestamp=datetime.now(),
+            summary_method=""
+        )

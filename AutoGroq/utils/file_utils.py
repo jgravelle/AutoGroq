@@ -47,21 +47,21 @@ def create_agent_data(agent):
         },
         "timestamp": current_timestamp,
         "user_id": "default",
-        "skills": []
+        "tools": []
     }
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    skill_folder = os.path.join(project_root, "skills")
-    skill_files = [f for f in os.listdir(skill_folder) if f.endswith(".py")]
+    tool_folder = os.path.join(project_root, "tools")
+    tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
 
-    for skill_file in skill_files:
-        skill_name = os.path.splitext(skill_file)[0]
-        if agent.get(skill_name, False):
-            skill_file_path = os.path.join(skill_folder, skill_file)
-            with open(skill_file_path, 'r') as file:
-                skill_data = file.read()
-            skill_json = create_skill_data(skill_data)
-            autogen_agent_data["skills"].append(skill_json)
+    for tool_file in tool_files:
+        tool_name = os.path.splitext(tool_file)[0]
+        if agent.get(tool_name, False):
+            tool_file_path = os.path.join(tool_folder, tool_file)
+            with open(tool_file_path, 'r') as file:
+                tool_data = file.read()
+            tool_json = create_tool_data(tool_data)
+            autogen_agent_data["tools"].append(tool_json)
 
     crewai_agent_data = {
         "name": expert_name,
@@ -73,7 +73,7 @@ def create_agent_data(agent):
     return autogen_agent_data, crewai_agent_data
 
 
-def create_skill_data(python_code):
+def create_tool_data(python_code):
     # Extract the function name from the Python code
     function_name_match = re.search(r"def\s+(\w+)\(", python_code)
     if function_name_match:
@@ -81,27 +81,27 @@ def create_skill_data(python_code):
     else:
         function_name = "unnamed_function"
 
-    # Extract the skill description from the docstring
+    # Extract the tool description from the docstring
     docstring_match = re.search(r'"""(.*?)"""', python_code, re.DOTALL)
     if docstring_match:
-        skill_description = docstring_match.group(1).strip()
+        tool_description = docstring_match.group(1).strip()
     else:
-        skill_description = "No description available"
+        tool_description = "No description available"
 
     # Get the current timestamp
     current_timestamp = datetime.datetime.now().isoformat()
 
-    # Create the skill data dictionary
-    skill_data = {
+    # Create the tool data dictionary
+    tool_data = {
         "title": function_name,
         "content": python_code,
         "file_name": f"{function_name}.json",
-        "description": skill_description,
+        "description": tool_description,
         "timestamp": current_timestamp,
         "user_id": "default"
     }
 
-    return skill_data
+    return tool_data
         
 
 def create_workflow_data(workflow):

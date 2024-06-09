@@ -4,6 +4,9 @@ import os
 home_dir = os.path.expanduser("~")
 default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
 
+# Debug
+DEFAULT_DEBUG = False
+
 # Default configurations
 DEFAULT_LLM_PROVIDER = "groq"
 DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -19,6 +22,8 @@ except ImportError:
     pass
 
 # Set the configurations using the user-specific values if available, otherwise use the defaults
+DEBUG = locals().get('DEBUG', DEFAULT_DEBUG)
+
 LLM_PROVIDER = locals().get('LLM_PROVIDER', DEFAULT_LLM_PROVIDER)
 GROQ_API_URL = locals().get('GROQ_API_URL', DEFAULT_GROQ_API_URL)
 LMSTUDIO_API_URL = locals().get('LMSTUDIO_API_URL', DEFAULT_LMSTUDIO_API_URL)

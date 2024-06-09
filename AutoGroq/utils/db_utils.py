@@ -8,8 +8,8 @@ import uuid
 
 from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-from typing import Optional
-from utils.file_utils import create_agent_data, create_skill_data, sanitize_text
+# from typing import Optional
+from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
 
@@ -59,7 +59,7 @@ def export_data(db_path):
                     datetime.datetime.now().isoformat(),
                     json.dumps(autogen_agent_data['config']),
                     autogen_agent_data['type'],
-                    json.dumps(autogen_agent_data['skills'])
+                    json.dumps(autogen_agent_data['tools'])
                 )
                 cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
                 print(f"Inserted agent: {formatted_agent_name}")
@@ -71,7 +71,7 @@ def export_data(db_path):
                     skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
                     with open(skill_file_path, 'r') as file:
                         skill_data = file.read()
-                        skill_json = create_skill_data(skill_data)
+                        skill_json = create_tool_data(skill_data)
                         skill_data = (
                             str(uuid.uuid4()),  # Generate a unique ID for the skill
                             'default',  # Set the user ID to 'default'
@@ -112,14 +112,14 @@ def export_data(db_path):
             print(f"Error exporting data to Autogen: {str(e)}")
 
 
-def export_skill_to_autogen(skill_name, edited_skill):
+def export_tool_to_autogen_as_skill(skill_name, edited_skill):
     print(f"Exporting skill '{skill_name}' to Autogen...")
     try:
         conn = sqlite3.connect(AUTOGEN_DB_PATH)
         cursor = conn.cursor()
         print("Connected to the database successfully.")
 
-        skill_data = create_skill_data(edited_skill)
+        skill_data = create_tool_data(edited_skill)
         print(f"Skill data: {skill_data}")
         skill_data = (
             str(uuid.uuid4()),  # Generate a unique ID for the skill
@@ -146,59 +146,59 @@ def export_skill_to_autogen(skill_name, edited_skill):
 
 #FUTURE functions for exporting to new Autogen Studio schema:
 
-def create_or_update_agent(agent: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Agent (id, skills, created_at, updated_at, user_id, workflows, type, config, models)
-            VALUES (:id, :skills, :created_at, :updated_at, :user_id, :workflows, :type, :config, :models)
-        """, agent)
-        conn.commit()
+# def create_or_update_agent(agent: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Agent (id, skills, created_at, updated_at, user_id, workflows, type, config, models)
+#             VALUES (:id, :skills, :created_at, :updated_at, :user_id, :workflows, :type, :config, :models)
+#         """, agent)
+#         conn.commit()
 
-def create_or_update_skill(skill: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Skill (id, created_at, updated_at, user_id, name, content, description, secrets, libraries)
-            VALUES (:id, :created_at, :updated_at, :user_id, :name, :content, :description, :secrets, :libraries)
-        """, skill)
-        conn.commit()
+# def create_or_update_skill(skill: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Skill (id, created_at, updated_at, user_id, name, content, description, secrets, libraries)
+#             VALUES (:id, :created_at, :updated_at, :user_id, :name, :content, :description, :secrets, :libraries)
+#         """, skill)
+#         conn.commit()
 
-def create_or_update_workflow(workflow: dict, db_path: str):
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO Workflow (id, agents, created_at, updated_at, user_id, name, description, type, summary_method)
-            VALUES (:id, :agents, :created_at, :updated_at, :user_id, :name, :description, :type, :summary_method)
-        """, workflow)
-        conn.commit()
+# def create_or_update_workflow(workflow: dict, db_path: str):
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             INSERT OR REPLACE INTO Workflow (id, agents, created_at, updated_at, user_id, name, description, type, summary_method)
+#             VALUES (:id, :agents, :created_at, :updated_at, :user_id, :name, :description, :type, :summary_method)
+#         """, workflow)
+#         conn.commit()
 
-def get_agent_by_id(agent_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Agent WHERE id = ?", (agent_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_agent_by_id(agent_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Agent WHERE id = ?", (agent_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
 
-def get_skill_by_id(skill_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Skill WHERE id = ?", (skill_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_skill_by_id(skill_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Skill WHERE id = ?", (skill_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
 
-def get_workflow_by_id(workflow_id: int, db_path: str) -> Optional[dict]:
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Workflow WHERE id = ?", (workflow_id,))
-        row = cursor.fetchone()
-        if row:
-            columns = [column[0] for column in cursor.description]
-            return dict(zip(columns, row))
-    return None
+# def get_workflow_by_id(workflow_id: int, db_path: str) -> Optional[dict]:
+#     with sqlite3.connect(db_path) as conn:
+#         cursor = conn.cursor()
+#         cursor.execute("SELECT * FROM Workflow WHERE id = ?", (workflow_id,))
+#         row = cursor.fetchone()
+#         if row:
+#             columns = [column[0] for column in cursor.description]
+#             return dict(zip(columns, row))
+#     return None
