@@ -1,6 +1,13 @@
-## NEW:  MODERATOR-BOT!!!
+## UNDER CONSTRUCTION!
 
-See:  https://www.youtube.com/watch?v=MGEXFuK7RDY
+If things are wonky, that's why.  Do this:
+1) Set the DEBUG flag to 'True'
+2) Run it locally; and
+3) Watch the explanation:
+https://www.youtube.com/watch?v=5cHhvIlUS9Q
+
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/0fff6681-49d2-415a-9548-81c3c459fd94)
+
   
 ## NEW:  Py2Md!
 
