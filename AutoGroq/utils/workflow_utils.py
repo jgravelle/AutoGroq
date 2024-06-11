@@ -4,7 +4,8 @@ import streamlit as st
 
 from config import MODEL_TOKEN_LIMITS
 
-from utils.file_utils import create_agent_data, sanitize_text
+from utils.agent_utils import create_agent_data
+from utils.file_utils import sanitize_text
 
 
 def get_workflow_from_agents(agents):
@@ -50,7 +51,7 @@ def get_workflow_from_agents(agents):
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": temperature_value,
+                    "temperature": st.session_state.temperature,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
@@ -109,7 +110,7 @@ def get_workflow_from_agents(agents):
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": temperature_value,
+                    "temperature": st.session_state.temperature,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),

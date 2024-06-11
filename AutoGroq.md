@@ -45,7 +45,7 @@ def construct_request(agent_name, description, user_request, user_input, rephras
 
 
 def display_agents():
-    if "agents" in st.session_state and st.session_state.agents:
+    if "agents" in st.session_state and st.session_state.agents and len(st.session_state.agents) > 0:
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("Click to interact")
         display_agent_buttons(st.session_state.agents)
@@ -362,8 +362,8 @@ else:
 
     
 # Database path
-# AUTOGEN_DB_PATH="/path/to/custom/database.sqlite"
-AUTOGEN_DB_PATH = os.environ.get('AUTOGEN_DB_PATH', default_db_path)
+# FRAMEWORK_DB_PATH="/path/to/custom/database.sqlite"
+FRAMEWORK_DB_PATH = os.environ.get('FRAMEWORK_DB_PATH', default_db_path)
 
 MODEL_CHOICES = {
     'default': None,
@@ -431,11 +431,12 @@ from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
 from agent_management import display_agents
 from utils.api_utils import set_llm_provider_title
 from utils.session_utils import initialize_session_variables
+from utils.tool_utils import load_tool_functions, populate_tool_models, show_tools
 from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, key_prompt, 
-    load_tool_functions, select_model, set_css, 
-    set_temperature, show_interfaces, show_tools
+    select_model, set_css, 
+    set_temperature, show_interfaces
 )
 
 
@@ -460,6 +461,7 @@ def main():
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
             display_goal()
+            populate_tool_models()
             show_tools()
         else:
             st.empty()  
@@ -661,8 +663,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MODEL_TOKEN_LIMITS
 from prompts import get_agent_prompt
 from utils.api_utils import get_llm_provider
+from utils.agent_utils import create_agent_data
 from utils.auth_utils import get_api_key
-from utils.file_utils import create_agent_data, sanitize_text
+from utils.file_utils import sanitize_text
 
 def create_agent(request, provider, model, temperature, max_tokens, output_file):
     # Get the API key and provider
@@ -1212,6 +1215,7 @@ class ProjectBaseModel:
         attachments: Optional[List[str]] = None,
         notes: Optional[str] = None,
         collaborators: Optional[List[str]] = None,
+        tools: Optional[List[Dict]] = None,
         workflows: Optional[List[Dict]] = None
     ):
         self.id = id or 1
@@ -1229,6 +1233,7 @@ class ProjectBaseModel:
         self.attachments = attachments or []
         self.notes = notes
         self.collaborators = collaborators or []
+        self.tools = tools or []
         self.workflows = workflows or []
 
 
@@ -1266,6 +1271,7 @@ class ProjectBaseModel:
             "attachments": self.attachments,
             "notes": self.notes,
             "collaborators": self.collaborators,
+            "tools": self.tools,
             "workflows": self.workflows
         }
 
@@ -1834,144 +1840,144 @@ if __name__ == "__main__":
 # AutoGroq\tools\document_retriever.py
 
 ```python
-#  Thanks to MADTANK:  https://github.com/madtank
-#  README:  https://github.com/madtank/autogenstudio-skills/blob/main/rag/README.md
+# #  Thanks to MADTANK:  https://github.com/madtank
+# #  README:  https://github.com/madtank/autogenstudio-skills/blob/main/rag/README.md
 
-import os
-import pickle
-import json
-import argparse
+# import os
+# import pickle
+# import json
+# import argparse
 
-try:
-    import tiktoken
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    from langchain_community.vectorstores import FAISS
-except ImportError:
-    raise ImportError("Please install langchain-community first.")
+# try:
+#     import tiktoken
+#     from langchain_community.embeddings import HuggingFaceEmbeddings
+#     from langchain_community.vectorstores import FAISS
+# except ImportError:
+#     raise ImportError("Please install langchain-community first.")
 
-# Configuration - Users/AI skill developers must update this path to their specific index folder
-# To test with sample data set index_folder to "knowledge"
-CONFIG = {
-    "index_folder": "rag/knowledge",  # TODO: Update this path before using
-}
+# # Configuration - Users/AI skill developers must update this path to their specific index folder
+# # To test with sample data set index_folder to "knowledge"
+# CONFIG = {
+#     "index_folder": "rag/knowledge",  # TODO: Update this path before using
+# }
 
-class DocumentRetriever:
-    def __init__(self, index_folder):
-        self.index_folder = index_folder
-        self.vectorstore = None
-        self.chunk_id_to_index = None
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        self._init()
-        self.enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
+# class DocumentRetriever:
+#     def __init__(self, index_folder):
+#         self.index_folder = index_folder
+#         self.vectorstore = None
+#         self.chunk_id_to_index = None
+#         self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+#         self._init()
+#         self.enc = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
-    def _init(self):
-        self.vectorstore = FAISS.load_local(
-            folder_path=self.index_folder,
-            embeddings=self.embeddings,
-        )
-        with open(os.path.join(self.index_folder, "chunk_id_to_index.pkl"), "rb") as f:
-            self.chunk_id_to_index = pickle.load(f)
+#     def _init(self):
+#         self.vectorstore = FAISS.load_local(
+#             folder_path=self.index_folder,
+#             embeddings=self.embeddings,
+#         )
+#         with open(os.path.join(self.index_folder, "chunk_id_to_index.pkl"), "rb") as f:
+#             self.chunk_id_to_index = pickle.load(f)
 
-    def __call__(self, query: str, size: int = 5, target_length: int = 256):
-        if self.vectorstore is None:
-            raise Exception("Vectorstore not initialized")
+#     def __call__(self, query: str, size: int = 5, target_length: int = 256):
+#         if self.vectorstore is None:
+#             raise Exception("Vectorstore not initialized")
 
-        result = self.vectorstore.similarity_search(query=query, k=size)
-        expanded_chunks = self.do_expand(result, target_length)
+#         result = self.vectorstore.similarity_search(query=query, k=size)
+#         expanded_chunks = self.do_expand(result, target_length)
 
-        return json.dumps(expanded_chunks, indent=4)
+#         return json.dumps(expanded_chunks, indent=4)
 
-    def do_expand(self, result, target_length):
-        expanded_chunks = []
-        # do expansion
-        for r in result:
-            source = r.metadata["source"]
-            chunk_id = r.metadata["chunk_id"]
-            content = r.page_content
+#     def do_expand(self, result, target_length):
+#         expanded_chunks = []
+#         # do expansion
+#         for r in result:
+#             source = r.metadata["source"]
+#             chunk_id = r.metadata["chunk_id"]
+#             content = r.page_content
 
-            expanded_result = content
-            left_chunk_id, right_chunk_id = chunk_id - 1, chunk_id + 1
-            left_valid, right_valid = True, True
-            chunk_ids = [chunk_id]
-            while True:
-                current_length = len(self.enc.encode(expanded_result))
-                if f"{source}_{left_chunk_id}" in self.chunk_id_to_index:
-                    chunk_ids.append(left_chunk_id)
-                    left_chunk_index = self.vectorstore.index_to_docstore_id[
-                        self.chunk_id_to_index[f"{source}_{left_chunk_id}"]
-                    ]
-                    left_chunk = self.vectorstore.docstore.search(left_chunk_index)
-                    encoded_left_chunk = self.enc.encode(left_chunk.page_content)
-                    if len(encoded_left_chunk) + current_length < target_length:
-                        expanded_result = left_chunk.page_content + expanded_result
-                        left_chunk_id -= 1
-                        current_length += len(encoded_left_chunk)
-                    else:
-                        expanded_result += self.enc.decode(
-                            encoded_left_chunk[-(target_length - current_length) :],
-                        )
-                        current_length = target_length
-                        break
-                else:
-                    left_valid = False
+#             expanded_result = content
+#             left_chunk_id, right_chunk_id = chunk_id - 1, chunk_id + 1
+#             left_valid, right_valid = True, True
+#             chunk_ids = [chunk_id]
+#             while True:
+#                 current_length = len(self.enc.encode(expanded_result))
+#                 if f"{source}_{left_chunk_id}" in self.chunk_id_to_index:
+#                     chunk_ids.append(left_chunk_id)
+#                     left_chunk_index = self.vectorstore.index_to_docstore_id[
+#                         self.chunk_id_to_index[f"{source}_{left_chunk_id}"]
+#                     ]
+#                     left_chunk = self.vectorstore.docstore.search(left_chunk_index)
+#                     encoded_left_chunk = self.enc.encode(left_chunk.page_content)
+#                     if len(encoded_left_chunk) + current_length < target_length:
+#                         expanded_result = left_chunk.page_content + expanded_result
+#                         left_chunk_id -= 1
+#                         current_length += len(encoded_left_chunk)
+#                     else:
+#                         expanded_result += self.enc.decode(
+#                             encoded_left_chunk[-(target_length - current_length) :],
+#                         )
+#                         current_length = target_length
+#                         break
+#                 else:
+#                     left_valid = False
 
-                if f"{source}_{right_chunk_id}" in self.chunk_id_to_index:
-                    chunk_ids.append(right_chunk_id)
-                    right_chunk_index = self.vectorstore.index_to_docstore_id[
-                        self.chunk_id_to_index[f"{source}_{right_chunk_id}"]
-                    ]
-                    right_chunk = self.vectorstore.docstore.search(right_chunk_index)
-                    encoded_right_chunk = self.enc.encode(right_chunk.page_content)
-                    if len(encoded_right_chunk) + current_length < target_length:
-                        expanded_result += right_chunk.page_content
-                        right_chunk_id += 1
-                        current_length += len(encoded_right_chunk)
-                    else:
-                        expanded_result += self.enc.decode(
-                            encoded_right_chunk[: target_length - current_length],
-                        )
-                        current_length = target_length
-                        break
-                else:
-                    right_valid = False
+#                 if f"{source}_{right_chunk_id}" in self.chunk_id_to_index:
+#                     chunk_ids.append(right_chunk_id)
+#                     right_chunk_index = self.vectorstore.index_to_docstore_id[
+#                         self.chunk_id_to_index[f"{source}_{right_chunk_id}"]
+#                     ]
+#                     right_chunk = self.vectorstore.docstore.search(right_chunk_index)
+#                     encoded_right_chunk = self.enc.encode(right_chunk.page_content)
+#                     if len(encoded_right_chunk) + current_length < target_length:
+#                         expanded_result += right_chunk.page_content
+#                         right_chunk_id += 1
+#                         current_length += len(encoded_right_chunk)
+#                     else:
+#                         expanded_result += self.enc.decode(
+#                             encoded_right_chunk[: target_length - current_length],
+#                         )
+#                         current_length = target_length
+#                         break
+#                 else:
+#                     right_valid = False
 
-                if not left_valid and not right_valid:
-                    break
+#                 if not left_valid and not right_valid:
+#                     break
 
-            expanded_chunks.append(
-                {
-                    "chunk": expanded_result,
-                    "metadata": r.metadata,
-                    # "length": current_length,
-                    # "chunk_ids": chunk_ids
-                },
-            )
-        return expanded_chunks
+#             expanded_chunks.append(
+#                 {
+#                     "chunk": expanded_result,
+#                     "metadata": r.metadata,
+#                     # "length": current_length,
+#                     # "chunk_ids": chunk_ids
+#                 },
+#             )
+#         return expanded_chunks
 
-# Example Usage
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Retrieve documents based on a query.')
-    parser.add_argument('query', nargs='?', type=str, help='The query to retrieve documents for.')
-    args = parser.parse_args()
+# # Example Usage
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description='Retrieve documents based on a query.')
+#     parser.add_argument('query', nargs='?', type=str, help='The query to retrieve documents for.')
+#     args = parser.parse_args()
 
-    if not args.query:
-        parser.print_help()
-        print("Error: No query provided.")
-        exit(1)
+#     if not args.query:
+#         parser.print_help()
+#         print("Error: No query provided.")
+#         exit(1)
 
-    # Ensure the index_folder path is correctly set in CONFIG before proceeding
-    index_folder = CONFIG["index_folder"]
-    if index_folder == "path/to/your/knowledge/directory":
-        print("Error: Index folder in CONFIG has not been set. Please update it to your index folder path.")
-        exit(1)
+#     # Ensure the index_folder path is correctly set in CONFIG before proceeding
+#     index_folder = CONFIG["index_folder"]
+#     if index_folder == "path/to/your/knowledge/directory":
+#         print("Error: Index folder in CONFIG has not been set. Please update it to your index folder path.")
+#         exit(1)
 
-    # Instantiate and use the DocumentRetriever with the configured index folder
-    retriever = DocumentRetriever(index_folder=index_folder)
-    query = args.query
-    size = 5  # Number of results to retrieve
-    target_length = 256  # Target length of expanded content
-    results = retriever(query, size, target_length)
-    print(results)
+#     # Instantiate and use the DocumentRetriever with the configured index folder
+#     retriever = DocumentRetriever(index_folder=index_folder)
+#     query = args.query
+#     size = 5  # Number of results to retrieve
+#     target_length = 256  # Target length of expanded content
+#     results = retriever(query, size, target_length)
+#     print(results)
 ```
 
 # AutoGroq\tools\execute_powershell_command.py
@@ -1999,7 +2005,7 @@ def execute_powershell_command(command):
         return f"An error occurred: {e.stderr}"
 
 # Example usage
-if __name__ == "__main__":
+# if __name__ == "__main__":
     command = "Get-Date"  # Example command to get the current date and time
     output = execute_powershell_command(command)
     print(output)
@@ -2296,168 +2302,168 @@ def save_file_to_disk(contents, file_name):
 # AutoGroq\tools\slackoverflow_teams.py
 
 ```python
-#  Thanks to MADTANK:  https://github.com/madtank
-#  README:  https://github.com/madtank/autogenstudio-skills/blob/main/stackoverflow_teams/README.md
+# #  Thanks to MADTANK:  https://github.com/madtank
+# #  README:  https://github.com/madtank/autogenstudio-skills/blob/main/stackoverflow_teams/README.md
 
-import os
-import requests
-import json
-import sys
+# import os
+# import requests
+# import json
+# import sys
 
-class StackOverflowTeamsSearcher:
-    def __init__(self):
-        self.api_key = os.getenv("STACK_OVERFLOW_TEAMS_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key not found in environment variables")
-        self.base_url = "https://api.stackoverflowteams.com/2.3/search"
-        self.headers = {"X-API-Access-Token": self.api_key}
+# class StackOverflowTeamsSearcher:
+#     def __init__(self):
+#         self.api_key = os.getenv("STACK_OVERFLOW_TEAMS_API_KEY")
+#         if not self.api_key:
+#             raise ValueError("API key not found in environment variables")
+#         self.base_url = "https://api.stackoverflowteams.com/2.3/search"
+#         self.headers = {"X-API-Access-Token": self.api_key}
 
-    def search(self, query, team_name):
-        params = {"intitle": query, "team": team_name}
-        response = requests.get(self.base_url, headers=self.headers, params=params)
+#     def search(self, query, team_name):
+#         params = {"intitle": query, "team": team_name}
+#         response = requests.get(self.base_url, headers=self.headers, params=params)
 
-        if response.status_code != 200:
-            print(f"Error: Received status code {response.status_code}")
-            print(response.text)
-            return None
+#         if response.status_code != 200:
+#             print(f"Error: Received status code {response.status_code}")
+#             print(response.text)
+#             return None
 
-        try:
-            data = response.json()
-            simplified_output = []
-            for item in data['items']:
-                question = {"question": item['title']}
-                if 'accepted_answer_id' in item:
-                    answer_id = item['accepted_answer_id']
-                    answer_url = f"https://api.stackoverflowteams.com/2.3/answers/{answer_id}"
-                    answer_params = {"team": team_name, "filter": "withbody"}
-                    answer_response = requests.get(answer_url, headers=self.headers, params=answer_params)
-                    if answer_response.status_code == 200:
-                        answer_data = answer_response.json()
-                        first_item = answer_data['items'][0]
-                        if 'body' in first_item:
-                            answer_text = first_item['body']
-                            question['answer'] = answer_text
-#                        else:
-#                            print(f"Question {item['link']} has no answer body")
-#                    else:
-#                        print(f"Error: Received status code {answer_response.status_code}")
-#                        print(answer_response.text)
-#                else:
-#                    print(f"Question {item['link']} has no answer")
-                simplified_output.append(question)
-            return json.dumps(simplified_output, indent=4)  # Pretty-printing
-        except ValueError as e:
-            print(f"Error parsing JSON: {e}")
-            print("Response text:", response.text)
-            return None
+#         try:
+#             data = response.json()
+#             simplified_output = []
+#             for item in data['items']:
+#                 question = {"question": item['title']}
+#                 if 'accepted_answer_id' in item:
+#                     answer_id = item['accepted_answer_id']
+#                     answer_url = f"https://api.stackoverflowteams.com/2.3/answers/{answer_id}"
+#                     answer_params = {"team": team_name, "filter": "withbody"}
+#                     answer_response = requests.get(answer_url, headers=self.headers, params=answer_params)
+#                     if answer_response.status_code == 200:
+#                         answer_data = answer_response.json()
+#                         first_item = answer_data['items'][0]
+#                         if 'body' in first_item:
+#                             answer_text = first_item['body']
+#                             question['answer'] = answer_text
+# #                        else:
+# #                            print(f"Question {item['link']} has no answer body")
+# #                    else:
+# #                        print(f"Error: Received status code {answer_response.status_code}")
+# #                        print(answer_response.text)
+# #                else:
+# #                    print(f"Question {item['link']} has no answer")
+#                 simplified_output.append(question)
+#             return json.dumps(simplified_output, indent=4)  # Pretty-printing
+#         except ValueError as e:
+#             print(f"Error parsing JSON: {e}")
+#             print("Response text:", response.text)
+#             return None
 
-# Example Usage
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python stackoverflow_teams.py <query>")
-        sys.exit(1)
+# # Example Usage
+# if __name__ == "__main__":
+#     if len(sys.argv) < 2:
+#         print("Usage: python stackoverflow_teams.py <query>")
+#         sys.exit(1)
 
-    query = sys.argv[1]
-    team_name = "yourteamname"  # TODO Set your team name here
-    # Instantiate and use the StackOverflowTeamsSearcher with the query string passed in
-    searcher = StackOverflowTeamsSearcher()
-    results = searcher.search(query, team_name)
-    print(results)
+#     query = sys.argv[1]
+#     team_name = "yourteamname"  # TODO Set your team name here
+#     # Instantiate and use the StackOverflowTeamsSearcher with the query string passed in
+#     searcher = StackOverflowTeamsSearcher()
+#     results = searcher.search(query, team_name)
+#     print(results)
 ```
 
 # AutoGroq\tools\slack_search.py
 
 ```python
-#  Thanks to MADTANK:  https://github.com/madtank
-#  README:  https://github.com/madtank/autogenstudio-skills/blob/main/slack/README.md
+# #  Thanks to MADTANK:  https://github.com/madtank
+# #  README:  https://github.com/madtank/autogenstudio-skills/blob/main/slack/README.md
 
-import os
-import requests
-import json
-import re
-import sys
+# import os
+# import requests
+# import json
+# import re
+# import sys
 
-class SlackSearcher:
-    def __init__(self):
-        self.api_token = os.getenv("SLACK_API_TOKEN")
-        if not self.api_token:
-            raise ValueError("Slack API token not found in environment variables")
-        self.base_url = "https://slack.com/api"
-        self.headers = {"Authorization": f"Bearer {self.api_token}"}
-        # Replace these example channel names with the actual channel names you want to search
-        self.channel_names = ["general", "random"]
+# class SlackSearcher:
+#     def __init__(self):
+#         self.api_token = os.getenv("SLACK_API_TOKEN")
+#         if not self.api_token:
+#             raise ValueError("Slack API token not found in environment variables")
+#         self.base_url = "https://slack.com/api"
+#         self.headers = {"Authorization": f"Bearer {self.api_token}"}
+#         # Replace these example channel names with the actual channel names you want to search
+#         self.channel_names = ["general", "random"]
 
-    def search(self, query):
-        query_with_channels = self.build_query_with_channels(query)
-        search_url = f"{self.base_url}/search.messages"
-        params = {"query": query_with_channels}
-        response = requests.get(search_url, headers=self.headers, params=params)
+#     def search(self, query):
+#         query_with_channels = self.build_query_with_channels(query)
+#         search_url = f"{self.base_url}/search.messages"
+#         params = {"query": query_with_channels}
+#         response = requests.get(search_url, headers=self.headers, params=params)
 
-        if response.status_code != 200:
-            print(f"Error: Received status code {response.status_code}")
-            print(response.text)
-            return None
+#         if response.status_code != 200:
+#             print(f"Error: Received status code {response.status_code}")
+#             print(response.text)
+#             return None
 
-        try:
-            data = response.json()
-            if not data['ok']:
-                print(f"Error: {data['error']}")
-                return None
+#         try:
+#             data = response.json()
+#             if not data['ok']:
+#                 print(f"Error: {data['error']}")
+#                 return None
 
-            simplified_output = []
-            for message in data['messages']['matches']:
-                simplified_message = {
-                    "user": message['user'],
-                    "text": message['text'],
-                    "permalink": message['permalink']
-                }
-                thread_ts = self.extract_thread_ts(message['permalink'])
-                if thread_ts:
-                    thread_messages = self.get_thread_messages(message['channel']['id'], thread_ts)
-                    simplified_message['thread'] = thread_messages
-                simplified_output.append(simplified_message)
-            return json.dumps(simplified_output, indent=4)  # Pretty-printing
-        except ValueError as e:
-            print(f"Error parsing JSON: {e}")
-            print("Response text:", response.text)
-            return None
+#             simplified_output = []
+#             for message in data['messages']['matches']:
+#                 simplified_message = {
+#                     "user": message['user'],
+#                     "text": message['text'],
+#                     "permalink": message['permalink']
+#                 }
+#                 thread_ts = self.extract_thread_ts(message['permalink'])
+#                 if thread_ts:
+#                     thread_messages = self.get_thread_messages(message['channel']['id'], thread_ts)
+#                     simplified_message['thread'] = thread_messages
+#                 simplified_output.append(simplified_message)
+#             return json.dumps(simplified_output, indent=4)  # Pretty-printing
+#         except ValueError as e:
+#             print(f"Error parsing JSON: {e}")
+#             print("Response text:", response.text)
+#             return None
 
-    def build_query_with_channels(self, query):
-        channel_queries = [f"in:{channel}" for channel in self.channel_names]
-        return f"{query} {' '.join(channel_queries)}"
+#     def build_query_with_channels(self, query):
+#         channel_queries = [f"in:{channel}" for channel in self.channel_names]
+#         return f"{query} {' '.join(channel_queries)}"
 
-    def extract_thread_ts(self, permalink):
-        match = re.search(r"thread_ts=([0-9.]+)", permalink)
-        return match.group(1) if match else None
+#     def extract_thread_ts(self, permalink):
+#         match = re.search(r"thread_ts=([0-9.]+)", permalink)
+#         return match.group(1) if match else None
 
-    def get_thread_messages(self, channel_id, thread_ts):
-        thread_url = f"{self.base_url}/conversations.replies"
-        params = {"channel": channel_id, "ts": thread_ts}
-        response = requests.get(thread_url, headers=self.headers, params=params)
+#     def get_thread_messages(self, channel_id, thread_ts):
+#         thread_url = f"{self.base_url}/conversations.replies"
+#         params = {"channel": channel_id, "ts": thread_ts}
+#         response = requests.get(thread_url, headers=self.headers, params=params)
 
-        if response.status_code != 200 or not response.json()['ok']:
-            print(f"Error fetching thread messages: {response.text}")
-            return []
+#         if response.status_code != 200 or not response.json()['ok']:
+#             print(f"Error fetching thread messages: {response.text}")
+#             return []
 
-        thread_messages = []
-        for message in response.json()['messages']:
-            if message['ts'] != thread_ts:  # Exclude the parent message
-                thread_messages.append({
-                    "user": message['user'],
-                    "text": message['text']
-                })
-        return thread_messages
+#         thread_messages = []
+#         for message in response.json()['messages']:
+#             if message['ts'] != thread_ts:  # Exclude the parent message
+#                 thread_messages.append({
+#                     "user": message['user'],
+#                     "text": message['text']
+#                 })
+#         return thread_messages
 
-# Example Usage
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python slack_search.py <query>")
-        sys.exit(1)
+# # Example Usage
+# if __name__ == "__main__":
+#     if len(sys.argv) < 2:
+#         print("Usage: python slack_search.py <query>")
+#         sys.exit(1)
 
-    query = sys.argv[1]
-    searcher = SlackSearcher()
-    results = searcher.search(query)
-    print(results)
+#     query = sys.argv[1]
+#     searcher = SlackSearcher()
+#     results = searcher.search(query)
+#     print(results)
 ```
 
 # AutoGroq\tools\test.py
@@ -2514,123 +2520,206 @@ def save_webpage_as_text(url, output_filename):
 # AutoGroq\tools\web_search.py
 
 ```python
-#  Thanks to MADTANK:  https://github.com/madtank
-#  README:  https://github.com/madtank/autogenstudio-skills/blob/main/web_search/README.MD
+# #  Thanks to MADTANK:  https://github.com/madtank
+# #  README:  https://github.com/madtank/autogenstudio-skills/blob/main/web_search/README.MD
 
-import requests
-from typing import List, Tuple, Optional
+# import requests
+# from typing import List, Tuple, Optional
 
-# Define the structure of a search result entry
-ResponseEntry = Tuple[str, str, str]
+# # Define the structure of a search result entry
+# ResponseEntry = Tuple[str, str, str]
 
-# Configuration variables for the web search function
-CONFIG = {
-    "api_provider": "google",  # or "bing"
-    "result_count": 3,
-    # For Google Search enter these values 
-    # Refer to readme for help:  https://github.com/madtank/autogenstudio-skills/blob/main/web_search/README.MD 
-    "google_api_key": "your_google_api_key_here",
-    "google_search_engine_id": "your_google_search_engine_id_here",
-    # Or Bing Search enter these values
-    "bing_api_key": "your_bing_api_key_here"
-}
+# # Configuration variables for the web search function
+# CONFIG = {
+#     "api_provider": "google",  # or "bing"
+#     "result_count": 3,
+#     # For Google Search enter these values 
+#     # Refer to readme for help:  https://github.com/madtank/autogenstudio-skills/blob/main/web_search/README.MD 
+#     "google_api_key": "your_google_api_key_here",
+#     "google_search_engine_id": "your_google_search_engine_id_here",
+#     # Or Bing Search enter these values
+#     "bing_api_key": "your_bing_api_key_here"
+# }
 
-class WebSearch:
-    """
-    A class that encapsulates the functionality to perform web searches using
-    Google Custom Search API or Bing Search API based on the provided configuration.
-    """
+# class WebSearch:
+#     """
+#     A class that encapsulates the functionality to perform web searches using
+#     Google Custom Search API or Bing Search API based on the provided configuration.
+#     """
 
-    def __init__(self, config: dict):
-        """
-        Initializes the WebSearch class with the provided configuration.
+#     def __init__(self, config: dict):
+#         """
+#         Initializes the WebSearch class with the provided configuration.
 
-        Parameters:
-        - config (dict): A dictionary containing configuration settings.
-        """
-        self.config = config
+#         Parameters:
+#         - config (dict): A dictionary containing configuration settings.
+#         """
+#         self.config = config
 
-    def search_query(self, query: str) -> Optional[List[ResponseEntry]]:
-        """
-        Performs a web search based on the query and configuration.
+#     def search_query(self, query: str) -> Optional[List[ResponseEntry]]:
+#         """
+#         Performs a web search based on the query and configuration.
 
-        Parameters:
-        - query (str): The search query string.
+#         Parameters:
+#         - query (str): The search query string.
 
-        Returns:
-        - A list of ResponseEntry tuples containing the title, URL, and snippet of each result.
-        """
-        api_provider = self.config.get("api_provider", "google")
-        result_count = int(self.config.get("result_count", 3))
-        try:
-            if api_provider == "google":
-                return self._search_google(query, cnt=result_count)
-            elif api_provider == "bing":
-                return self._search_bing(query, cnt=result_count)
-        except ValueError as e:
-            print(f"An error occurred: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-        return None
+#         Returns:
+#         - A list of ResponseEntry tuples containing the title, URL, and snippet of each result.
+#         """
+#         api_provider = self.config.get("api_provider", "google")
+#         result_count = int(self.config.get("result_count", 3))
+#         try:
+#             if api_provider == "google":
+#                 return self._search_google(query, cnt=result_count)
+#             elif api_provider == "bing":
+#                 return self._search_bing(query, cnt=result_count)
+#         except ValueError as e:
+#             print(f"An error occurred: {e}")
+#         except Exception as e:
+#             print(f"An unexpected error occurred: {e}")
+#         return None
 
-    def _search_google(self, query: str, cnt: int) -> Optional[List[ResponseEntry]]:
-        """
-        Performs a Google search and processes the results.
-        Parameters:
-        - query (str): The search query string.
-        - cnt (int): The number of search results to return.
+#     def _search_google(self, query: str, cnt: int) -> Optional[List[ResponseEntry]]:
+#         """
+#         Performs a Google search and processes the results.
+#         Parameters:
+#         - query (str): The search query string.
+#         - cnt (int): The number of search results to return.
 
-        Returns:
-        - A list of ResponseEntry tuples containing the title, URL, and snippet of each Google search result.
-        """
-        api_key = self.config.get("google_api_key")
-        search_engine_id = self.config.get("google_search_engine_id")
-        url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}"
-        if cnt > 0:
-            url += f"&num={cnt}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            result_list: List[ResponseEntry] = []
-            for item in response.json().get("items", []):
-                result_list.append((item["title"], item["link"], item["snippet"]))
-            return result_list
-        else:
-            print(f"Error with Google Custom Search API: {response.status_code}")
-            return None
+#         Returns:
+#         - A list of ResponseEntry tuples containing the title, URL, and snippet of each Google search result.
+#         """
+#         api_key = self.config.get("google_api_key")
+#         search_engine_id = self.config.get("google_search_engine_id")
+#         url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={search_engine_id}&q={query}"
+#         if cnt > 0:
+#             url += f"&num={cnt}"
+#         response = requests.get(url)
+#         if response.status_code == 200:
+#             result_list: List[ResponseEntry] = []
+#             for item in response.json().get("items", []):
+#                 result_list.append((item["title"], item["link"], item["snippet"]))
+#             return result_list
+#         else:
+#             print(f"Error with Google Custom Search API: {response.status_code}")
+#             return None
 
-    def _search_bing(self, query: str, cnt: int) -> Optional[List[ResponseEntry]]:
-        """
-        Performs a Bing search and processes the results.
+#     def _search_bing(self, query: str, cnt: int) -> Optional[List[ResponseEntry]]:
+#         """
+#         Performs a Bing search and processes the results.
 
-        Parameters:
-        - query (str): The search query string.
-        - cnt (int): The number of search results to return.
+#         Parameters:
+#         - query (str): The search query string.
+#         - cnt (int): The number of search results to return.
 
-        Returns:
-        - A list of ResponseEntry tuples containing the name, URL, and snippet of each Bing search result.
-        """
-        api_key = self.config.get("bing_api_key")
-        url = f"https://api.bing.microsoft.com/v7.0/search?q={query}"
-        if cnt > 0:
-            url += f"&count={cnt}"
-        headers = {"Ocp-Apim-Subscription-Key": api_key}
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            result_list: List[ResponseEntry] = []
-            for item in response.json().get("webPages", {}).get("value", []):
-                result_list.append((item["name"], item["url"], item["snippet"]))
-            return result_list
-        else:
-            print(f"Error with Bing Search API: {response.status_code}")
-            return None
+#         Returns:
+#         - A list of ResponseEntry tuples containing the name, URL, and snippet of each Bing search result.
+#         """
+#         api_key = self.config.get("bing_api_key")
+#         url = f"https://api.bing.microsoft.com/v7.0/search?q={query}"
+#         if cnt > 0:
+#             url += f"&count={cnt}"
+#         headers = {"Ocp-Apim-Subscription-Key": api_key}
+#         response = requests.get(url, headers=headers)
+#         if response.status_code == 200:
+#             result_list: List[ResponseEntry] = []
+#             for item in response.json().get("webPages", {}).get("value", []):
+#                 result_list.append((item["name"], item["url"], item["snippet"]))
+#             return result_list
+#         else:
+#             print(f"Error with Bing Search API: {response.status_code}")
+#             return None
 
-# Remember to replace the placeholders in CONFIG with your actual API keys.
-# Example usage
-# search = WebSearch(CONFIG)
-# results = search.search_query("Example Query")
-# if results is not None:
-#     for title, link, snippet in results:
-#         print(title, link, snippet)
+# # Remember to replace the placeholders in CONFIG with your actual API keys.
+# # Example usage
+# # search = WebSearch(CONFIG)
+# # results = search.search_query("Example Query")
+# # if results is not None:
+# #     for title, link, snippet in results:
+# #         print(title, link, snippet)
+```
+
+# AutoGroq\utils\agent_utils.py
+
+```python
+
+import datetime
+import streamlit as st
+
+from config import MODEL_TOKEN_LIMITS
+from utils.text_utils import sanitize_text
+
+
+
+
+def create_agent_data(agent):
+    expert_name = agent['config']['name']
+    description = agent['config'].get('description', agent.get('description', ''))  # Get description from config, default to empty string if missing
+    current_timestamp = datetime.datetime.now().isoformat()
+
+    formatted_expert_name = sanitize_text(expert_name)
+    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
+
+    sanitized_description = sanitize_text(description)
+    temperature_value = 0.1  # Default value for temperature
+
+    autogen_agent_data = {
+        "type": "assistant",
+        "config": {
+            "name": formatted_expert_name,
+            "llm_config": {
+                "config_list": [
+                    {
+                        "user_id": "default",
+                        "timestamp": current_timestamp,
+                        "model": agent['config']['llm_config']['config_list'][0]['model'],
+                        "base_url": None,
+                        "api_type": None,
+                        "api_version": None,
+                        "description": "OpenAI model configuration"
+                    }
+                ],
+                "temperature": temperature_value,
+                "cache_seed": None,
+                "timeout": None,
+                "max_tokens": None,
+                "extra_body": None
+            },
+            "human_input_mode": "NEVER",
+            "max_consecutive_auto_reply": 8,
+            "system_message": f"You are a helpful assistant that can act as {expert_name} who {sanitized_description}.",
+            "is_termination_msg": None,
+            "code_execution_config": None,
+            "default_auto_reply": "",
+            "description": description
+        },
+        "timestamp": current_timestamp,
+        "user_id": "default",
+        "tools": []
+    }
+
+    for tool_model in st.session_state.tool_models:
+        tool_name = tool_model.name
+        if agent.get(tool_name, False):
+            tool_json = {
+                "name": tool_model.name,
+                "description": tool_model.description,
+                "title": tool_model.title,
+                "file_name": tool_model.file_name,
+                "content": tool_model.content,
+                "timestamp": tool_model.timestamp,
+                "user_id": tool_model.user_id
+            }
+            autogen_agent_data["tools"].append(tool_json)
+
+    crewai_agent_data = {
+        "name": expert_name,
+        "description": description,
+        "verbose": True,
+        "allow_delegation": True
+    }
+
+    return autogen_agent_data, crewai_agent_data
 ```
 
 # AutoGroq\utils\api_utils.py
@@ -2758,10 +2847,10 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-# from typing import Optional
-from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
+from utils.agent_utils import create_agent_data
+from utils.file_utils import sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
 
@@ -2772,7 +2861,7 @@ def export_to_autogen():
         st.warning("Exporting to Autogen is only possible with a locally running copy of AutoGroq™.")
         return
 
-    db_path = AUTOGEN_DB_PATH
+    db_path = FRAMEWORK_DB_PATH
     print(f"Database path: {db_path}")
     if db_path:
         export_data(db_path)
@@ -2818,12 +2907,12 @@ def export_data(db_path):
 
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             skill_folder = os.path.join(project_root, "skills")
-            for skill_name in st.session_state.selected_skills:
-                if skill_name not in inserted_skills:
-                    skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
+            for tool_name in st.session_state.selected_skills:
+                if tool_name not in inserted_skills:
+                    skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
                     with open(skill_file_path, 'r') as file:
                         skill_data = file.read()
-                        skill_json = create_tool_data(skill_data)
+                        skill_json = st.session_state.tool
                         skill_data = (
                             str(uuid.uuid4()),  # Generate a unique ID for the skill
                             'default',  # Set the user ID to 'default'
@@ -2834,7 +2923,7 @@ def export_data(db_path):
                         )
                         cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
                         print(f"Inserted skill: {skill_json['title']}")
-                        inserted_skills.add(skill_name)  # Add the inserted skill to the set
+                        inserted_skills.add(tool_name)  # Add the inserted skill to the set
 
             # Access agents from st.session_state for workflow
             workflow_data = get_workflow_from_agents(st.session_state.agents)[0]
@@ -2864,35 +2953,25 @@ def export_data(db_path):
             print(f"Error exporting data to Autogen: {str(e)}")
 
 
-def export_tool_to_autogen_as_skill(skill_name, edited_skill):
-    print(f"Exporting skill '{skill_name}' to Autogen...")
+def sql_to_db(sql: str, params: tuple = None):
     try:
-        conn = sqlite3.connect(AUTOGEN_DB_PATH)
+        conn = sqlite3.connect(FRAMEWORK_DB_PATH)
         cursor = conn.cursor()
         print("Connected to the database successfully.")
-
-        skill_data = create_tool_data(edited_skill)
-        print(f"Skill data: {skill_data}")
-        skill_data = (
-            str(uuid.uuid4()),  # Generate a unique ID for the skill
-            'default',  # Set the user ID to 'default'
-            datetime.datetime.now().isoformat(),
-            edited_skill,
-            skill_data['title'],
-            skill_data['file_name']
-        )
-        print(f"Inserting skill data: {skill_data}")
-        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
-
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
         conn.commit()
-        print("Skill exported to Autogen successfully.")
-        conn.close()
-        print("Database connection closed.")
-        st.success(f"Skill '{skill_name}' exported to Autogen successfully!")
-        st.experimental_rerun()
+        print("SQL executed successfully.")
     except sqlite3.Error as e:
-        st.error(f"Error exporting skill to Autogen: {str(e)}")
-        print(f"Error exporting skill to Autogen: {str(e)}")
+        print(f"Error executing SQL: {str(e)}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+            print("Database connection closed.")
+
 
 
 
@@ -2961,109 +3040,17 @@ def export_tool_to_autogen_as_skill(skill_name, edited_skill):
 ```python
 
 import datetime 
-import os
-import re 
+import io
+import json
+import streamlit as st
+import zipfile
 
+from config import MODEL_TOKEN_LIMITS
 
-def create_agent_data(agent):
-    expert_name = agent['config']['name']
-    description = agent['config'].get('description', agent.get('description', ''))  # Get description from config, default to empty string if missing
-    current_timestamp = datetime.datetime.now().isoformat()
-
-    formatted_expert_name = sanitize_text(expert_name)
-    formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
-
-    sanitized_description = sanitize_text(description)
-    temperature_value = 0.1  # Default value for temperature
-
-    autogen_agent_data = {
-        "type": "assistant",
-        "config": {
-            "name": formatted_expert_name,
-            "llm_config": {
-                "config_list": [
-                    {
-                        "user_id": "default",
-                        "timestamp": current_timestamp,
-                        "model": agent['config']['llm_config']['config_list'][0]['model'],
-                        "base_url": None,
-                        "api_type": None,
-                        "api_version": None,
-                        "description": "OpenAI model configuration"
-                    }
-                ],
-                "temperature": temperature_value,
-                "cache_seed": None,
-                "timeout": None,
-                "max_tokens": None,
-                "extra_body": None
-            },
-            "human_input_mode": "NEVER",
-            "max_consecutive_auto_reply": 8,
-            "system_message": f"You are a helpful assistant that can act as {expert_name} who {sanitized_description}.",
-            "is_termination_msg": None,
-            "code_execution_config": None,
-            "default_auto_reply": "",
-            "description": description
-        },
-        "timestamp": current_timestamp,
-        "user_id": "default",
-        "tools": []
-    }
-
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tool_folder = os.path.join(project_root, "tools")
-    tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
-
-    for tool_file in tool_files:
-        tool_name = os.path.splitext(tool_file)[0]
-        if agent.get(tool_name, False):
-            tool_file_path = os.path.join(tool_folder, tool_file)
-            with open(tool_file_path, 'r') as file:
-                tool_data = file.read()
-            tool_json = create_tool_data(tool_data)
-            autogen_agent_data["tools"].append(tool_json)
-
-    crewai_agent_data = {
-        "name": expert_name,
-        "description": description,
-        "verbose": True,
-        "allow_delegation": True
-    }
-
-    return autogen_agent_data, crewai_agent_data
-
-
-def create_tool_data(python_code):
-    # Extract the function name from the Python code
-    function_name_match = re.search(r"def\s+(\w+)\(", python_code)
-    if function_name_match:
-        function_name = function_name_match.group(1)    
-    else:
-        function_name = "unnamed_function"
-
-    # Extract the tool description from the docstring
-    docstring_match = re.search(r'"""(.*?)"""', python_code, re.DOTALL)
-    if docstring_match:
-        tool_description = docstring_match.group(1).strip()
-    else:
-        tool_description = "No description available"
-
-    # Get the current timestamp
-    current_timestamp = datetime.datetime.now().isoformat()
-
-    # Create the tool data dictionary
-    tool_data = {
-        "title": function_name,
-        "content": python_code,
-        "file_name": f"{function_name}.json",
-        "description": tool_description,
-        "timestamp": current_timestamp,
-        "user_id": "default"
-    }
-
-    return tool_data
-        
+from utils.agent_utils import create_agent_data
+from utils.text_utils import sanitize_text
+from utils.workflow_utils import get_workflow_from_agents
+   
 
 def create_workflow_data(workflow):
     # Sanitize the workflow name
@@ -3073,12 +3060,109 @@ def create_workflow_data(workflow):
     return workflow
 
 
-def sanitize_text(text): 
-    # Remove non-ASCII characters 
-    text = re.sub(r'[^\x00-\x7F]+', '', text) 
-    # Remove non-alphanumeric characters except for standard punctuation 
-    text = re.sub(r'[^a-zA-Z0-9\s.,!?:;\'"-]+', '', text) 
-    return text 
+def create_zip_file(zip_buffer, file_data):
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for file_name, file_content in file_data.items():
+            zip_file.writestr(file_name, file_content)
+
+
+def regenerate_json_files_and_zip():
+    # Get the updated workflow data
+    workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+    workflow_data["updated_at"] = datetime.datetime.now().isoformat()
+    
+    # Regenerate the zip files
+    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+    
+    # Update the zip buffers in the session state
+    st.session_state.autogen_zip_buffer = autogen_zip_buffer
+    st.session_state.crewai_zip_buffer = crewai_zip_buffer
+
+
+def regenerate_zip_files():
+    if "agents" in st.session_state:
+        workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+
+        workflow_data["updated_at"] = datetime.datetime.now().isoformat()
+        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
+        st.session_state.autogen_zip_buffer = autogen_zip_buffer
+        st.session_state.crewai_zip_buffer = crewai_zip_buffer
+        print("Zip files regenerated.")
+    else:
+        print("No agents found. Skipping zip file regeneration.")
+
+
+
+def zip_files_in_memory(workflow_data):
+    autogen_zip_buffer = io.BytesIO()
+    crewai_zip_buffer = io.BytesIO()
+
+    autogen_file_data = {}
+    for agent in st.session_state.agents:
+        agent_name = agent['config']['name']
+        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
+        agent_file_name = f"{formatted_agent_name}.json"
+
+        # Use the agent-specific model configuration
+        autogen_agent_data, _ = create_agent_data(agent)
+        autogen_agent_data['config']['name'] = formatted_agent_name
+        autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
+        autogen_agent_data['config']['llm_config']['max_tokens'] = agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
+        autogen_agent_data['tools'] = []
+
+        for tool_model in st.session_state.tool_models:
+            if tool_model.name in st.session_state.selected_tools:
+                tool_json = {
+                    "name": tool_model.name,
+                    "description": tool_model.description,
+                    "title": tool_model.title,
+                    "file_name": tool_model.file_name,
+                    "content": tool_model.content,
+                    "timestamp": tool_model.timestamp,
+                    "user_id": tool_model.user_id
+                }
+                autogen_agent_data['tools'].append(tool_json)
+
+        agent_file_data = json.dumps(autogen_agent_data, indent=2)
+        agent_file_data = agent_file_data.encode('utf-8')
+        autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
+
+    for tool_model in st.session_state.tool_models:
+        if tool_model.name in st.session_state.selected_tools:
+            tool_json = json.dumps({
+                "name": tool_model.name,
+                "description": tool_model.description,
+                "title": tool_model.title,
+                "file_name": tool_model.file_name,
+                "content": tool_model.content,
+                "timestamp": tool_model.timestamp,
+                "user_id": tool_model.user_id
+            }, indent=2)
+            tool_json = tool_json.encode('utf-8')
+            autogen_file_data[f"tools/{tool_model.name}.json"] = tool_json
+
+    workflow_file_name = "workflow.json"
+    workflow_file_data = json.dumps(workflow_data, indent=2)
+    workflow_file_data = workflow_file_data.encode('utf-8')
+    autogen_file_data[workflow_file_name] = workflow_file_data
+
+    crewai_file_data = {}
+    for index, agent in enumerate(st.session_state.agents):
+        agent_name = agent['config']['name']
+        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
+        crewai_agent_data = create_agent_data(agent)[1]
+        crewai_agent_data['name'] = formatted_agent_name
+        agent_file_name = f"{formatted_agent_name}.json"
+        agent_file_data = json.dumps(crewai_agent_data, indent=2)
+        agent_file_data = agent_file_data.encode('utf-8')
+        crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
+
+    create_zip_file(autogen_zip_buffer, autogen_file_data)
+    create_zip_file(crewai_zip_buffer, crewai_file_data)
+    autogen_zip_buffer.seek(0)
+    crewai_zip_buffer.seek(0)
+    return autogen_zip_buffer, crewai_zip_buffer
+
 
 ```
 
@@ -3090,6 +3174,7 @@ import streamlit as st
 
 from datetime import datetime
 from models.project_base_model import ProjectBaseModel
+from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
 from current_project import Current_Project
 
@@ -3125,8 +3210,8 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
-    if "project" not in st.session_state:
-        st.session_state.project = ProjectBaseModel()
+    if "project_model" not in st.session_state:
+        st.session_state.project_model = ProjectBaseModel()
 
     if "previous_user_request" not in st.session_state:
         st.session_state.previous_user_request = ""
@@ -3150,8 +3235,28 @@ def initialize_session_variables():
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
 
-    if "tools" not in st.session_state:
-        st.session_state.tools = [] 
+    if "tool_model" not in st.session_state:
+        st.session_state.tool_model = ToolBaseModel(
+            name="",
+            description="",
+            title="",
+            file_name="",
+            content="",
+            id=None,
+            created_at=None,
+            updated_at=None,
+            user_id=None,
+            secrets=None,
+            libraries=None,
+            timestamp=None
+        )    
+
+    if "tool_models" not in st.session_state:
+        st.session_state.tool_models = []
+
+
+    # if "tools" not in st.session_state:
+    #     st.session_state.tools = [] 
 
     if "tool_functions" not in st.session_state:
         st.session_state.tool_functions = {}
@@ -3162,8 +3267,8 @@ def initialize_session_variables():
     if "tool_request" not in st.session_state:
         st.session_state.tool_request = ""
 
-#    if "temperature" not in st.session_state:
-#           st.session_state.temperature = 0.3
+    if "top_p" not in st.session_state:
+          st.session_state.top_p = 1
 
     if "uploaded_data" not in st.session_state:
         st.session_state.uploaded_data = None
@@ -3195,11 +3300,327 @@ def initialize_session_variables():
         )
 ```
 
+# AutoGroq\utils\text_utils.py
+
+```python
+import re
+
+def sanitize_text(text): 
+    # Remove non-ASCII characters 
+    text = re.sub(r'[^\x00-\x7F]+', '', text) 
+    # Remove non-alphanumeric characters except for standard punctuation 
+    text = re.sub(r'[^a-zA-Z0-9\s.,!?:;\'"-]+', '', text) 
+    return text 
+```
+
+# AutoGroq\utils\tool_utils.py
+
+```python
+
+import datetime
+import importlib
+import os
+import re
+import sqlite3
+import streamlit as st
+import uuid
+
+from config import FRAMEWORK_DB_PATH
+from models.tool_base_model import ToolBaseModel
+from prompts import get_generate_tool_prompt
+from utils.auth_utils import get_api_key
+from utils.db_utils import sql_to_db
+from utils.file_utils import regenerate_zip_files
+from utils.ui_utils import get_llm_provider
+
+
+def create_tool_data(python_code):
+    # Extract the function name from the Python code
+    function_name_match = re.search(r"def\s+(\w+)\(", python_code)
+    if function_name_match:
+        function_name = function_name_match.group(1)    
+    else:
+        function_name = "unnamed_function"
+
+    # Extract the tool description from the docstring
+    docstring_match = re.search(r'"""(.*?)"""', python_code, re.DOTALL)
+    if docstring_match:
+        tool_description = docstring_match.group(1).strip()
+    else:
+        tool_description = "No description available"
+
+    # Get the current timestamp
+    current_timestamp = datetime.datetime.now().isoformat()
+
+    # Update st.session_state.tool_model with the tool data
+    st.session_state.tool_model.name = function_name
+    st.session_state.tool_model.description = tool_description
+    st.session_state.tool_model.title = function_name
+    st.session_state.tool_model.file_name = f"{function_name}.py"
+    st.session_state.tool_model.content = python_code
+    st.session_state.tool_model.user_id = "default"
+    st.session_state.tool_model.timestamp = current_timestamp
+
+
+def export_tool_as_skill(tool_name: str, edited_skill: str):
+    print(f"Exporting skill '{tool_name}'...")
+    try:
+        create_tool_data(edited_skill)
+        print(f"Skill data: {st.session_state.tool_model.dict()}")  # Use dict() to get the dictionary representation
+        skill_tuple = (
+            str(uuid.uuid4()),  # Generate a unique ID for the skill
+            'default',  # Set the user ID to 'default'
+            datetime.datetime.now().isoformat(),
+            edited_skill,
+            st.session_state.tool_model.title,
+            st.session_state.tool_model.file_name
+        )
+        print(f"Inserting skill data: {skill_tuple}")
+        sql = "INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)"
+        sql_to_db(sql, skill_tuple)
+        st.success(f"Skill '{tool_name}' exported tool successfully!")
+        st.experimental_rerun()
+    except sqlite3.Error as e:
+        st.error(f"Error exporting skill: {str(e)}")
+        print(f"Error exporting skill: {str(e)}")
+
+
+def generate_tool(rephrased_tool_request):  
+    temperature_value = st.session_state.get('temperature', 0.1)
+    max_tokens_value = st.session_state.get('max_tokens', 100)
+    top_p_value = st.session_state.get('top_p', 1)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": max_tokens_value,
+        "top_p": top_p_value,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": get_generate_tool_prompt(rephrased_tool_request)
+            }
+        ]
+    }
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        print(f"Response data: {response_data}")
+        if "choices" in response_data and response_data["choices"]:
+            proposed_tool = response_data["choices"][0]["message"]["content"].strip()
+            match = re.search(r"def\s+(\w+)\(", proposed_tool)
+            if match:
+                tool_name = match.group(1)
+                
+                # Update the st.session_state.tool_model with the proposed tool data
+                create_tool_data(proposed_tool)
+                
+                return proposed_tool, tool_name
+            else:
+                print("Error: Failed to extract tool name from the proposed tool.")
+                return None, None
+    return None, None
+
+
+def extract_tool_description(proposed_tool):
+    docstring_match = re.search(r'"""(.*?)"""', proposed_tool, re.DOTALL)
+    if docstring_match:
+        return docstring_match.group(1).strip()
+    else:
+        return "No description available"
+
+
+def load_tool_functions():
+    # Get the parent directory of the current script
+    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Define the path to the 'tools' folder in the parent directory
+    tools_folder_path = os.path.join(parent_directory, 'tools')
+
+    # List all files in the 'tools' folder
+    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py')]
+
+    tool_functions = {}
+    for tool_file in tool_files:
+        tool_name = os.path.splitext(tool_file)[0]
+        tool_module = importlib.import_module(f"tools.{tool_name}")
+        if hasattr(tool_module, tool_name):
+            tool_functions[tool_name] = getattr(tool_module, tool_name)
+
+    st.session_state.tool_functions = tool_functions
+
+
+def populate_tool_models():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tool_folder = os.path.join(project_root, "tools")
+    tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
+
+    tool_models = []
+    for tool_file in tool_files:
+        tool_name = os.path.splitext(tool_file)[0]
+        tool_file_path = os.path.join(tool_folder, tool_file)
+        with open(tool_file_path, 'r') as file:
+            tool_data = file.read()
+            create_tool_data(tool_data)
+            tool_model = ToolBaseModel(
+                name=st.session_state.tool_model.name,
+                description=st.session_state.tool_model.description,
+                title=st.session_state.tool_model.title,
+                file_name=st.session_state.tool_model.file_name,
+                content=st.session_state.tool_model.content,
+                id=len(tool_models) + 1,
+                created_at=datetime.datetime.now().isoformat(),
+                updated_at=datetime.datetime.now().isoformat(),
+                user_id=st.session_state.tool_model.user_id,
+                secrets=st.session_state.tool_model.secrets,
+                libraries=st.session_state.tool_model.libraries,
+                timestamp=st.session_state.tool_model.timestamp
+            )
+            tool_models.append(tool_model)
+
+    st.session_state.tool_models = tool_models
+    
+
+def process_tool_request():
+    if st.session_state.tool_request and not st.session_state.get('tool_processed', False):
+        tool_request = st.session_state.tool_request
+        parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        tool_folder = os.path.join(parent_directory, "tools")
+        print(f"Tool Request: {tool_request}")
+        rephrased_tool_request = rephrase_tool(tool_request)
+        if rephrased_tool_request:
+            print(f"Generating proposed tool...")
+            proposed_tool, tool_name = generate_tool(rephrased_tool_request)  # Unpack the tuple
+            print(f"Proposed tool: {proposed_tool}")
+            if proposed_tool:
+                match = re.search(r"def\s+(\w+(?:_\w+)*)\(", proposed_tool)  # Updated regex pattern
+                print(f"Match: {match}")
+                if match:
+                    tool_name = match.group(1)
+                    st.write(f"Proposed tool: {tool_name}")
+                    st.code(proposed_tool)
+
+                    with st.form(key=f"export_form_{tool_name}"):
+                        submit_export = st.form_submit_button("Export/Write")
+                        if submit_export:
+                            print(f"Exporting tool {tool_name}")
+                            export_tool_as_skill(tool_name, proposed_tool)
+                            st.success(f"tool {tool_name} exported to Autogen successfully!")
+                            # Clear the tool_request input and hide the input field
+                            st.session_state.show_tool_input = False
+                            st.session_state.tool_request = ""
+                            # Clear the 'proposed_tool' and 'tool_name' from the session state
+                            st.session_state.proposed_tool = None
+                            st.session_state.tool_name = None
+                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
+                            st.experimental_rerun()
+                            
+                    with st.form(key=f"discard_form_{tool_name}"):
+                        submit_discard = st.form_submit_button("Clear")
+                        if submit_discard:
+                            st.warning("tool discarded.")
+                            # Clear the tool_request input and hide the input field
+                            st.session_state.show_tool_input = False
+                            st.session_state.tool_request = ""
+                            # Clear the 'proposed_tool' and 'tool_name' from the session state
+                            st.session_state.proposed_tool = None
+                            st.session_state.tool_name = None
+                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
+                            st.experimental_rerun()
+                else:
+                    st.error("Failed to extract tool name from the proposed tool.")
+            else:
+                st.error("No proposed tool generated.")
+
+
+def rephrase_tool(tool_request):
+    print("Debug: Rephrasing tool: ", tool_request)
+    temperature_value = st.session_state.get('temperature', 0.1)
+    llm_request_data = {
+        "model": st.session_state.model,
+        "temperature": temperature_value,
+        "max_tokens": st.session_state.max_tokens,
+        "top_p": 1,
+        "stop": "TERMINATE",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"""
+                Act as a professional tool creator and rephrase the following tool request into an optimized prompt:
+
+                tool request: "{tool_request}"
+
+                Rephrased:
+                """
+            }
+        ]
+    }
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
+    response = llm_provider.send_request(llm_request_data)
+    if response.status_code == 200:
+        response_data = llm_provider.process_response(response)
+        if "choices" in response_data and response_data["choices"]:
+            rephrased = response_data["choices"][0]["message"]["content"].strip()
+            print(f"Debug: Rephrased tool: {rephrased}")
+            return rephrased
+    return None                
+
+
+def show_tools():
+    with st.expander("Tools"):
+        selected_tools = []
+        select_all = st.checkbox("Select All", key="select_all_tools")
+        for idx, tool_model in enumerate(st.session_state.tool_models):
+            tool_name = tool_model.name
+            if select_all:
+                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=True, key=f"tool_{tool_name}_{idx}")
+            else:
+                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=False, key=f"tool_{tool_name}_{idx}")
+            if tool_checkbox:
+                selected_tools.append(tool_name)
+
+        if select_all:
+            st.session_state.selected_tools = [tool_model.name for tool_model in st.session_state.tool_models]
+        else:
+            st.session_state.selected_tools = selected_tools
+
+        # Update the 'Tools' property of each agent with the selected tools
+        for agent in st.session_state.agents:
+            agent['tools'] = [tool_model.name for tool_model in st.session_state.tool_models if tool_model.name in st.session_state.selected_tools]
+
+        regenerate_zip_files()
+
+        if st.button("Add tool", key="add_tool_button"):
+            st.session_state.show_tool_input = True
+            st.session_state.tool_request = ""
+            st.session_state.tool_processed = False 
+
+        if st.session_state.get('show_tool_input'):
+            tool_request = st.text_input("Need a new tool? Describe what it should do:", key="tool_request_input")
+            if tool_request:
+                st.session_state.tool_request = tool_request  # Store in a separate session state variable
+                process_tool_request()  # Pass the tool_request to the process_tool_request function
+
+        if selected_tools or 'proposed_tool' in st.session_state:
+            if st.button("Attempt to Export tool to Autogen (experimental)", key=f"export_button_{st.session_state.tool_name}"):
+                tool_name = st.session_state.tool_name
+                proposed_tool = st.session_state.proposed_tool
+                print(f"Exporting tool {tool_name} to Autogen")
+                export_tool_as_skill(tool_name, proposed_tool)
+                st.success(f"tool {tool_name} exported to Autogen successfully!")
+                # Clear the tool_request input and hide the input field
+                st.session_state.show_tool_input = False
+                st.session_state.tool_request = ""
+                st.experimental_rerun()
+```
+
 # AutoGroq\utils\ui_utils.py
 
 ```python
 import datetime
-import importlib
 import io
 import json
 import os
@@ -3214,13 +3635,14 @@ from config import API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, MODEL_CHOICES, MOD
 from current_project import Current_Project
 from datetime import date
 from models.agent_base_model import AgentBaseModel
+from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
-from prompts import create_project_manager_prompt, get_agents_prompt, get_generate_tool_prompt,get_rephrased_user_prompt  
+from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt  
 from tools.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
-from utils.db_utils import export_tool_to_autogen_as_skill, export_to_autogen
-from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
+from utils.db_utils import export_to_autogen
+from utils.file_utils import zip_files_in_memory
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -3253,12 +3675,6 @@ def create_project_manager(rephrased_text, api_url):
             return content.strip()
     
     return None
-
-
-def create_zip_file(zip_buffer, file_data):
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for file_name, file_content in file_data.items():
-            zip_file.writestr(file_name, file_content)
 
 
 def display_api_key_input():
@@ -3304,28 +3720,29 @@ def display_discussion_and_whiteboard():
 
     with tabs[5]:
         if DEBUG:
-            if "project" in st.session_state:
-                project = st.session_state.project
+            if "project_model" in st.session_state:
+                project_model = st.session_state.project_model
                 with st.expander("Project Details"):
-                    st.write("ID:", project.id)
-                    st.write("Re-engineered Prompt:", project.re_engineered_prompt)
-                    st.write("Deliverables:", project.deliverables)
-                    st.write("Created At:", project.created_at)
-                    st.write("Updated At:", project.updated_at)
-                    st.write("User ID:", project.user_id)
-                    st.write("Name:", project.name)
-                    st.write("Description:", project.description)
-                    st.write("Status:", project.status)
-                    st.write("Due Date:", project.due_date)
-                    st.write("Priority:", project.priority)
-                    st.write("Tags:", project.tags)
-                    st.write("Attachments:", project.attachments)
-                    st.write("Notes:", project.notes)
-                    st.write("Collaborators:", project.collaborators)
-                    st.write("Workflows:", project.workflows)
+                    st.write("ID:", project_model.id)
+                    st.write("Re-engineered Prompt:", project_model.re_engineered_prompt)
+                    st.write("Deliverables:", project_model.deliverables)
+                    st.write("Created At:", project_model.created_at)
+                    st.write("Updated At:", project_model.updated_at)
+                    st.write("User ID:", project_model.user_id)
+                    st.write("Name:", project_model.name)
+                    st.write("Description:", project_model.description)
+                    st.write("Status:", project_model.status)
+                    st.write("Due Date:", project_model.due_date)
+                    st.write("Priority:", project_model.priority)
+                    st.write("Tags:", project_model.tags)
+                    st.write("Attachments:", project_model.attachments)
+                    st.write("Notes:", project_model.notes)
+                    st.write("Collaborators:", project_model.collaborators)
+                    st.write("Workflows:", project_model.workflows)
+                    st.write("Tools:", project_model.tools)
 
-            if "project" in st.session_state and st.session_state.project.workflows:
-                workflow_data = st.session_state.project.workflows[0]
+            if "project_model" in st.session_state and st.session_state.project_model.workflows:
+                workflow_data = st.session_state.project_model.workflows[0]
                 workflow = WorkflowBaseModel.from_dict({**workflow_data, 'settings': workflow_data.get('settings', {})})
                 with st.expander("Workflow Details"):
                     st.write("ID:", workflow.id)
@@ -3349,6 +3766,25 @@ def display_discussion_and_whiteboard():
                     st.write("Timestamp:", workflow.timestamp)
             else:
                 st.warning("No workflow data available.")
+            
+            if "project_model" in st.session_state and st.session_state.project_model.tools:    
+                # show tools
+                tool_data = st.session_state.project_model.tools[0]
+                tool = ToolBaseModel.from_dict({**tool_data, 'config': tool_data.get('config', {})})
+                with st.expander("Tool Details"):
+                    st.write("ID:", tool.id)
+                    st.write("Name:", tool.name)
+                    st.write("Description:", tool.description)
+                    st.write("Settings:", tool.settings)
+                    st.write("Created At:", tool.created_at)
+                    st.write("Updated At:", tool.updated_at)
+                    st.write("User ID:", tool.user_id)
+                    st.write("Type:", tool.type)
+                    st.write("Config:", tool.config)
+            else:
+                st.warning("No tool data available.")
+
+
 
             if "agents" in st.session_state:
                 with st.expander("Agent Details"):
@@ -3381,7 +3817,7 @@ def display_discussion_and_whiteboard():
             else:
                 st.warning("No agent data available.")
             
-            if "tools" in st.session_state:
+            if "tool" in st.session_state:
                 with st.expander("Tool Details"):
                     tool_names = ["Select one..."] + [tool.get('name', f"Tool {index + 1}") for index, tool in enumerate(st.session_state.tools)]
                     selected_tool = st.selectbox("Select a tool:", tool_names)
@@ -3566,39 +4002,6 @@ def extract_json_objects(json_string):
             print(f"JSON string: {obj_str}")
     return parsed_objects
                 
-
-def generate_tool(rephrased_tool_request):
-    temperature_value = st.session_state.get('temperature', 0.1)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": get_generate_tool_prompt(rephrased_tool_request)
-            }
-        ]
-    }
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    response = llm_provider.send_request(llm_request_data)
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        print (f"Response data: {response_data}")
-        if "choices" in response_data and response_data["choices"]:
-            proposed_tool = response_data["choices"][0]["message"]["content"].strip()
-            match = re.search(r"def\s+(\w+)\(", proposed_tool)
-            if match:
-                tool_name = match.group(1)
-                return proposed_tool, tool_name
-            else:
-                print("Error: Failed to extract tool name from the proposed tool.")
-                return proposed_tool, None
-    return None, None
-
 
 def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
     print("Getting agents from text...")
@@ -3827,9 +4230,9 @@ def handle_user_request(session_state):
         st.warning("Failed to rephrase the user request. Please try again.")
         return
 
-    session_state.project.description = session_state.user_request
+    session_state.project_model.description = session_state.user_request
     rephrased_text = session_state.rephrased_request
-    session_state.project.set_re_engineered_prompt(rephrased_text)
+    session_state.project_model.set_re_engineered_prompt(rephrased_text)
 
     if "project_manager_output" not in session_state:
         project_manager_output = create_project_manager(rephrased_text, API_URL)
@@ -3860,7 +4263,7 @@ def handle_user_request(session_state):
             deliverables = re.findall(r'\d+\.\s*(.*)', deliverables_text)
             for deliverable in deliverables:
                 current_project.add_deliverable(deliverable.strip())
-                session_state.project.add_deliverable(deliverable.strip())
+                session_state.project_model.add_deliverable(deliverable.strip())
         else:
             print("Warning: 'Deliverables' or 'Key Deliverables' section not found in Project Manager's output.")
 
@@ -3904,7 +4307,7 @@ def handle_user_request(session_state):
         print(f"Debug: CrewAI agents: {crewai_agents}")
 
         # Update the project session state with the workflow data
-        session_state.project.workflows = [workflow_data]
+        session_state.project_model.workflows = [workflow_data]
 
         print("Debug: Agents in session state project workflow:")
         for agent in workflow_data["receiver"]["groupchat_config"]["agents"]:
@@ -3927,138 +4330,6 @@ def key_prompt():
         llm = LLM_PROVIDER.upper()
         st.warning(f"{llm}_API_KEY not found. Please enter your API key.")
         return
-
-
-def load_tool_functions():
-    # Get the parent directory of the current script
-    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    # Define the path to the 'tools' folder in the parent directory
-    tools_folder_path = os.path.join(parent_directory, 'tools')
-
-    # List all files in the 'tools' folder
-    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py')]
-
-    tool_functions = {}
-    for tool_file in tool_files:
-        tool_name = os.path.splitext(tool_file)[0]
-        tool_module = importlib.import_module(f"tools.{tool_name}")
-        if hasattr(tool_module, tool_name):
-            tool_functions[tool_name] = getattr(tool_module, tool_name)
-
-    st.session_state.tool_functions = tool_functions
-
-
-def process_tool_request():
-    if st.session_state.tool_request and not st.session_state.get('tool_processed', False):
-        tool_request = st.session_state.tool_request
-        parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tool_folder = os.path.join(parent_directory, "tools")
-        print(f"Tool Request: {tool_request}")
-        rephrased_tool_request = rephrase_tool(tool_request)
-        if rephrased_tool_request:
-            print(f"Generating proposed tool...")
-            proposed_tool, tool_name = generate_tool(rephrased_tool_request)  # Unpack the tuple
-            print(f"Proposed tool: {proposed_tool}")
-            if proposed_tool:
-                match = re.search(r"def\s+(\w+(?:_\w+)*)\(", proposed_tool)  # Updated regex pattern
-                print(f"Match: {match}")
-                if match:
-                    tool_name = match.group(1)
-                    st.write(f"Proposed tool: {tool_name}")
-                    st.code(proposed_tool)
-
-                    with st.form(key=f"export_form_{tool_name}"):
-                        submit_export = st.form_submit_button("Export/Write")
-                        if submit_export:
-                            print(f"Exporting tool {tool_name} to Autogen")
-                            export_tool_to_autogen_as_skill(tool_name, proposed_tool)
-                            st.success(f"tool {tool_name} exported to Autogen successfully!")
-                            # Clear the tool_request input and hide the input field
-                            st.session_state.show_tool_input = False
-                            st.session_state.tool_request = ""
-                            # Clear the 'proposed_tool' and 'tool_name' from the session state
-                            st.session_state.proposed_tool = None
-                            st.session_state.tool_name = None
-                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
-                            st.experimental_rerun()
-                            
-                    with st.form(key=f"discard_form_{tool_name}"):
-                        submit_discard = st.form_submit_button("Clear")
-                        if submit_discard:
-                            st.warning("tool discarded.")
-                            # Clear the tool_request input and hide the input field
-                            st.session_state.show_tool_input = False
-                            st.session_state.tool_request = ""
-                            # Clear the 'proposed_tool' and 'tool_name' from the session state
-                            st.session_state.proposed_tool = None
-                            st.session_state.tool_name = None
-                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
-                            st.experimental_rerun()
-                else:
-                    st.error("Failed to extract tool name from the proposed tool.")
-            else:
-                st.error("No proposed tool generated.")
-
-
-def regenerate_json_files_and_zip():
-    # Get the updated workflow data
-    workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
-    workflow_data["updated_at"] = datetime.datetime.now().isoformat()
-    
-    # Regenerate the zip files
-    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-    
-    # Update the zip buffers in the session state
-    st.session_state.autogen_zip_buffer = autogen_zip_buffer
-    st.session_state.crewai_zip_buffer = crewai_zip_buffer
-
-
-def regenerate_zip_files():
-    if "agents" in st.session_state:
-        workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
-
-        workflow_data["updated_at"] = datetime.datetime.now().isoformat()
-        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-        st.session_state.autogen_zip_buffer = autogen_zip_buffer
-        st.session_state.crewai_zip_buffer = crewai_zip_buffer
-        print("Zip files regenerated.")
-    else:
-        print("No agents found. Skipping zip file regeneration.")
-
-
-def rephrase_tool(tool_request):
-    print("Debug: Rephrasing tool: ", tool_request)
-    temperature_value = st.session_state.get('temperature', 0.1)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": f"""
-                Act as a professional tool creator and rephrase the following tool request into an optimized prompt:
-
-                tool request: "{tool_request}"
-
-                Rephrased:
-                """
-            }
-        ]
-    }
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    response = llm_provider.send_request(llm_request_data)
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        if "choices" in response_data and response_data["choices"]:
-            rephrased = response_data["choices"][0]["message"]["content"].strip()
-            print(f"Debug: Rephrased tool: {rephrased}")
-            return rephrased
-    return None
 
 
 def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, provider=None):
@@ -4175,75 +4446,6 @@ def show_interfaces():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def show_tools():
-    with st.expander("Tools"):
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tool_folder = os.path.join(project_root, "tools")
-        tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
-
-        selected_tools = []
-        select_all = st.checkbox("Select All", key="select_all_tools")
-        for tool_file in tool_files:
-            tool_name = os.path.splitext(tool_file)[0]
-            if select_all:
-                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=True, key=f"tool_{tool_name}")
-            else:
-                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=False, key=f"tool_{tool_name}")
-            if tool_checkbox:
-                selected_tools.append(tool_name)
-
-        if select_all:
-            st.session_state.selected_tools = [os.path.splitext(f)[0] for f in tool_files]
-        else:
-            st.session_state.selected_tools = selected_tools
-
-        # Create a list of tool dictionaries
-        tool_dicts = []
-        for index, tool_name in enumerate(st.session_state.selected_tools, start=1):
-            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-            with open(tool_file_path, 'r') as file:
-                tool_data = file.read()
-                tool_dict = create_tool_data(tool_data)
-                tool_dict['id'] = index
-                tool_dict['name'] = tool_dict['title']
-                tool_dict['created_at'] = datetime.datetime.now().isoformat()
-                tool_dict['updated_at'] = datetime.datetime.now().isoformat()
-                tool_dict['content'] = f"```python\n{tool_dict['content']}\n```"
-                tool_dicts.append(tool_dict)
-
-        # Update the 'Tools' property of each agent with the selected tools
-        for agent in st.session_state.agents:
-            agent['tools'] = [tool_dict['name'] for tool_dict in tool_dicts if tool_dict['name'] in st.session_state.selected_tools]
-
-        # Assign the list of tool dictionaries to st.session_state.tools
-        st.session_state.tools = tool_dicts
-
-        regenerate_zip_files()
-
-        if st.button("Add tool", key="add_tool_button"):
-            st.session_state.show_tool_input = True
-            st.session_state.tool_request = ""
-            st.session_state.tool_processed = False 
-
-        if st.session_state.get('show_tool_input'):
-            tool_request = st.text_input("Need a new tool? Describe what it should do:", key="tool_request_input")
-            if tool_request:
-                st.session_state.tool_request = tool_request  # Store in a separate session state variable
-                process_tool_request()  # Pass the tool_request to the process_tool_request function
-
-        if selected_tools or 'proposed_tool' in st.session_state:
-            if st.button("Attempt to Export tool to Autogen (experimental)", key=f"export_button_{st.session_state.tool_name}"):
-                tool_name = st.session_state.tool_name
-                proposed_tool = st.session_state.proposed_tool
-                print(f"Exporting tool {tool_name} to Autogen")
-                export_tool_to_autogen_as_skill(tool_name, proposed_tool)
-                st.success(f"tool {tool_name} exported to Autogen successfully!")
-                # Clear the tool_request input and hide the input field
-                st.session_state.show_tool_input = False
-                st.session_state.tool_request = ""
-                st.experimental_rerun()
-
-
 def trigger_moderator_agent():
     goal = st.session_state.current_project.re_engineered_prompt
     last_speaker = st.session_state.last_agent
@@ -4325,59 +4527,6 @@ def update_user_input():
         st.session_state.user_input = st.session_state.user_input_widget
 
 
-def zip_files_in_memory(workflow_data):
-    autogen_zip_buffer = io.BytesIO()
-    crewai_zip_buffer = io.BytesIO()
-    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tool_folder = os.path.join(parent_directory, "tools")
-    autogen_file_data = {}
-    for agent in st.session_state.agents:
-        agent_name = agent['config']['name']
-        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-        agent_file_name = f"{formatted_agent_name}.json"
-        
-        # Use the agent-specific model configuration
-        autogen_agent_data, _ = create_agent_data(agent)
-        autogen_agent_data['config']['name'] = formatted_agent_name
-        autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
-        autogen_agent_data['config']['llm_config']['max_tokens'] = agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
-        autogen_agent_data['tools'] = []
-        
-        for tool_name in st.session_state.selected_tools:
-            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-            with open(tool_file_path, 'r') as file:
-                tool_data = file.read()
-                tool_json = create_tool_data(tool_data)
-                autogen_agent_data['tools'].append(tool_json)
-        agent_file_data = json.dumps(autogen_agent_data, indent=2)
-        agent_file_data = agent_file_data.encode('utf-8')
-        autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-    for tool_name in st.session_state.selected_tools:
-        tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-        with open(tool_file_path, 'r') as file:
-            tool_data = file.read()
-            tool_json = json.dumps(create_tool_data(tool_data), indent=2)
-            tool_json = tool_json.encode('utf-8')
-            autogen_file_data[f"tools/{tool_name}.json"] = tool_json
-    workflow_file_name = "workflow.json"
-    workflow_file_data = json.dumps(workflow_data, indent=2)
-    workflow_file_data = workflow_file_data.encode('utf-8')
-    autogen_file_data[workflow_file_name] = workflow_file_data
-    crewai_file_data = {}
-    for index, agent in enumerate(st.session_state.agents):
-        agent_name = agent['config']['name']
-        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-        crewai_agent_data = create_agent_data(agent)[1]
-        crewai_agent_data['name'] = formatted_agent_name
-        agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = json.dumps(crewai_agent_data, indent=2)
-        agent_file_data = agent_file_data.encode('utf-8')
-        crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
-    create_zip_file(autogen_zip_buffer, autogen_file_data)
-    create_zip_file(crewai_zip_buffer, crewai_file_data)
-    autogen_zip_buffer.seek(0)
-    crewai_zip_buffer.seek(0)
-    return autogen_zip_buffer, crewai_zip_buffer
 
 ```
 
@@ -4390,7 +4539,8 @@ import streamlit as st
 
 from config import MODEL_TOKEN_LIMITS
 
-from utils.file_utils import create_agent_data, sanitize_text
+from utils.agent_utils import create_agent_data
+from utils.file_utils import sanitize_text
 
 
 def get_workflow_from_agents(agents):

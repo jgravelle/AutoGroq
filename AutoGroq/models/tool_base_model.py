@@ -47,7 +47,7 @@ class ToolBaseModel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict):
+    def from_dict(cls, data: Dict):     
         return cls(
             id=data.get("id"),
             name=data.get("name", ""),  # Default to empty string if 'name' is missing

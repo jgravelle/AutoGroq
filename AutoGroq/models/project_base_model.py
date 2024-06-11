@@ -19,6 +19,7 @@ class ProjectBaseModel:
         attachments: Optional[List[str]] = None,
         notes: Optional[str] = None,
         collaborators: Optional[List[str]] = None,
+        tools: Optional[List[Dict]] = None,
         workflows: Optional[List[Dict]] = None
     ):
         self.id = id or 1
@@ -36,6 +37,7 @@ class ProjectBaseModel:
         self.attachments = attachments or []
         self.notes = notes
         self.collaborators = collaborators or []
+        self.tools = tools or []
         self.workflows = workflows or []
 
 
@@ -73,6 +75,7 @@ class ProjectBaseModel:
             "attachments": self.attachments,
             "notes": self.notes,
             "collaborators": self.collaborators,
+            "tools": self.tools,
             "workflows": self.workflows
         }
 

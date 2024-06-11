@@ -1,5 +1,4 @@
 import datetime
-import importlib
 import io
 import json
 import os
@@ -14,13 +13,14 @@ from config import API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, MODEL_CHOICES, MOD
 from current_project import Current_Project
 from datetime import date
 from models.agent_base_model import AgentBaseModel
+from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
-from prompts import create_project_manager_prompt, get_agents_prompt, get_generate_tool_prompt,get_rephrased_user_prompt  
+from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt  
 from tools.fetch_web_content import fetch_web_content
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
-from utils.db_utils import export_tool_to_autogen_as_skill, export_to_autogen
-from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
+from utils.db_utils import export_to_autogen
+from utils.file_utils import zip_files_in_memory
 from utils.workflow_utils import get_workflow_from_agents
 from prompts import get_moderator_prompt
     
@@ -30,7 +30,7 @@ def create_project_manager(rephrased_text, api_url):
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -53,12 +53,6 @@ def create_project_manager(rephrased_text, api_url):
             return content.strip()
     
     return None
-
-
-def create_zip_file(zip_buffer, file_data):
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for file_name, file_content in file_data.items():
-            zip_file.writestr(file_name, file_content)
 
 
 def display_api_key_input():
@@ -104,28 +98,38 @@ def display_discussion_and_whiteboard():
 
     with tabs[5]:
         if DEBUG:
-            if "project" in st.session_state:
-                project = st.session_state.project
+            if "project_model" in st.session_state:
+                project_model = st.session_state.project_model
                 with st.expander("Project Details"):
-                    st.write("ID:", project.id)
-                    st.write("Re-engineered Prompt:", project.re_engineered_prompt)
-                    st.write("Deliverables:", project.deliverables)
-                    st.write("Created At:", project.created_at)
-                    st.write("Updated At:", project.updated_at)
-                    st.write("User ID:", project.user_id)
-                    st.write("Name:", project.name)
-                    st.write("Description:", project.description)
-                    st.write("Status:", project.status)
-                    st.write("Due Date:", project.due_date)
-                    st.write("Priority:", project.priority)
-                    st.write("Tags:", project.tags)
-                    st.write("Attachments:", project.attachments)
-                    st.write("Notes:", project.notes)
-                    st.write("Collaborators:", project.collaborators)
-                    st.write("Workflows:", project.workflows)
+                    st.write("ID:", project_model.id)
+                    st.write("Re-engineered Prompt:", project_model.re_engineered_prompt)
+                    st.write("Deliverables:", project_model.deliverables)
+                    st.write("Created At:", project_model.created_at)
+                    st.write("Updated At:", project_model.updated_at)
+                    st.write("User ID:", project_model.user_id)
+                    st.write("Name:", project_model.name)
+                    st.write("Description:", project_model.description)
+                    st.write("Status:", project_model.status)
+                    st.write("Due Date:", project_model.due_date)
+                    st.write("Priority:", project_model.priority)
+                    st.write("Tags:", project_model.tags)
+                    st.write("Attachments:", project_model.attachments)
+                    st.write("Notes:", project_model.notes)
+                    st.write("Collaborators:", project_model.collaborators)
+                    st.write("Workflows:", project_model.workflows)
+                    if project_model.tools:
+                        st.write("Tools:")
+                        for tool in project_model.tools:
+                            substring = "init"
+                            if not substring in tool.name:
+                                st.write(f"- {tool.name}")
+                                st.code(tool.content, language="python")
+                    else:
+                        st.write("Tools: []")
+                    
 
-            if "project" in st.session_state and st.session_state.project.workflows:
-                workflow_data = st.session_state.project.workflows[0]
+            if "project_model" in st.session_state and st.session_state.project_model.workflows:
+                workflow_data = st.session_state.project_model.workflows[0]
                 workflow = WorkflowBaseModel.from_dict({**workflow_data, 'settings': workflow_data.get('settings', {})})
                 with st.expander("Workflow Details"):
                     st.write("ID:", workflow.id)
@@ -143,12 +147,29 @@ def display_discussion_and_whiteboard():
                     st.write("User ID:", workflow.user_id)
                     st.write("Type:", workflow.type)
                     st.write("Summary Method:", workflow.summary_method)
-                    st.write("Sender:", workflow.sender)
-                    st.write("Receiver:", workflow.receiver)
-                    st.write("Groupchat Config:", workflow.groupchat_config)
+                    
+                    # Display sender details
+                    st.write("Sender:")
+                    st.write("- Type:", workflow.sender.type)
+                    st.write("- Config:", workflow.sender.config)
+                    st.write("- Timestamp:", workflow.sender.timestamp)
+                    st.write("- User ID:", workflow.sender.user_id)
+                    st.write("- Tools:", workflow.sender.tools)
+                    
+                    # Display receiver details
+                    st.write("Receiver:")
+                    st.write("- Type:", workflow.receiver.type)
+                    st.write("- Config:", workflow.receiver.config)
+                    st.write("- Groupchat Config:", workflow.receiver.groupchat_config)
+                    st.write("- Timestamp:", workflow.receiver.timestamp)
+                    st.write("- User ID:", workflow.receiver.user_id)
+                    st.write("- Tools:", workflow.receiver.tools)
+                    st.write("- Agents:", [agent.to_dict() for agent in workflow.receiver.agents])
+                    
                     st.write("Timestamp:", workflow.timestamp)
             else:
                 st.warning("No workflow data available.")
+            
 
             if "agents" in st.session_state:
                 with st.expander("Agent Details"):
@@ -180,32 +201,40 @@ def display_discussion_and_whiteboard():
                         st.write("Timestamp:", agent.get('timestamp'))
             else:
                 st.warning("No agent data available.")
-            
-            if "tools" in st.session_state:
+
+            if len(st.session_state.tool_models) > 0:
                 with st.expander("Tool Details"):
-                    tool_names = ["Select one..."] + [tool.get('name', f"Tool {index + 1}") for index, tool in enumerate(st.session_state.tools)]
+                    tool_names = ["Select one..."] + [tool.name for tool in st.session_state.tool_models]
                     selected_tool = st.selectbox("Select a tool:", tool_names)
 
                     if selected_tool != "Select one...":
                         tool_index = tool_names.index(selected_tool) - 1
-                        tool = st.session_state.tools[tool_index]
+                        tool = st.session_state.tool_models[tool_index]
+                        
+                        st.subheader(selected_tool)
+                        
+                        # Display tool details in a more visually appealing way
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.markdown(f"**ID:** {tool.id}")
+                            st.markdown(f"**Name:** {tool.name}")
+                            st.markdown(f"**Created At:** {tool.created_at}")
+                            st.markdown(f"**Updated At:** {tool.updated_at}")
+                            st.markdown(f"**User ID:** {tool.user_id}")
+                        
+                        with col2:
+                            st.markdown(f"**Secrets:** {tool.secrets}")
+                            st.markdown(f"**Libraries:** {tool.libraries}")
+                            st.markdown(f"**File Name:** {tool.file_name}")
+                            st.markdown(f"**Timestamp:** {tool.timestamp}")
+                            st.markdown(f"**Title:** {tool.title}")
 
-                        if isinstance(tool, dict):
-                            st.subheader(selected_tool)
-                            st.write("ID:", tool.get('id'))
-                            st.write("Name:", tool.get('name'))
-                            st.write("Description:", tool.get('description'))
-                            st.write("Created At:", tool.get('created_at'))
-                            st.write("Updated At:", tool.get('updated_at'))
-                            st.write("User ID:", tool.get('user_id'))
-                            st.markdown(tool.get('content', ''))  # Display content as markdown
-                            st.write("Secrets:", tool.get('secrets'))
-                            st.write("Libraries:", tool.get('libraries'))
-                            st.write("File Name:", tool.get('file_name'))
-                            st.write("Timestamp:", tool.get('timestamp'))
-                            st.write("Title:", tool.get('title'))
-                        else:
-                            st.warning(f"{selected_tool} is not a dictionary.")
+                        st.markdown(f"**Description:** {tool.description}")
+                        
+                        # Display the tool's content in a code block
+                        st.markdown("**Content:**")
+                        st.code(tool.content, language="python")
             else:
                 st.warning("No tool data available.")
 
@@ -367,45 +396,12 @@ def extract_json_objects(json_string):
     return parsed_objects
                 
 
-def generate_tool(rephrased_tool_request):
-    temperature_value = st.session_state.get('temperature', 0.1)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": get_generate_tool_prompt(rephrased_tool_request)
-            }
-        ]
-    }
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    response = llm_provider.send_request(llm_request_data)
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        print (f"Response data: {response_data}")
-        if "choices" in response_data and response_data["choices"]:
-            proposed_tool = response_data["choices"][0]["message"]["content"].strip()
-            match = re.search(r"def\s+(\w+)\(", proposed_tool)
-            if match:
-                tool_name = match.group(1)
-                return proposed_tool, tool_name
-            else:
-                print("Error: Failed to extract tool name from the proposed tool.")
-                return proposed_tool, None
-    return None, None
-
-
-def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
+def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -472,7 +468,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": temperature_value,
+                                            "temperature": st.session_state.temperature,
                                             "cache_seed": 42,
                                             "timeout": 600,
                                             "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
@@ -544,7 +540,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": temperature_value,
+                                            "temperature": st.session_state.temperature,
                                             "timeout": 600,
                                             "cache_seed": 42
                                         },
@@ -627,9 +623,9 @@ def handle_user_request(session_state):
         st.warning("Failed to rephrase the user request. Please try again.")
         return
 
-    session_state.project.description = session_state.user_request
+    session_state.project_model.description = session_state.user_request
     rephrased_text = session_state.rephrased_request
-    session_state.project.set_re_engineered_prompt(rephrased_text)
+    session_state.project_model.set_re_engineered_prompt(rephrased_text)
 
     if "project_manager_output" not in session_state:
         project_manager_output = create_project_manager(rephrased_text, API_URL)
@@ -660,7 +656,7 @@ def handle_user_request(session_state):
             deliverables = re.findall(r'\d+\.\s*(.*)', deliverables_text)
             for deliverable in deliverables:
                 current_project.add_deliverable(deliverable.strip())
-                session_state.project.add_deliverable(deliverable.strip())
+                session_state.project_model.add_deliverable(deliverable.strip())
         else:
             print("Warning: 'Deliverables' or 'Key Deliverables' section not found in Project Manager's output.")
 
@@ -683,7 +679,7 @@ def handle_user_request(session_state):
             break
 
     if team_of_experts_text:
-        autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text, API_URL)
+        autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text)
 
         print(f"Debug: AutoGen Agents: {autogen_agents}")
         print(f"Debug: CrewAI Agents: {crewai_agents}")
@@ -704,7 +700,7 @@ def handle_user_request(session_state):
         print(f"Debug: CrewAI agents: {crewai_agents}")
 
         # Update the project session state with the workflow data
-        session_state.project.workflows = [workflow_data]
+        session_state.project_model.workflows = [workflow_data]
 
         print("Debug: Agents in session state project workflow:")
         for agent in workflow_data["receiver"]["groupchat_config"]["agents"]:
@@ -729,138 +725,6 @@ def key_prompt():
         return
 
 
-def load_tool_functions():
-    # Get the parent directory of the current script
-    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    # Define the path to the 'tools' folder in the parent directory
-    tools_folder_path = os.path.join(parent_directory, 'tools')
-
-    # List all files in the 'tools' folder
-    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py')]
-
-    tool_functions = {}
-    for tool_file in tool_files:
-        tool_name = os.path.splitext(tool_file)[0]
-        tool_module = importlib.import_module(f"tools.{tool_name}")
-        if hasattr(tool_module, tool_name):
-            tool_functions[tool_name] = getattr(tool_module, tool_name)
-
-    st.session_state.tool_functions = tool_functions
-
-
-def process_tool_request():
-    if st.session_state.tool_request and not st.session_state.get('tool_processed', False):
-        tool_request = st.session_state.tool_request
-        parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tool_folder = os.path.join(parent_directory, "tools")
-        print(f"Tool Request: {tool_request}")
-        rephrased_tool_request = rephrase_tool(tool_request)
-        if rephrased_tool_request:
-            print(f"Generating proposed tool...")
-            proposed_tool, tool_name = generate_tool(rephrased_tool_request)  # Unpack the tuple
-            print(f"Proposed tool: {proposed_tool}")
-            if proposed_tool:
-                match = re.search(r"def\s+(\w+(?:_\w+)*)\(", proposed_tool)  # Updated regex pattern
-                print(f"Match: {match}")
-                if match:
-                    tool_name = match.group(1)
-                    st.write(f"Proposed tool: {tool_name}")
-                    st.code(proposed_tool)
-
-                    with st.form(key=f"export_form_{tool_name}"):
-                        submit_export = st.form_submit_button("Export/Write")
-                        if submit_export:
-                            print(f"Exporting tool {tool_name} to Autogen")
-                            export_tool_to_autogen_as_skill(tool_name, proposed_tool)
-                            st.success(f"tool {tool_name} exported to Autogen successfully!")
-                            # Clear the tool_request input and hide the input field
-                            st.session_state.show_tool_input = False
-                            st.session_state.tool_request = ""
-                            # Clear the 'proposed_tool' and 'tool_name' from the session state
-                            st.session_state.proposed_tool = None
-                            st.session_state.tool_name = None
-                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
-                            st.experimental_rerun()
-                            
-                    with st.form(key=f"discard_form_{tool_name}"):
-                        submit_discard = st.form_submit_button("Clear")
-                        if submit_discard:
-                            st.warning("tool discarded.")
-                            # Clear the tool_request input and hide the input field
-                            st.session_state.show_tool_input = False
-                            st.session_state.tool_request = ""
-                            # Clear the 'proposed_tool' and 'tool_name' from the session state
-                            st.session_state.proposed_tool = None
-                            st.session_state.tool_name = None
-                            st.session_state.tool_processed = True  # Set the flag to indicate processing is complete
-                            st.experimental_rerun()
-                else:
-                    st.error("Failed to extract tool name from the proposed tool.")
-            else:
-                st.error("No proposed tool generated.")
-
-
-def regenerate_json_files_and_zip():
-    # Get the updated workflow data
-    workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
-    workflow_data["updated_at"] = datetime.datetime.now().isoformat()
-    
-    # Regenerate the zip files
-    autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-    
-    # Update the zip buffers in the session state
-    st.session_state.autogen_zip_buffer = autogen_zip_buffer
-    st.session_state.crewai_zip_buffer = crewai_zip_buffer
-
-
-def regenerate_zip_files():
-    if "agents" in st.session_state:
-        workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
-
-        workflow_data["updated_at"] = datetime.datetime.now().isoformat()
-        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-        st.session_state.autogen_zip_buffer = autogen_zip_buffer
-        st.session_state.crewai_zip_buffer = crewai_zip_buffer
-        print("Zip files regenerated.")
-    else:
-        print("No agents found. Skipping zip file regeneration.")
-
-
-def rephrase_tool(tool_request):
-    print("Debug: Rephrasing tool: ", tool_request)
-    temperature_value = st.session_state.get('temperature', 0.1)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": temperature_value,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": f"""
-                Act as a professional tool creator and rephrase the following tool request into an optimized prompt:
-
-                tool request: "{tool_request}"
-
-                Rephrased:
-                """
-            }
-        ]
-    }
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    response = llm_provider.send_request(llm_request_data)
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        if "choices" in response_data and response_data["choices"]:
-            rephrased = response_data["choices"][0]["message"]["content"].strip()
-            print(f"Debug: Rephrased tool: {rephrased}")
-            return rephrased
-    return None
-
-
 def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, provider=None):
     print("Executing rephrase_prompt()")
 
@@ -876,7 +740,7 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
 
     llm_request_data = {
         "model": model,
-        "temperature": 0.1,
+        "temperature": st.session_state.temperature,
         "max_tokens": max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -921,12 +785,6 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
         return None
 
 
-def save_tool(tool_name, edited_tool):
-    with open(f"{tool_name}.py", "w") as f:
-        f.write(edited_tool)
-    st.success(f"tool {tool_name} saved successfully!")
-
-
 def select_model():
     selected_model = st.selectbox(
             'Select Model',
@@ -950,14 +808,22 @@ def set_css():
 
 
 def set_temperature():
-    temperature = st.slider(
-            "Set Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=st.session_state.get('temperature', 0.3),
-            step=0.01,
-            key='temperature'
-        )
+    def update_temperature(value):
+        st.session_state.temperature = value
+
+    temperature_slider = st.slider(
+        "Set Temperature",
+        min_value=0.0,
+        max_value=1.0,
+        value=st.session_state.get('temperature', 0.3),
+        step=0.01,
+        key='temperature_slider',
+        on_change=update_temperature,
+        args=(st.session_state.temperature_slider,)
+    )
+
+    if 'temperature' not in st.session_state:
+        st.session_state.temperature = temperature_slider
 
 
 def show_interfaces():
@@ -973,75 +839,6 @@ def show_interfaces():
             st.session_state.user_input = moderator_response
     user_input, reference_url = display_user_input()
     st.markdown('</div>', unsafe_allow_html=True)
-
-
-def show_tools():
-    with st.expander("Tools"):
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tool_folder = os.path.join(project_root, "tools")
-        tool_files = [f for f in os.listdir(tool_folder) if f.endswith(".py")]
-
-        selected_tools = []
-        select_all = st.checkbox("Select All", key="select_all_tools")
-        for tool_file in tool_files:
-            tool_name = os.path.splitext(tool_file)[0]
-            if select_all:
-                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=True, key=f"tool_{tool_name}")
-            else:
-                tool_checkbox = st.checkbox(f"Add {tool_name} tool to all agents", value=False, key=f"tool_{tool_name}")
-            if tool_checkbox:
-                selected_tools.append(tool_name)
-
-        if select_all:
-            st.session_state.selected_tools = [os.path.splitext(f)[0] for f in tool_files]
-        else:
-            st.session_state.selected_tools = selected_tools
-
-        # Create a list of tool dictionaries
-        tool_dicts = []
-        for index, tool_name in enumerate(st.session_state.selected_tools, start=1):
-            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-            with open(tool_file_path, 'r') as file:
-                tool_data = file.read()
-                tool_dict = create_tool_data(tool_data)
-                tool_dict['id'] = index
-                tool_dict['name'] = tool_dict['title']
-                tool_dict['created_at'] = datetime.datetime.now().isoformat()
-                tool_dict['updated_at'] = datetime.datetime.now().isoformat()
-                tool_dict['content'] = f"```python\n{tool_dict['content']}\n```"
-                tool_dicts.append(tool_dict)
-
-        # Update the 'Tools' property of each agent with the selected tools
-        for agent in st.session_state.agents:
-            agent['tools'] = [tool_dict['name'] for tool_dict in tool_dicts if tool_dict['name'] in st.session_state.selected_tools]
-
-        # Assign the list of tool dictionaries to st.session_state.tools
-        st.session_state.tools = tool_dicts
-
-        regenerate_zip_files()
-
-        if st.button("Add tool", key="add_tool_button"):
-            st.session_state.show_tool_input = True
-            st.session_state.tool_request = ""
-            st.session_state.tool_processed = False 
-
-        if st.session_state.get('show_tool_input'):
-            tool_request = st.text_input("Need a new tool? Describe what it should do:", key="tool_request_input")
-            if tool_request:
-                st.session_state.tool_request = tool_request  # Store in a separate session state variable
-                process_tool_request()  # Pass the tool_request to the process_tool_request function
-
-        if selected_tools or 'proposed_tool' in st.session_state:
-            if st.button("Attempt to Export tool to Autogen (experimental)", key=f"export_button_{st.session_state.tool_name}"):
-                tool_name = st.session_state.tool_name
-                proposed_tool = st.session_state.proposed_tool
-                print(f"Exporting tool {tool_name} to Autogen")
-                export_tool_to_autogen_as_skill(tool_name, proposed_tool)
-                st.success(f"tool {tool_name} exported to Autogen successfully!")
-                # Clear the tool_request input and hide the input field
-                st.session_state.show_tool_input = False
-                st.session_state.tool_request = ""
-                st.experimental_rerun()
 
 
 def trigger_moderator_agent():
@@ -1061,7 +858,7 @@ def trigger_moderator_agent():
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.3),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -1125,56 +922,3 @@ def update_user_input():
         st.session_state.user_input = st.session_state.user_input_widget
 
 
-def zip_files_in_memory(workflow_data):
-    autogen_zip_buffer = io.BytesIO()
-    crewai_zip_buffer = io.BytesIO()
-    parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tool_folder = os.path.join(parent_directory, "tools")
-    autogen_file_data = {}
-    for agent in st.session_state.agents:
-        agent_name = agent['config']['name']
-        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-        agent_file_name = f"{formatted_agent_name}.json"
-        
-        # Use the agent-specific model configuration
-        autogen_agent_data, _ = create_agent_data(agent)
-        autogen_agent_data['config']['name'] = formatted_agent_name
-        autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
-        autogen_agent_data['config']['llm_config']['max_tokens'] = agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
-        autogen_agent_data['tools'] = []
-        
-        for tool_name in st.session_state.selected_tools:
-            tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-            with open(tool_file_path, 'r') as file:
-                tool_data = file.read()
-                tool_json = create_tool_data(tool_data)
-                autogen_agent_data['tools'].append(tool_json)
-        agent_file_data = json.dumps(autogen_agent_data, indent=2)
-        agent_file_data = agent_file_data.encode('utf-8')
-        autogen_file_data[f"agents/{agent_file_name}"] = agent_file_data
-    for tool_name in st.session_state.selected_tools:
-        tool_file_path = os.path.join(tool_folder, f"{tool_name}.py")
-        with open(tool_file_path, 'r') as file:
-            tool_data = file.read()
-            tool_json = json.dumps(create_tool_data(tool_data), indent=2)
-            tool_json = tool_json.encode('utf-8')
-            autogen_file_data[f"tools/{tool_name}.json"] = tool_json
-    workflow_file_name = "workflow.json"
-    workflow_file_data = json.dumps(workflow_data, indent=2)
-    workflow_file_data = workflow_file_data.encode('utf-8')
-    autogen_file_data[workflow_file_name] = workflow_file_data
-    crewai_file_data = {}
-    for index, agent in enumerate(st.session_state.agents):
-        agent_name = agent['config']['name']
-        formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-        crewai_agent_data = create_agent_data(agent)[1]
-        crewai_agent_data['name'] = formatted_agent_name
-        agent_file_name = f"{formatted_agent_name}.json"
-        agent_file_data = json.dumps(crewai_agent_data, indent=2)
-        agent_file_data = agent_file_data.encode('utf-8')
-        crewai_file_data[f"agents/{agent_file_name}"] = agent_file_data
-    create_zip_file(autogen_zip_buffer, autogen_file_data)
-    create_zip_file(crewai_zip_buffer, crewai_file_data)
-    autogen_zip_buffer.seek(0)
-    crewai_zip_buffer.seek(0)
-    return autogen_zip_buffer, crewai_zip_buffer

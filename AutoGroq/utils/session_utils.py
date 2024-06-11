@@ -3,6 +3,7 @@ import streamlit as st
 
 from datetime import datetime
 from models.project_base_model import ProjectBaseModel
+from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
 from current_project import Current_Project
 
@@ -38,8 +39,8 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
-    if "project" not in st.session_state:
-        st.session_state.project = ProjectBaseModel()
+    if "project_model" not in st.session_state:
+        st.session_state.project_model = ProjectBaseModel()
 
     if "previous_user_request" not in st.session_state:
         st.session_state.previous_user_request = ""
@@ -63,8 +64,31 @@ def initialize_session_variables():
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
 
-    if "tools" not in st.session_state:
-        st.session_state.tools = [] 
+    if "temperature_slider" not in st.session_state:
+        st.session_state.temperature_slider = 0.3
+
+    if "tool_model" not in st.session_state:
+        st.session_state.tool_model = ToolBaseModel(
+            name="",
+            description="",
+            title="",
+            file_name="",
+            content="",
+            id=None,
+            created_at=None,
+            updated_at=None,
+            user_id=None,
+            secrets=None,
+            libraries=None,
+            timestamp=None
+        )    
+
+    if "tool_models" not in st.session_state:
+        st.session_state.tool_models = []
+
+
+    # if "tools" not in st.session_state:
+    #     st.session_state.tools = [] 
 
     if "tool_functions" not in st.session_state:
         st.session_state.tool_functions = {}
@@ -75,8 +99,8 @@ def initialize_session_variables():
     if "tool_request" not in st.session_state:
         st.session_state.tool_request = ""
 
-#    if "temperature" not in st.session_state:
-#           st.session_state.temperature = 0.3
+    if "top_p" not in st.session_state:
+          st.session_state.top_p = 1
 
     if "uploaded_data" not in st.session_state:
         st.session_state.uploaded_data = None

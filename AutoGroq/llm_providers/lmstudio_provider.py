@@ -36,7 +36,7 @@ class LmstudioProvider(BaseLLMProvider):
         lm_studio_request_data = {
             "model": data["model"],
             "messages": data["messages"],
-            "temperature": data.get("temperature", 0.1),
+            "temperature": st.session_state.temperature,
             "max_tokens": data.get("max_tokens", 2048),
             "stop": data.get("stop", "TERMINATE"),
         }

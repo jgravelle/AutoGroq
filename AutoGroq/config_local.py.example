@@ -81,8 +81,8 @@ else:
 
     
 # Database path
-# AUTOGEN_DB_PATH="/path/to/custom/database.sqlite"
-AUTOGEN_DB_PATH = os.environ.get('AUTOGEN_DB_PATH', default_db_path)
+# FRAMEWORK_DB_PATH="/path/to/custom/database.sqlite"
+FRAMEWORK_DB_PATH = os.environ.get('FRAMEWORK_DB_PATH', default_db_path)
 
 MODEL_CHOICES = {
     'default': None,

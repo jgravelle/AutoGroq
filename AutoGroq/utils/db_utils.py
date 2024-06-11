@@ -6,10 +6,10 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import AUTOGEN_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-# from typing import Optional
-from utils.file_utils import create_agent_data, create_tool_data, sanitize_text
+from utils.agent_utils import create_agent_data
+from utils.file_utils import sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
 
@@ -20,7 +20,7 @@ def export_to_autogen():
         st.warning("Exporting to Autogen is only possible with a locally running copy of AutoGroq™.")
         return
 
-    db_path = AUTOGEN_DB_PATH
+    db_path = FRAMEWORK_DB_PATH
     print(f"Database path: {db_path}")
     if db_path:
         export_data(db_path)
@@ -66,12 +66,12 @@ def export_data(db_path):
 
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             skill_folder = os.path.join(project_root, "skills")
-            for skill_name in st.session_state.selected_skills:
-                if skill_name not in inserted_skills:
-                    skill_file_path = os.path.join(skill_folder, f"{skill_name}.py")
+            for tool_name in st.session_state.selected_tools:
+                if tool_name not in inserted_skills:
+                    skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
                     with open(skill_file_path, 'r') as file:
                         skill_data = file.read()
-                        skill_json = create_tool_data(skill_data)
+                        skill_json = st.session_state.tool
                         skill_data = (
                             str(uuid.uuid4()),  # Generate a unique ID for the skill
                             'default',  # Set the user ID to 'default'
@@ -82,7 +82,7 @@ def export_data(db_path):
                         )
                         cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
                         print(f"Inserted skill: {skill_json['title']}")
-                        inserted_skills.add(skill_name)  # Add the inserted skill to the set
+                        inserted_skills.add(tool_name)  # Add the inserted skill to the set
 
             # Access agents from st.session_state for workflow
             workflow_data = get_workflow_from_agents(st.session_state.agents)[0]
@@ -112,35 +112,25 @@ def export_data(db_path):
             print(f"Error exporting data to Autogen: {str(e)}")
 
 
-def export_tool_to_autogen_as_skill(skill_name, edited_skill):
-    print(f"Exporting skill '{skill_name}' to Autogen...")
+def sql_to_db(sql: str, params: tuple = None):
     try:
-        conn = sqlite3.connect(AUTOGEN_DB_PATH)
+        conn = sqlite3.connect(FRAMEWORK_DB_PATH)
         cursor = conn.cursor()
         print("Connected to the database successfully.")
-
-        skill_data = create_tool_data(edited_skill)
-        print(f"Skill data: {skill_data}")
-        skill_data = (
-            str(uuid.uuid4()),  # Generate a unique ID for the skill
-            'default',  # Set the user ID to 'default'
-            datetime.datetime.now().isoformat(),
-            edited_skill,
-            skill_data['title'],
-            skill_data['file_name']
-        )
-        print(f"Inserting skill data: {skill_data}")
-        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
-
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
         conn.commit()
-        print("Skill exported to Autogen successfully.")
-        conn.close()
-        print("Database connection closed.")
-        st.success(f"Skill '{skill_name}' exported to Autogen successfully!")
-        st.experimental_rerun()
+        print("SQL executed successfully.")
     except sqlite3.Error as e:
-        st.error(f"Error exporting skill to Autogen: {str(e)}")
-        print(f"Error exporting skill to Autogen: {str(e)}")
+        print(f"Error executing SQL: {str(e)}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+            print("Database connection closed.")
+
 
 
 

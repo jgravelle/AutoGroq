@@ -42,7 +42,7 @@ def construct_request(agent_name, description, user_request, user_input, rephras
 
 
 def display_agents():
-    if "agents" in st.session_state and st.session_state.agents:
+    if "agents" in st.session_state and st.session_state.agents and len(st.session_state.agents) > 0:
         st.sidebar.title("Your Agents")
         st.sidebar.subheader("Click to interact")
         display_agent_buttons(st.session_state.agents)
@@ -201,7 +201,7 @@ def process_agent_interaction(agent_index):
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.1),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -245,7 +245,7 @@ def regenerate_agent_description(agent):
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.1),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
