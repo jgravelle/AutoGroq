@@ -1,3 +1,9 @@
+*Our next-generation sandbox is online at:* https://autogrok.streamlit.app/
+
+It works something like this:
+![image](https://github.com/jgravelle/AutoGroq/assets/3400540/5739542f-3e28-45e0-8e24-3a49c81f554e)
+
+
 ## UNDER CONSTRUCTION!
 
 If things are wonky, that's why.  Do this:
