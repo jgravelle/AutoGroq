@@ -5,7 +5,18 @@ You'll need to install the *PREVIOUS* Autogen with:
 pip install autogenstudio==0.0.56
 
                                       (h/t - Scruff)
+P.S. -
+Having an issue with AutogenStudio?  If you installed the newest version (0.1.1), it won't work. Don't even try.
 
+example of the Problem: Console error: "Error while getting items: Workflow 'groupchat' is not among the defined enum values. Enum name: workflowtype. Possible values: autonomous, sequential"
+
+Steps to fix:
+- Go to your conda environment and uninstall the new version of autogen - pip uninstall autogenstudio
+- Navigate to your .autogenstudio folder (should usually be in your home dir) and delete the database.sqlite file (it's already been ruined with adding new tables over the existing ones, so back it up if you had any good data in there and upgraded... and maybe you can salvage it manually, I dunno)
+- Install the older version - pip install autogenstudio==0.0.56
+- Run autogenstudio again, problem should be fixed
+
+thanks to Luis2k
 = = = = = = = = = 
 
 *Our next-generation sandbox is online at:* https://autogrok.streamlit.app/
