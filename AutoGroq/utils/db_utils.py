@@ -65,7 +65,7 @@ def export_data(db_path):
                 print(f"Inserted agent: {formatted_agent_name}")
 
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            skill_folder = os.path.join(project_root, "skills")
+            skill_folder = os.path.join(project_root, "tools")
             for tool_name in st.session_state.selected_tools:
                 if tool_name not in inserted_skills:
                     skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
