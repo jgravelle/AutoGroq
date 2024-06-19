@@ -1,3 +1,13 @@
+## NOTE: NEW AUTOGEN IS NOT (YET) COMPATABLE WITH AutoGroq™
+
+You'll need to install the *PREVIOUS* Autogen with:
+
+pip install autogenstudio==0.0.56
+
+                                      (h/t - Scruff)
+
+= = = = = = = = = 
+
 *Our next-generation sandbox is online at:* https://autogrok.streamlit.app/
 
 It works something like this:
