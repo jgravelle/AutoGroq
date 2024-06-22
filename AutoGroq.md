@@ -11,7 +11,7 @@ import streamlit as st
 from configs.config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from utils.api_utils import get_api_key
-from utils.ui_utils import get_llm_provider, update_discussion_and_whiteboard
+from utils.ui_utils import get_llm_provider, get_provider_models, update_discussion_and_whiteboard
 
 
 def agent_button_callback(agent_index):
@@ -119,12 +119,25 @@ def display_agent_edit_form(agent, edit_index):
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            selected_model = st.selectbox("Model", options=list(MODEL_CHOICES.keys()), index=list(MODEL_CHOICES.keys()).index(agent['config']['llm_config']['config_list'][0]['model']), key=f"model_select_{edit_index}")
+            current_provider = st.session_state.get('provider')
+            provider_models = get_provider_models(current_provider)
+            current_model = agent['config']['llm_config']['config_list'][0]['model']
+            
+            if current_model not in provider_models:
+                st.warning(f"Current model '{current_model}' is not available for the selected provider. Please select a new model.")
+                current_model = next(iter(provider_models))  # Set to first available model
+            
+            selected_model = st.selectbox(
+                "Model", 
+                options=list(provider_models.keys()),
+                index=list(provider_models.keys()).index(current_model),
+                key=f"model_select_{edit_index}"
+            )
         with col2:
             if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}"):
                 for agent in st.session_state.agents:
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
-                    agent['config']['llm_config']['max_tokens'] = MODEL_CHOICES[selected_model]
+                    agent['config']['llm_config']['max_tokens'] = provider_models[selected_model]
                 st.experimental_rerun()
         
         new_description = st.text_area("Description", value=description_value, key=f"desc_{edit_index}")
@@ -149,7 +162,7 @@ def display_agent_edit_form(agent, edit_index):
                 
                 if selected_model != 'default':
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
-                    agent['config']['llm_config']['max_tokens'] = MODEL_CHOICES[selected_model]
+                    agent['config']['llm_config']['max_tokens'] = provider_models[selected_model]
                 else:
                     agent['config']['llm_config']['config_list'][0]['model'] = st.session_state.model
                     agent['config']['llm_config']['max_tokens'] = MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096)
@@ -159,7 +172,7 @@ def display_agent_edit_form(agent, edit_index):
                     del st.session_state['edit_agent_index']
                 if 'new_description' in agent:
                     del agent['new_description']
-                st.session_state.agents[edit_index] = agent 
+                st.session_state.agents[edit_index] = agent
 
 
 def download_agent_file(expert_name):
@@ -4431,6 +4444,12 @@ def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY)
 
 def get_discussion_history():
     return st.session_state.discussion_history
+
+
+def get_provider_models(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    return MODEL_CHOICES.get(provider, {})
 
 
 def handle_user_request(session_state):

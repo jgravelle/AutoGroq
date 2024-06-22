@@ -586,6 +586,12 @@ def get_discussion_history():
     return st.session_state.discussion_history
 
 
+def get_provider_models(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    return MODEL_CHOICES.get(provider, {})
+
+
 def handle_user_request(session_state):
     print("Debug: Handling user request for session state: ", session_state)
     user_request = session_state.user_request
