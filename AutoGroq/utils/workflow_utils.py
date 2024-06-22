@@ -2,7 +2,7 @@
 import datetime
 import streamlit as st
 
-from config import MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS
 
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text

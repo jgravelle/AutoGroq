@@ -6,7 +6,7 @@ import sys
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
+from configs.config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.ui_utils import rephrase_prompt

@@ -5,3 +5,4 @@ langchain-community==0.2.1
 tiktoken==0.7.0
 matplotlib==3.9.0
 openai == 0.27.10
+anthropic == 0.4.0

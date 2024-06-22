@@ -2,15 +2,22 @@
 import os
 import streamlit as st
 
-from config import LLM_PROVIDER
+from configs.config import LLM_PROVIDER
+from utils.api_utils import display_api_key_input
 
+        
+def check_api_key(provider=None):
+    # Ensure we have a warning placeholder
+    if 'warning_placeholder' not in st.session_state:
+        st.session_state.warning_placeholder = st.empty()
 
-def get_api_key():
-    api_key_env_var = f"{LLM_PROVIDER.upper()}_API_KEY"
-    api_key = os.environ.get(api_key_env_var)
-    if api_key is None:
-        api_key = st.session_state.get(api_key_env_var)
-    return api_key
+    # Check for API key of the default provider on initial load
+    if 'initial_api_check' not in st.session_state:
+        st.session_state.initial_api_check = True
+        default_provider = st.session_state.get('provider', LLM_PROVIDER)
+        if not check_api_key(default_provider):
+            display_api_key_input(default_provider)
+    return True
 
 
 def get_api_url():

@@ -1,29 +1,37 @@
+# prompts.py
 
 def create_project_manager_prompt(rephrased_text):
     return f"""
-                You are a Project Manager tasked with creating a comprehensive project outline 
-                and describing the perfect team of experts that should be created to work on the following project:
-
+                As a Project Manager, create a project plan for:
                 {rephrased_text}
-
-                Please provide a detailed project outline, including a single block of key deliverables listed in 
-                logical order of accomplishment. Label the deliverables with "Deliverables:" or "Key Deliverables" 
-                and list them in a clear and concise manner. 
-
-                Also, describe the ideal team of experts required for this project, including their roles,
-                and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs 
-                of the request to assemble a multidisciplinary team of experts. The team should be as small as possible 
-                while still providing a complete and comprehensive talent pool able to properly address the user's request. 
-                Each recommended agent shall come with a defined role, and a brief but thorough description of their expertise.
-
-                Return your response in the following format:
+                Include:
 
                 Project Outline:
-                [Detailed project outline]
 
+                Comprehensive overview
+                Logical structure
+                Key Deliverables: List in order of completion
+
+
+                Expert Team:
+
+                Roles based on project needs
+                Minimum necessary team size
+                For each expert:
+                a) Role title
+                b) Key responsibilities
+                c) Essential expertise
+
+
+
+                Format:
+                Project Outline:
+                [Your detailed outline]
+                Key Deliverables:
+                [Numbered list]
                 Team of Experts:
                 [Description of the ideal team of experts]
-                """
+            """
 
 
 def get_agent_prompt(rephrased_request):
@@ -141,7 +149,7 @@ def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,te
 
 
 def get_rephrased_user_prompt(user_request):
-    return f"""THis agent is a professional prompt engineer and refactor the following 
+    return f"""Act as a professional prompt engineer and refactor the following 
                 user request into an optimized prompt. This agent's goal is to rephrase the request 
                 with a focus on the satisfying all following the criteria without explicitly stating them:
         1. Clarity: Ensure the prompt is clear and unambiguous.
@@ -153,6 +161,16 @@ def get_rephrased_user_prompt(user_request):
         7. Constraints: Define any limits or guidelines.
         8. Engagement: Make the prompt engaging and interesting.
         9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
+
+        Apply introspection and reasoning to reconsider your own prompt[s] to:
+        Clarify ambiguities
+        Break down complex tasks
+        Provide essential context
+        Structure logically
+        Use precise, concise language
+        Include relevant examples
+        Specify constraints
+
         Do NOT reply with a direct response to these instructions OR the original user request. Instead, rephrase the user's request as a well-structured prompt, and
         return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
         Do not enclose the rephrased prompt in quotes. This agent will be successful only if it returns a well-formed rephrased prompt ready for submission as an LLM request.

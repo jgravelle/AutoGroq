@@ -1,24 +1,21 @@
 import datetime
-import io
 import json
 import os
 import pandas as pd
 import re
 import streamlit as st
 import time
-import zipfile
 
-from config import API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from configs.config import (API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, 
+        MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY, SUPPORTED_PROVIDERS)
 
-from current_project import Current_Project
-from datetime import date
+from configs.current_project import Current_Project
 from models.agent_base_model import AgentBaseModel
-from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
 from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt  
 from tools.fetch_web_content import fetch_web_content
-from utils.api_utils import get_llm_provider
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key, get_llm_provider
+from utils.auth_utils import check_api_key, display_api_key_input
 from utils.db_utils import export_to_autogen
 from utils.file_utils import zip_files_in_memory
 from utils.workflow_utils import get_workflow_from_agents
@@ -55,13 +52,13 @@ def create_project_manager(rephrased_text, api_url):
     return None
 
 
-def display_api_key_input():
-    llm = LLM_PROVIDER.upper()
-    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value="", key="api_key_input")
-    if api_key:
-        st.session_state[f"{LLM_PROVIDER.upper()}_API_KEY"] = api_key
-        st.success("API Key entered successfully.")
-    return api_key
+# def display_api_key_input():
+#     llm = LLM_PROVIDER.upper()
+#     api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value="", key="api_key_input")
+#     if api_key:
+#         st.session_state[f"{LLM_PROVIDER.upper()}_API_KEY"] = api_key
+#         st.success("API Key entered successfully.")
+#     return api_key
 
 
 def display_discussion_and_whiteboard():
@@ -214,7 +211,7 @@ def display_discussion_and_whiteboard():
                         st.subheader(selected_tool)
                         
                         # Display tool details in a more visually appealing way
-                        col1, col2 = st.columns(2)
+                        col1, col2 = st.columns(RETRY_DELAY)
                         
                         with col1:
                             st.markdown(f"**ID:** {tool.id}")
@@ -245,7 +242,7 @@ def display_discussion_and_whiteboard():
                             
 
 def display_download_button():
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(RETRY_DELAY)
     with col1:
         st.download_button(
             label="Download Autogen Files",
@@ -303,7 +300,7 @@ def display_user_input():
 
 
 def display_reset_and_upload_buttons():
-    col1, col2 = st.columns(2)  
+    col1, col2 = st.columns(RETRY_DELAY)  
     with col1:
         if st.button("Reset", key="reset_button"):
             # Define the keys of session state variables to clear
@@ -733,7 +730,11 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
     if llm_provider is None:
         # Use the existing functionality for non-CLI calls
         api_key = get_api_key()
-        llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+        try:
+            llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+        except Exception as e:
+            print(f"Error initializing LLM provider: {str(e)}")
+            return None
 
     if max_tokens is None:
         max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)
@@ -786,14 +787,55 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
 
 
 def select_model():
+    provider = st.session_state.get('provider', LLM_PROVIDER)
+    provider_models = MODEL_CHOICES[provider]
+    
+    if 'model' not in st.session_state or st.session_state.model not in provider_models:
+        default_model = next(iter(provider_models))
+    else:
+        default_model = st.session_state.model
+    
     selected_model = st.selectbox(
-            'Select Model',
-            options=list(MODEL_TOKEN_LIMITS.keys()),
-            index=0,
-            key='model_selection'
-        )
+        'Select Model',
+        options=list(provider_models.keys()),
+        index=list(provider_models.keys()).index(default_model),
+        key='model_selection'
+    )
+    
     st.session_state.model = selected_model
-    st.session_state.max_tokens = MODEL_TOKEN_LIMITS[selected_model]
+    st.session_state.max_tokens = provider_models[selected_model]
+    
+    return selected_model
+
+
+def select_provider():
+    selected_provider = st.selectbox(
+        'Select Provider',
+        options=SUPPORTED_PROVIDERS,
+        index=SUPPORTED_PROVIDERS.index(st.session_state.get('provider', LLM_PROVIDER)),
+        key='provider_selection'
+    )
+    
+    if selected_provider != st.session_state.get('provider'):
+        st.session_state.provider = selected_provider
+        update_api_url(selected_provider)
+        
+        # Clear any existing warnings
+        st.session_state.warning_placeholder.empty()
+        
+        # Check for API key and prompt if not found
+        api_key = get_api_key(selected_provider)
+        if api_key is None:
+            display_api_key_input(selected_provider)
+        
+        # Clear the model selection when changing providers
+        if 'model' in st.session_state:
+            del st.session_state.model
+        
+        # Trigger a rerun to update the UI
+        st.experimental_rerun()
+    
+    return selected_provider
 
 
 def set_css():
@@ -886,6 +928,11 @@ def trigger_moderator_agent():
 def trigger_moderator_agent_if_checked():
     if st.session_state.get("auto_moderate", False):
         trigger_moderator_agent()
+
+
+def update_api_url(provider):
+    api_url_key = f"{provider.upper()}_API_URL"
+    st.session_state.api_url = st.session_state.get(api_url_key)
 
 
 def update_discussion_and_whiteboard(agent_name, response, user_input):

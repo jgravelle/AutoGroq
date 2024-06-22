@@ -1,24 +1,53 @@
+# utils/api_utils.py
 
 import importlib
+import os
 import requests
 import streamlit as st
 import time
 
-from config import API_URL, LLM_PROVIDER, RETRY_TOKEN_LIMIT
+from configs.config import API_URL, LLM_PROVIDER, RETRY_DELAY, RETRY_TOKEN_LIMIT, SUPPORTED_PROVIDERS
+
+
+def display_api_key_input(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key_env_var = f"{provider.upper()}_API_KEY"
+    api_key = os.environ.get(api_key_env_var)
+    
+    if api_key is None:
+        st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key.")
+        api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
+        if api_key:
+            st.session_state[api_key_env_var] = api_key
+            os.environ[api_key_env_var] = api_key
+            st.success(f"{provider.upper()} API Key entered successfully.")
+            st.session_state.warning_placeholder.empty()
+    return api_key
+
+
+def get_api_key(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key_env_var = f"{provider.upper()}_API_KEY"
+    api_key = os.environ.get(api_key_env_var)
+    if api_key is None:
+        api_key = st.session_state.get(api_key_env_var)
+    return api_key
 
 
 def get_llm_provider(api_key=None, api_url=None, provider=None):
     if provider is None:
-        provider = LLM_PROVIDER
+        provider = st.session_state.get('provider', LLM_PROVIDER)
     provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
     provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
-        api_url = API_URL
+        api_url = st.session_state.get('api_url')
     return provider_class(api_url=api_url, api_key=api_key)
 
 
 def make_api_request(url, data, headers, api_key):
-    time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
+    time.sleep(RETRY_DELAY)  # Throttle the request to ensure at least 2 seconds between calls
     try:
         if not api_key:
             llm = LLM_PROVIDER.upper()
@@ -69,3 +98,6 @@ def set_llm_provider_title():
         st.title("Auto̶G̶r̶o̶qLM_Studio")
     elif LLM_PROVIDER == "openai":
         st.title("Auto̶G̶r̶o̶qChatGPT")
+    elif LLM_PROVIDER == "anthropic":
+        st.title("Auto̶G̶r̶o̶qClaude")
+

@@ -6,7 +6,7 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text

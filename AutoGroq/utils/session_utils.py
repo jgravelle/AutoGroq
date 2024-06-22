@@ -1,19 +1,35 @@
 
 import streamlit as st
 
+from configs.config import LLM_PROVIDER, SUPPORTED_PROVIDERS
+from configs.config_sessions import DEFAULT_AGENT_CONFIG
+from configs.current_project import Current_Project
 from datetime import datetime
+from models.agent_base_model import AgentBaseModel
 from models.project_base_model import ProjectBaseModel
 from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
-from current_project import Current_Project
 
+
+def create_default_agent():
+    return AgentBaseModel(**DEFAULT_AGENT_CONFIG)
 
 def initialize_session_variables():
+
+    if "agent_model" not in st.session_state:
+        st.session_state.agent_model = create_default_agent()
+
+    if "agent_models" not in st.session_state:
+        st.session_state.agent_models = []
+
     if "agents" not in st.session_state:
         st.session_state.agents = []
 
     if "api_key" not in st.session_state:
         st.session_state.api_key = ""
+
+    if "api_url" not in st.session_state:
+        st.session_state.api_url = None
 
     if "autogen_zip_buffer" not in st.session_state:
         st.session_state.autogen_zip_buffer = None
@@ -39,15 +55,14 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
+    if "previous_user_request" not in st.session_state:
+        st.session_state.previous_user_request = ""        
+
     if "project_model" not in st.session_state:
         st.session_state.project_model = ProjectBaseModel()
 
-    if "previous_user_request" not in st.session_state:
-        st.session_state.previous_user_request = ""
-
-#    if "project_manager_output" not in st.session_state:
-#        st.session_state.project_manager_output = ""
-
+    if "provider" not in st.session_state:
+        st.session_state.provider = LLM_PROVIDER
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}
@@ -130,3 +145,7 @@ def initialize_session_variables():
             timestamp=datetime.now(),
             summary_method=""
         )
+
+    for provider in SUPPORTED_PROVIDERS:
+        if f"{provider.upper()}_API_URL" not in st.session_state:
+            st.session_state[f"{provider.upper()}_API_URL"] = None

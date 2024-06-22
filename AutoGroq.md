@@ -1,15 +1,16 @@
 # AutoGroq\agent_management.py
 
 ```python
+# agent_management.py
 
 import base64
 import os
 import re
 import streamlit as st
 
-from config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key
 from utils.ui_utils import get_llm_provider, update_discussion_and_whiteboard
 
 
@@ -204,7 +205,7 @@ def process_agent_interaction(agent_index):
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.1),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -248,7 +249,7 @@ def regenerate_agent_description(agent):
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.1),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -283,180 +284,49 @@ def send_request(agent_name, request):
 
 ```
 
-# AutoGroq\config.py
-
-```python
-import os
-
-# Get user home directory
-home_dir = os.path.expanduser("~")
-default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
-
-# Debug
-DEFAULT_DEBUG = False
-
-# Default configurations
-DEFAULT_LLM_PROVIDER = "groq"
-DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-DEFAULT_LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
-DEFAULT_OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
-DEFAULT_OPENAI_API_KEY = None
-DEFAULT_OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-
-# Try to import user-specific configurations from config_local.py
-try:
-    from config_local import *
-except ImportError:
-    pass
-
-# Set the configurations using the user-specific values if available, otherwise use the defaults
-DEBUG = locals().get('DEBUG', DEFAULT_DEBUG)
-
-LLM_PROVIDER = locals().get('LLM_PROVIDER', DEFAULT_LLM_PROVIDER)
-GROQ_API_URL = locals().get('GROQ_API_URL', DEFAULT_GROQ_API_URL)
-LMSTUDIO_API_URL = locals().get('LMSTUDIO_API_URL', DEFAULT_LMSTUDIO_API_URL)
-OLLAMA_API_URL = locals().get('OLLAMA_API_URL', DEFAULT_OLLAMA_API_URL)
-OPENAI_API_KEY = locals().get('OPENAI_API_KEY', DEFAULT_OPENAI_API_KEY)
-OPENAI_API_URL = locals().get('OPENAI_API_URL', DEFAULT_OPENAI_API_URL)
-
-API_KEY_NAMES = {
-    "groq": "GROQ_API_KEY",
-    "lmstudio": None,
-    "ollama": None,
-    "openai": "OPENAI_API_KEY",
-    # Add other LLM providers and their respective API key names here
-}
-
-# Retry settings
-MAX_RETRIES = 3
-RETRY_DELAY = 2  # in seconds
-RETRY_TOKEN_LIMIT = 5000
-
-# Model configurations
-if LLM_PROVIDER == "groq":
-    API_URL = GROQ_API_URL
-    MODEL_TOKEN_LIMITS = {
-        'mixtral-8x7b-32768': 32768,
-        'llama3-70b-8192': 8192,
-        'llama3-8b-8192': 8192,
-        'gemma-7b-it': 8192,
-    }
-elif LLM_PROVIDER == "lmstudio":
-    API_URL = LMSTUDIO_API_URL
-    MODEL_TOKEN_LIMITS = {
-        'instructlab/granite-7b-lab-GGUF': 2048,
-        'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
-    } 
-elif LLM_PROVIDER == "openai":
-    API_URL = OPENAI_API_URL
-    MODEL_TOKEN_LIMITS = {
-        'gpt-4o': 4096,
-    }
-elif LLM_PROVIDER == "ollama":
-    API_URL = OLLAMA_API_URL
-    MODEL_TOKEN_LIMITS = {
-        'llama3': 8192,
-    }   
-else:
-    MODEL_TOKEN_LIMITS = {}
-
-    
-# Database path
-# FRAMEWORK_DB_PATH="/path/to/custom/database.sqlite"
-FRAMEWORK_DB_PATH = os.environ.get('FRAMEWORK_DB_PATH', default_db_path)
-
-MODEL_CHOICES = {
-    'default': None,
-    'gemma-7b-it': 8192,
-    'gpt-4o': 4096,
-    'instructlab/granite-7b-lab-GGUF': 2048,
-    'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
-    'llama3': 8192,
-    'llama3-70b-8192': 8192,
-    'llama3-8b-8192': 8192,
-    'mixtral-8x7b-32768': 32768
-}
-```
-
-# AutoGroq\config_local.py
-
-```python
-# User-specific configurations
-
-LLM_PROVIDER = "groq"
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
-OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
-# OPENAI_API_KEY = "your_openai_api_key"
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-
-DEBUG = True
-```
-
-# AutoGroq\current_project.py
-
-```python
-
-class Current_Project:
-    def __init__(self):
-        self.deliverables = []
-        self.re_engineered_prompt = ""
-
-    def add_deliverable(self, deliverable):
-        self.deliverables.append({"text": deliverable, "done": False})
-
-
-    def mark_deliverable_done(self, index):
-        if 0 <= index < len(self.deliverables):
-            self.deliverables[index]["done"] = True
-
-
-    def mark_deliverable_undone(self, index):
-        if 0 <= index < len(self.deliverables):
-            self.deliverables[index]["done"] = False
-
-
-    def set_re_engineered_prompt(self, prompt):
-        self.re_engineered_prompt = prompt
-
-```
-
 # AutoGroq\main.py
 
 ```python
+# main.py
+
 import streamlit as st 
 
-from config import LLM_PROVIDER, MODEL_TOKEN_LIMITS
-
 from agent_management import display_agents
-from utils.api_utils import set_llm_provider_title
+from utils.api_utils import get_api_key
+from utils.auth_utils import display_api_key_input
 from utils.session_utils import initialize_session_variables
 from utils.tool_utils import load_tool_functions, populate_tool_models, show_tools
 from utils.ui_utils import (
     display_goal, display_reset_and_upload_buttons, 
-    display_user_request_input, handle_user_request, key_prompt, 
-    select_model, set_css, 
+    display_user_request_input, handle_user_request, 
+    select_model, select_provider, set_css, 
     set_temperature, show_interfaces
 )
 
-
 def main():
+    if 'warning_placeholder' not in st.session_state:
+        st.session_state.warning_placeholder = st.empty()
+    st.title("AutoGroq™")
+
     set_css()
     initialize_session_variables()
     load_tool_functions()
-    key_prompt()
-    set_llm_provider_title()
 
+    # Check for API key
+    api_key = get_api_key()
+    if api_key is None:
+        display_api_key_input()
 
-
-    col1, col2 = st.columns([1, 1])  # Adjust the column widths as needed
+    col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
+        select_provider()
+    
+    with col2:
         select_model()
 
-    with col2:
+    with col3:
         set_temperature()
-
-
+        
     with st.sidebar:
         display_agents()
         if "agents" in st.session_state and st.session_state.agents:
@@ -473,7 +343,6 @@ def main():
         if "agents" in st.session_state and st.session_state.agents:
             show_interfaces()
             display_reset_and_upload_buttons()
-        
 
 if __name__ == "__main__":
     main()
@@ -482,32 +351,40 @@ if __name__ == "__main__":
 # AutoGroq\prompts.py
 
 ```python
+# prompts.py
 
 def create_project_manager_prompt(rephrased_text):
     return f"""
-                You are a Project Manager tasked with creating a comprehensive project outline 
-                and describing the perfect team of experts that should be created to work on the following project:
-
+                As a Project Manager, create a project plan for:
                 {rephrased_text}
-
-                Please provide a detailed project outline, including a single block of key deliverables listed in 
-                logical order of accomplishment. Label the deliverables with "Deliverables:" or "Key Deliverables" 
-                and list them in a clear and concise manner. 
-
-                Also, describe the ideal team of experts required for this project, including their roles,
-                and responsibilities.  Your analysis shall consider the complexity, domain, and specific needs 
-                of the request to assemble a multidisciplinary team of experts. The team should be as small as possible 
-                while still providing a complete and comprehensive talent pool able to properly address the user's request. 
-                Each recommended agent shall come with a defined role, and a brief but thorough description of their expertise.
-
-                Return your response in the following format:
+                Include:
 
                 Project Outline:
-                [Detailed project outline]
 
+                Comprehensive overview
+                Logical structure
+                Key Deliverables: List in order of completion
+
+
+                Expert Team:
+
+                Roles based on project needs
+                Minimum necessary team size
+                For each expert:
+                a) Role title
+                b) Key responsibilities
+                c) Essential expertise
+
+
+
+                Format:
+                Project Outline:
+                [Your detailed outline]
+                Key Deliverables:
+                [Numbered list]
                 Team of Experts:
                 [Description of the ideal team of experts]
-                """
+            """
 
 
 def get_agent_prompt(rephrased_request):
@@ -625,7 +502,7 @@ def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,te
 
 
 def get_rephrased_user_prompt(user_request):
-    return f"""THis agent is a professional prompt engineer and refactor the following 
+    return f"""Act as a professional prompt engineer and refactor the following 
                 user request into an optimized prompt. This agent's goal is to rephrase the request 
                 with a focus on the satisfying all following the criteria without explicitly stating them:
         1. Clarity: Ensure the prompt is clear and unambiguous.
@@ -637,6 +514,16 @@ def get_rephrased_user_prompt(user_request):
         7. Constraints: Define any limits or guidelines.
         8. Engagement: Make the prompt engaging and interesting.
         9. Feedback Mechanism: Suggest a way to improve or iterate on the response.
+
+        Apply introspection and reasoning to reconsider your own prompt[s] to:
+        Clarify ambiguities
+        Break down complex tasks
+        Provide essential context
+        Structure logically
+        Use precise, concise language
+        Include relevant examples
+        Specify constraints
+
         Do NOT reply with a direct response to these instructions OR the original user request. Instead, rephrase the user's request as a well-structured prompt, and
         return ONLY that rephrased prompt. Do not preface the rephrased prompt with any other text or superfluous narrative.
         Do not enclose the rephrased prompt in quotes. This agent will be successful only if it returns a well-formed rephrased prompt ready for submission as an LLM request.
@@ -655,12 +542,13 @@ import argparse
 import datetime
 import json
 import os
+import streamlit as st
 import sys
 
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS
 from prompts import get_agent_prompt
 from utils.api_utils import get_llm_provider
 from utils.agent_utils import create_agent_data
@@ -681,7 +569,7 @@ def create_agent(request, provider, model, temperature, max_tokens, output_file)
     # Make the request to the LLM API
     llm_request_data = {
         "model": model,
-        "temperature": temperature,
+        "temperature": st.session_state.temperature,
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": prompt}],
     }
@@ -774,7 +662,7 @@ import sys
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
+from configs.config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.ui_utils import rephrase_prompt
@@ -812,13 +700,295 @@ if __name__ == "__main__":
 
 ```
 
-# AutoGroq\llm_providers\base_provider.py
+# AutoGroq\configs\config.py
+
+```python
+# configs/config.py:
+
+import os
+
+# Get user home directory
+home_dir = os.path.expanduser("~")
+default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
+
+# Debug
+DEFAULT_DEBUG = False
+
+# Default configurations
+DEFAULT_LLM_PROVIDER = "anthropic" # Supported values: "anthropic", "groq", "openai", "ollama", "lmstudio", "fireworks"
+DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+DEFAULT_LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
+DEFAULT_OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
+DEFAULT_OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+DEFAULT_ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+
+# Try to import user-specific configurations from config_local.py
+try:
+    from config_local import *
+except ImportError:
+    pass
+
+# Set the configurations using the user-specific values if available, otherwise use the defaults
+DEBUG = locals().get('DEBUG', DEFAULT_DEBUG)
+
+LLM_PROVIDER = locals().get('LLM_PROVIDER', DEFAULT_LLM_PROVIDER)
+
+GROQ_API_URL = locals().get('GROQ_API_URL', DEFAULT_GROQ_API_URL)
+LMSTUDIO_API_URL = locals().get('LMSTUDIO_API_URL', DEFAULT_LMSTUDIO_API_URL)
+OLLAMA_API_URL = locals().get('OLLAMA_API_URL', DEFAULT_OLLAMA_API_URL)
+OPENAI_API_URL = locals().get('OPENAI_API_URL', DEFAULT_OPENAI_API_URL)
+ANTHROPIC_API_URL = locals().get('ANTHROPIC_API_URL', DEFAULT_ANTHROPIC_API_URL)
+
+API_KEY_NAMES = {
+    "groq": "GROQ_API_KEY",
+    "lmstudio": None,
+    "ollama": None,
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
+
+# Retry settings
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # in seconds
+RETRY_TOKEN_LIMIT = 5000
+
+# Model configurations
+if LLM_PROVIDER == "groq":
+    API_URL = GROQ_API_URL
+    MODEL_TOKEN_LIMITS = {
+        'mixtral-8x7b-32768': 32768,
+        'llama3-70b-8192': 8192,
+        'llama3-8b-8192': 8192,
+        'gemma-7b-it': 8192,
+    }
+elif LLM_PROVIDER == "lmstudio":
+    API_URL = LMSTUDIO_API_URL
+    MODEL_TOKEN_LIMITS = {
+        'instructlab/granite-7b-lab-GGUF': 2048,
+        'MaziyarPanahi/Codestral-22B-v0.1-GGUF': 32768,
+    } 
+elif LLM_PROVIDER == "openai":
+    API_URL = OPENAI_API_URL
+    MODEL_TOKEN_LIMITS = {
+        'gpt-4o': 4096,
+    }
+elif LLM_PROVIDER == "ollama":
+    API_URL = OLLAMA_API_URL
+    MODEL_TOKEN_LIMITS = {
+        'llama3': 8192,
+    }
+elif LLM_PROVIDER == "anthropic":
+    API_URL = ANTHROPIC_API_URL
+    MODEL_TOKEN_LIMITS = {
+        "claude-3-5-sonnet-20240620": 200000, 
+        "claude-3-opus-20240229": 200000,
+        "claude-3-sonnet-20240229": 200000,
+        "claude-3-haiku-20240307": 200000,
+        "claude-2.1": 100000,
+        "claude-2.0": 100000,
+        "claude-instant-1.2": 100000,
+    }
+else:
+    API_URL = None
+    MODEL_TOKEN_LIMITS = {}
+
+# Database path
+FRAMEWORK_DB_PATH = os.environ.get('FRAMEWORK_DB_PATH', default_db_path)
+
+MODEL_CHOICES = {
+    "anthropic": {
+        "claude-3-5-sonnet-20240620": 200000,
+        "claude-3-opus-20240229": 200000,
+        "claude-3-sonnet-20240229": 200000,
+        "claude-3-haiku-20240307": 200000,
+        "claude-2.1": 100000,
+        "claude-2.0": 100000,
+        "claude-instant-1.2": 100000,
+    },
+    "groq": {
+        "mixtral-8x7b-32768": 32768,
+        "llama3-70b-8192": 8192,
+        "llama3-8b-8192": 8192,
+        "gemma-7b-it": 8192,
+    },
+    "openai": {
+        "gpt-4": 8192,
+        "gpt-3.5-turbo": 4096,
+    },
+    "fireworks": {
+        "fireworks": 4096,
+    },
+    "ollama": {
+        "llama3": 8192,
+    },
+    "lmstudio": {
+        "instructlab/granite-7b-lab-GGUF": 2048,
+        "MaziyarPanahi/Codestral-22B-v0.1-GGUF": 32768,
+    },
+}
+
+SUPPORTED_PROVIDERS = ["anthropic", "fireworks", "groq", "lmstudio", "ollama", "openai"]    
+```
+
+# AutoGroq\configs\config_local.py
+
+```python
+# User-specific configurations
+
+LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+LMSTUDIO_API_URL = "http://localhost:1234/v1/chat/completions"
+OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
+# OPENAI_API_KEY = "your_openai_api_key"
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+
+DEBUG = True
+
+RETRY_DELAY = 2
+```
+
+# AutoGroq\configs\config_sessions.py
+
+```python
+# config_sessions.py
+
+from datetime import datetime
+from typing import Dict
+
+DEFAULT_AGENT_CONFIG: Dict = {
+    "name": "Default Agent",
+    "description": "A default agent for initialization purposes in AutoGroq",
+    "tools": [],  # Empty list as default
+    "config": {
+        "llm_config": {
+            "config_list": [
+                {
+                    "model": "default",
+                    "api_key": None,
+                    "base_url": None,
+                    "api_type": None,
+                    "api_version": None,
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "top_p": 1.0,
+            "frequency_penalty": 0.0,
+            "presence_penalty": 0.0,
+        },
+        "human_input_mode": "NEVER",
+        "max_consecutive_auto_reply": 10,
+    },
+    "role": "Default Assistant",
+    "goal": "Assist users with general tasks in AutoGroq",
+    "backstory": "I am a default AI assistant created to help initialize the AutoGroq system.",
+    "id": None,  # Will be set dynamically when needed
+    "created_at": datetime.now().isoformat(),
+    "updated_at": datetime.now().isoformat(),
+    "user_id": "default_user",
+    "workflows": None,
+    "type": "assistant",
+    "models": [],  # Empty list as default
+    "verbose": False,
+    "allow_delegation": True,
+    "new_description": None,
+    "timestamp": datetime.now().isoformat(),
+    "is_termination_msg": None,
+    "code_execution_config": {
+        "work_dir": "./agent_workspace",
+        "use_docker": False,
+    },
+    "llm": None,
+    "function_calling_llm": None,
+    "max_iter": 25,
+    "max_rpm": None,
+    "max_execution_time": 600,  # 10 minutes default
+    "step_callback": None,
+    "cache": True
+}
+```
+
+# AutoGroq\configs\current_project.py
 
 ```python
 
+class Current_Project:
+    def __init__(self):
+        self.deliverables = []
+        self.re_engineered_prompt = ""
+
+    def add_deliverable(self, deliverable):
+        self.deliverables.append({"text": deliverable, "done": False})
+
+
+    def mark_deliverable_done(self, index):
+        if 0 <= index < len(self.deliverables):
+            self.deliverables[index]["done"] = True
+
+
+    def mark_deliverable_undone(self, index):
+        if 0 <= index < len(self.deliverables):
+            self.deliverables[index]["done"] = False
+
+
+    def set_re_engineered_prompt(self, prompt):
+        self.re_engineered_prompt = prompt
+
+```
+
+# AutoGroq\llm_providers\anthropic_provider.py
+
+```python
+# llm_providers/anthropic_provider.py
+
+import anthropic
+import streamlit as st
+
+from llm_providers.base_provider import BaseLLMProvider
+
+class AnthropicProvider(BaseLLMProvider):
+    def __init__(self, api_key, api_url=None):
+        self.client = anthropic.Anthropic(api_key=api_key)
+        self.api_url = api_url 
+
+    def send_request(self, data):
+        try:
+            response = self.client.messages.create(
+                model=data['model'],
+                max_tokens=data.get('max_tokens', 1000),
+                temperature=data.get('temperature', st.session_state.temperature),
+                messages=data['messages']
+            )
+            return response
+        except anthropic.APIError as e:
+            print(f"Anthropic API error: {e}")
+            return None
+
+    def process_response(self, response):
+        if response is not None:
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": response.content[0].text
+                        }
+                    }
+                ]
+            }
+        return None
+```
+
+# AutoGroq\llm_providers\base_provider.py
+
+```python
 from abc import ABC, abstractmethod
 
 class BaseLLMProvider(ABC):
+    @abstractmethod
+    def __init__(self, api_key, api_url=None):
+        pass
+
     @abstractmethod
     def send_request(self, data):
         pass
@@ -826,7 +996,6 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def process_response(self, response):
         pass
-    
 ```
 
 # AutoGroq\llm_providers\fireworks_provider.py
@@ -944,7 +1113,7 @@ class LmstudioProvider(BaseLLMProvider):
         lm_studio_request_data = {
             "model": data["model"],
             "messages": data["messages"],
-            "temperature": data.get("temperature", 0.1),
+            "temperature": st.session_state.temperature,
             "max_tokens": data.get("max_tokens", 2048),
             "stop": data.get("stop", "TERMINATE"),
         }
@@ -965,6 +1134,7 @@ class LmstudioProvider(BaseLLMProvider):
 ```python
 import json
 import requests
+import streamlit as st
 
 from llm_providers.base_provider import BaseLLMProvider
 
@@ -1002,7 +1172,7 @@ class OllamaProvider(BaseLLMProvider):
         ollama_request_data = {
             "model": data["model"],
             "prompt": data["messages"][0]["content"],
-            "temperature": data.get("temperature", 0.1),
+            "temperature": st.session_state.temperature,
             "max_tokens": data.get("max_tokens", 2048),
             "stop": data.get("stop", "TERMINATE"),
             "stream": False,
@@ -1349,7 +1519,7 @@ class ToolBaseModel:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict):
+    def from_dict(cls, data: Dict):     
         return cls(
             id=data.get("id"),
             name=data.get("name", ""),  # Default to empty string if 'name' is missing
@@ -1370,7 +1540,6 @@ class ToolBaseModel:
 # AutoGroq\models\workflow_base_model.py
 
 ```python
-
 from typing import List, Dict, Optional
 from models.agent_base_model import AgentBaseModel
 
@@ -1388,6 +1557,25 @@ class Sender:
         self.timestamp = timestamp
         self.user_id = user_id
         self.tools = tools
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "config": self.config,
+            "timestamp": self.timestamp,
+            "user_id": self.user_id,
+            "tools": self.tools,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            type=data["type"],
+            config=data["config"],
+            timestamp=data["timestamp"],
+            user_id=data["user_id"],
+            tools=data["tools"],
+        )
 
 class Receiver:
     def __init__(
@@ -1408,12 +1596,35 @@ class Receiver:
         self.tools = tools
         self.agents = agents
 
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "config": self.config,
+            "groupchat_config": self.groupchat_config,
+            "timestamp": self.timestamp,
+            "user_id": self.user_id,
+            "tools": self.tools,
+            "agents": [agent.to_dict() for agent in self.agents],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        return cls(
+            type=data["type"],
+            config=data["config"],
+            groupchat_config=data["groupchat_config"],
+            timestamp=data["timestamp"],
+            user_id=data["user_id"],
+            tools=data["tools"],
+            agents=[AgentBaseModel.from_dict(agent) for agent in data.get("agents", [])],
+        )
+
 class WorkflowBaseModel:
     def __init__(
         self,
         name: str,
         description: str,
-        agents: List[Dict],
+        agents: List[AgentBaseModel],
         sender: Sender,
         receiver: Receiver,
         type: str,
@@ -1429,7 +1640,7 @@ class WorkflowBaseModel:
         self.id = id
         self.name = name
         self.description = description
-        self.agents = [AgentBaseModel(**agent) for agent in agents] 
+        self.agents = agents
         self.sender = sender
         self.receiver = receiver
         self.type = type
@@ -1447,59 +1658,35 @@ class WorkflowBaseModel:
             "name": self.name,
             "description": self.description,
             "agents": [agent.to_dict() for agent in self.agents],
-            "sender": {
-                "type": self.sender.type,
-                "config": self.sender.config,
-                "timestamp": self.sender.timestamp,
-                "user_id": self.sender.user_id,
-                "tools": self.sender.tools,
-            },
-            "receiver": {
-                "type": self.receiver.type,
-                "config": self.receiver.config,
-                "groupchat_config": self.receiver.groupchat_config,
-                "timestamp": self.receiver.timestamp,
-                "user_id": self.receiver.user_id,
-                "tools": self.receiver.tools,
-                "agents": [agent.to_dict() for agent in self.receiver.agents],
-            },
+            "sender": self.sender.to_dict(),
+            "receiver": self.receiver.to_dict(),
             "type": self.type,
             "user_id": self.user_id,
             "timestamp": self.timestamp,
             "summary_method": self.summary_method,
+            "settings": self.settings,
+            "groupchat_config": self.groupchat_config,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
 
     @classmethod
     def from_dict(cls, data: Dict):
-        sender = Sender(
-            type=data["sender"]["type"],
-            config=data["sender"]["config"],
-            timestamp=data["sender"]["timestamp"],
-            user_id=data["sender"]["user_id"],
-            tools=data["sender"]["tools"],
-        )
-        receiver = Receiver(
-            type=data["receiver"]["type"],
-            config=data["receiver"]["config"],
-            groupchat_config=data["receiver"]["groupchat_config"],
-            timestamp=data["receiver"]["timestamp"],
-            user_id=data["receiver"]["user_id"],
-            tools=data["receiver"]["tools"],
-            agents=[AgentBaseModel.from_dict(agent) for agent in data["receiver"].get("agents", [])],
-        )
+        sender = Sender.from_dict(data["sender"])
+        receiver = Receiver.from_dict(data["receiver"])
         return cls(
             id=data.get("id"),
             name=data["name"],
             description=data["description"],
-            agents=data.get("agents", []),
+            agents=[AgentBaseModel.from_dict(agent) for agent in data.get("agents", [])],
             sender=sender,
             receiver=receiver,
             type=data["type"],
             user_id=data["user_id"],
             timestamp=data["timestamp"],
             summary_method=data["summary_method"],
+            settings=data.get("settings", {}),
+            groupchat_config=data.get("groupchat_config", {}),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
@@ -1978,37 +2165,6 @@ if __name__ == "__main__":
 #     target_length = 256  # Target length of expanded content
 #     results = retriever(query, size, target_length)
 #     print(results)
-```
-
-# AutoGroq\tools\execute_powershell_command.py
-
-```python
-# Thanks to aj47:  https://github.com/aj47 
-
-import subprocess
-
-def execute_powershell_command(command):
-    """
-    Execute a command in PowerShell from Python.
-    
-    :param command: The PowerShell command to execute as a string.
-    :return: The output of the command as a string.
-    """
-    # Ensure the command is executed in PowerShell
-    cmd = ['powershell', '-Command', command]
-    
-    # Execute the command and capture the output
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        return f"An error occurred: {e.stderr}"
-
-# Example usage
-# if __name__ == "__main__":
-    command = "Get-Date"  # Example command to get the current date and time
-    output = execute_powershell_command(command)
-    print(output)
 ```
 
 # AutoGroq\tools\fetch_web_content.py
@@ -2646,7 +2802,7 @@ def save_webpage_as_text(url, output_filename):
 import datetime
 import streamlit as st
 
-from config import MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS
 from utils.text_utils import sanitize_text
 
 
@@ -2679,7 +2835,7 @@ def create_agent_data(agent):
                         "description": "OpenAI model configuration"
                     }
                 ],
-                "temperature": temperature_value,
+                "temperature": st.session_state.temperature,
                 "cache_seed": None,
                 "timeout": None,
                 "max_tokens": None,
@@ -2725,27 +2881,56 @@ def create_agent_data(agent):
 # AutoGroq\utils\api_utils.py
 
 ```python
+# utils/api_utils.py
 
 import importlib
+import os
 import requests
 import streamlit as st
 import time
 
-from config import API_URL, LLM_PROVIDER, RETRY_TOKEN_LIMIT
+from configs.config import API_URL, LLM_PROVIDER, RETRY_DELAY, RETRY_TOKEN_LIMIT, SUPPORTED_PROVIDERS
+
+
+def display_api_key_input(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key_env_var = f"{provider.upper()}_API_KEY"
+    api_key = os.environ.get(api_key_env_var)
+    
+    if api_key is None:
+        st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key.")
+        api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
+        if api_key:
+            st.session_state[api_key_env_var] = api_key
+            os.environ[api_key_env_var] = api_key
+            st.success(f"{provider.upper()} API Key entered successfully.")
+            st.session_state.warning_placeholder.empty()
+    return api_key
+
+
+def get_api_key(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key_env_var = f"{provider.upper()}_API_KEY"
+    api_key = os.environ.get(api_key_env_var)
+    if api_key is None:
+        api_key = st.session_state.get(api_key_env_var)
+    return api_key
 
 
 def get_llm_provider(api_key=None, api_url=None, provider=None):
     if provider is None:
-        provider = LLM_PROVIDER
+        provider = st.session_state.get('provider', LLM_PROVIDER)
     provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
     provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
-        api_url = API_URL
+        api_url = st.session_state.get('api_url')
     return provider_class(api_url=api_url, api_key=api_key)
 
 
 def make_api_request(url, data, headers, api_key):
-    time.sleep(2)  # Throttle the request to ensure at least 2 seconds between calls
+    time.sleep(RETRY_DELAY)  # Throttle the request to ensure at least 2 seconds between calls
     try:
         if not api_key:
             llm = LLM_PROVIDER.upper()
@@ -2796,6 +2981,9 @@ def set_llm_provider_title():
         st.title("Auto̶G̶r̶o̶qLM_Studio")
     elif LLM_PROVIDER == "openai":
         st.title("Auto̶G̶r̶o̶qChatGPT")
+    elif LLM_PROVIDER == "anthropic":
+        st.title("Auto̶G̶r̶o̶qClaude")
+
 
 ```
 
@@ -2806,15 +2994,22 @@ def set_llm_provider_title():
 import os
 import streamlit as st
 
-from config import LLM_PROVIDER
+from configs.config import LLM_PROVIDER
+from utils.api_utils import display_api_key_input
 
+        
+def check_api_key(provider=None):
+    # Ensure we have a warning placeholder
+    if 'warning_placeholder' not in st.session_state:
+        st.session_state.warning_placeholder = st.empty()
 
-def get_api_key():
-    api_key_env_var = f"{LLM_PROVIDER.upper()}_API_KEY"
-    api_key = os.environ.get(api_key_env_var)
-    if api_key is None:
-        api_key = st.session_state.get(api_key_env_var)
-    return api_key
+    # Check for API key of the default provider on initial load
+    if 'initial_api_check' not in st.session_state:
+        st.session_state.initial_api_check = True
+        default_provider = st.session_state.get('provider', LLM_PROVIDER)
+        if not check_api_key(default_provider):
+            display_api_key_input(default_provider)
+    return True
 
 
 def get_api_url():
@@ -2847,7 +3042,7 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text
@@ -2906,8 +3101,8 @@ def export_data(db_path):
                 print(f"Inserted agent: {formatted_agent_name}")
 
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            skill_folder = os.path.join(project_root, "skills")
-            for tool_name in st.session_state.selected_skills:
+            skill_folder = os.path.join(project_root, "tools")
+            for tool_name in st.session_state.selected_tools:
                 if tool_name not in inserted_skills:
                     skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
                     with open(skill_file_path, 'r') as file:
@@ -3033,6 +3228,7 @@ def sql_to_db(sql: str, params: tuple = None):
 #             columns = [column[0] for column in cursor.description]
 #             return dict(zip(columns, row))
 #     return None
+
 ```
 
 # AutoGroq\utils\file_utils.py
@@ -3045,7 +3241,7 @@ import json
 import streamlit as st
 import zipfile
 
-from config import MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS
 
 from utils.agent_utils import create_agent_data
 from utils.text_utils import sanitize_text
@@ -3172,19 +3368,35 @@ def zip_files_in_memory(workflow_data):
 
 import streamlit as st
 
+from configs.config import LLM_PROVIDER, SUPPORTED_PROVIDERS
+from configs.config_sessions import DEFAULT_AGENT_CONFIG
+from configs.current_project import Current_Project
 from datetime import datetime
+from models.agent_base_model import AgentBaseModel
 from models.project_base_model import ProjectBaseModel
 from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
-from current_project import Current_Project
 
+
+def create_default_agent():
+    return AgentBaseModel(**DEFAULT_AGENT_CONFIG)
 
 def initialize_session_variables():
+
+    if "agent_model" not in st.session_state:
+        st.session_state.agent_model = create_default_agent()
+
+    if "agent_models" not in st.session_state:
+        st.session_state.agent_models = []
+
     if "agents" not in st.session_state:
         st.session_state.agents = []
 
     if "api_key" not in st.session_state:
         st.session_state.api_key = ""
+
+    if "api_url" not in st.session_state:
+        st.session_state.api_url = None
 
     if "autogen_zip_buffer" not in st.session_state:
         st.session_state.autogen_zip_buffer = None
@@ -3210,15 +3422,14 @@ def initialize_session_variables():
     if "model" not in st.session_state:
         st.session_state.model = "default"
 
+    if "previous_user_request" not in st.session_state:
+        st.session_state.previous_user_request = ""        
+
     if "project_model" not in st.session_state:
         st.session_state.project_model = ProjectBaseModel()
 
-    if "previous_user_request" not in st.session_state:
-        st.session_state.previous_user_request = ""
-
-#    if "project_manager_output" not in st.session_state:
-#        st.session_state.project_manager_output = ""
-
+    if "provider" not in st.session_state:
+        st.session_state.provider = LLM_PROVIDER
 
     if "reference_html" not in st.session_state:
         st.session_state.reference_html = {}
@@ -3234,6 +3445,9 @@ def initialize_session_variables():
 
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True
+
+    if "temperature_slider" not in st.session_state:
+        st.session_state.temperature_slider = 0.3
 
     if "tool_model" not in st.session_state:
         st.session_state.tool_model = ToolBaseModel(
@@ -3298,6 +3512,10 @@ def initialize_session_variables():
             timestamp=datetime.now(),
             summary_method=""
         )
+
+    for provider in SUPPORTED_PROVIDERS:
+        if f"{provider.upper()}_API_URL" not in st.session_state:
+            st.session_state[f"{provider.upper()}_API_URL"] = None
 ```
 
 # AutoGroq\utils\text_utils.py
@@ -3325,10 +3543,10 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import FRAMEWORK_DB_PATH
+from configs.config import FRAMEWORK_DB_PATH
 from models.tool_base_model import ToolBaseModel
 from prompts import get_generate_tool_prompt
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key
 from utils.db_utils import sql_to_db
 from utils.file_utils import regenerate_zip_files
 from utils.ui_utils import get_llm_provider
@@ -3391,7 +3609,7 @@ def generate_tool(rephrased_tool_request):
     top_p_value = st.session_state.get('top_p', 1)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": max_tokens_value,
         "top_p": top_p_value,
         "stop": "TERMINATE",
@@ -3481,6 +3699,7 @@ def populate_tool_models():
             tool_models.append(tool_model)
 
     st.session_state.tool_models = tool_models
+    st.session_state.project_model.tools = tool_models
     
 
 def process_tool_request():
@@ -3540,7 +3759,7 @@ def rephrase_tool(tool_request):
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -3567,6 +3786,12 @@ def rephrase_tool(tool_request):
             print(f"Debug: Rephrased tool: {rephrased}")
             return rephrased
     return None                
+
+
+def save_tool(tool_name, edited_tool):
+    with open(f"{tool_name}.py", "w") as f:
+        f.write(edited_tool)
+    st.success(f"tool {tool_name} saved successfully!")
 
 
 def show_tools():
@@ -3621,26 +3846,23 @@ def show_tools():
 
 ```python
 import datetime
-import io
 import json
 import os
 import pandas as pd
 import re
 import streamlit as st
 import time
-import zipfile
 
-from config import API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY
+from configs.config import (API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, 
+        MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY, SUPPORTED_PROVIDERS)
 
-from current_project import Current_Project
-from datetime import date
+from configs.current_project import Current_Project
 from models.agent_base_model import AgentBaseModel
-from models.tool_base_model import ToolBaseModel
 from models.workflow_base_model import WorkflowBaseModel
 from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt  
 from tools.fetch_web_content import fetch_web_content
-from utils.api_utils import get_llm_provider
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key, get_llm_provider
+from utils.auth_utils import check_api_key, display_api_key_input
 from utils.db_utils import export_to_autogen
 from utils.file_utils import zip_files_in_memory
 from utils.workflow_utils import get_workflow_from_agents
@@ -3652,7 +3874,7 @@ def create_project_manager(rephrased_text, api_url):
     temperature_value = st.session_state.get('temperature', 0.1)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -3677,13 +3899,13 @@ def create_project_manager(rephrased_text, api_url):
     return None
 
 
-def display_api_key_input():
-    llm = LLM_PROVIDER.upper()
-    api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value="", key="api_key_input")
-    if api_key:
-        st.session_state[f"{LLM_PROVIDER.upper()}_API_KEY"] = api_key
-        st.success("API Key entered successfully.")
-    return api_key
+# def display_api_key_input():
+#     llm = LLM_PROVIDER.upper()
+#     api_key = st.text_input(f"Enter your {llm}_API_KEY:", type="password", value="", key="api_key_input")
+#     if api_key:
+#         st.session_state[f"{LLM_PROVIDER.upper()}_API_KEY"] = api_key
+#         st.success("API Key entered successfully.")
+#     return api_key
 
 
 def display_discussion_and_whiteboard():
@@ -3739,7 +3961,16 @@ def display_discussion_and_whiteboard():
                     st.write("Notes:", project_model.notes)
                     st.write("Collaborators:", project_model.collaborators)
                     st.write("Workflows:", project_model.workflows)
-                    st.write("Tools:", project_model.tools)
+                    if project_model.tools:
+                        st.write("Tools:")
+                        for tool in project_model.tools:
+                            substring = "init"
+                            if not substring in tool.name:
+                                st.write(f"- {tool.name}")
+                                st.code(tool.content, language="python")
+                    else:
+                        st.write("Tools: []")
+                    
 
             if "project_model" in st.session_state and st.session_state.project_model.workflows:
                 workflow_data = st.session_state.project_model.workflows[0]
@@ -3760,31 +3991,29 @@ def display_discussion_and_whiteboard():
                     st.write("User ID:", workflow.user_id)
                     st.write("Type:", workflow.type)
                     st.write("Summary Method:", workflow.summary_method)
-                    st.write("Sender:", workflow.sender)
-                    st.write("Receiver:", workflow.receiver)
-                    st.write("Groupchat Config:", workflow.groupchat_config)
+                    
+                    # Display sender details
+                    st.write("Sender:")
+                    st.write("- Type:", workflow.sender.type)
+                    st.write("- Config:", workflow.sender.config)
+                    st.write("- Timestamp:", workflow.sender.timestamp)
+                    st.write("- User ID:", workflow.sender.user_id)
+                    st.write("- Tools:", workflow.sender.tools)
+                    
+                    # Display receiver details
+                    st.write("Receiver:")
+                    st.write("- Type:", workflow.receiver.type)
+                    st.write("- Config:", workflow.receiver.config)
+                    st.write("- Groupchat Config:", workflow.receiver.groupchat_config)
+                    st.write("- Timestamp:", workflow.receiver.timestamp)
+                    st.write("- User ID:", workflow.receiver.user_id)
+                    st.write("- Tools:", workflow.receiver.tools)
+                    st.write("- Agents:", [agent.to_dict() for agent in workflow.receiver.agents])
+                    
                     st.write("Timestamp:", workflow.timestamp)
             else:
                 st.warning("No workflow data available.")
             
-            if "project_model" in st.session_state and st.session_state.project_model.tools:    
-                # show tools
-                tool_data = st.session_state.project_model.tools[0]
-                tool = ToolBaseModel.from_dict({**tool_data, 'config': tool_data.get('config', {})})
-                with st.expander("Tool Details"):
-                    st.write("ID:", tool.id)
-                    st.write("Name:", tool.name)
-                    st.write("Description:", tool.description)
-                    st.write("Settings:", tool.settings)
-                    st.write("Created At:", tool.created_at)
-                    st.write("Updated At:", tool.updated_at)
-                    st.write("User ID:", tool.user_id)
-                    st.write("Type:", tool.type)
-                    st.write("Config:", tool.config)
-            else:
-                st.warning("No tool data available.")
-
-
 
             if "agents" in st.session_state:
                 with st.expander("Agent Details"):
@@ -3816,32 +4045,40 @@ def display_discussion_and_whiteboard():
                         st.write("Timestamp:", agent.get('timestamp'))
             else:
                 st.warning("No agent data available.")
-            
-            if "tool" in st.session_state:
+
+            if len(st.session_state.tool_models) > 0:
                 with st.expander("Tool Details"):
-                    tool_names = ["Select one..."] + [tool.get('name', f"Tool {index + 1}") for index, tool in enumerate(st.session_state.tools)]
+                    tool_names = ["Select one..."] + [tool.name for tool in st.session_state.tool_models]
                     selected_tool = st.selectbox("Select a tool:", tool_names)
 
                     if selected_tool != "Select one...":
                         tool_index = tool_names.index(selected_tool) - 1
-                        tool = st.session_state.tools[tool_index]
+                        tool = st.session_state.tool_models[tool_index]
+                        
+                        st.subheader(selected_tool)
+                        
+                        # Display tool details in a more visually appealing way
+                        col1, col2 = st.columns(RETRY_DELAY)
+                        
+                        with col1:
+                            st.markdown(f"**ID:** {tool.id}")
+                            st.markdown(f"**Name:** {tool.name}")
+                            st.markdown(f"**Created At:** {tool.created_at}")
+                            st.markdown(f"**Updated At:** {tool.updated_at}")
+                            st.markdown(f"**User ID:** {tool.user_id}")
+                        
+                        with col2:
+                            st.markdown(f"**Secrets:** {tool.secrets}")
+                            st.markdown(f"**Libraries:** {tool.libraries}")
+                            st.markdown(f"**File Name:** {tool.file_name}")
+                            st.markdown(f"**Timestamp:** {tool.timestamp}")
+                            st.markdown(f"**Title:** {tool.title}")
 
-                        if isinstance(tool, dict):
-                            st.subheader(selected_tool)
-                            st.write("ID:", tool.get('id'))
-                            st.write("Name:", tool.get('name'))
-                            st.write("Description:", tool.get('description'))
-                            st.write("Created At:", tool.get('created_at'))
-                            st.write("Updated At:", tool.get('updated_at'))
-                            st.write("User ID:", tool.get('user_id'))
-                            st.markdown(tool.get('content', ''))  # Display content as markdown
-                            st.write("Secrets:", tool.get('secrets'))
-                            st.write("Libraries:", tool.get('libraries'))
-                            st.write("File Name:", tool.get('file_name'))
-                            st.write("Timestamp:", tool.get('timestamp'))
-                            st.write("Title:", tool.get('title'))
-                        else:
-                            st.warning(f"{selected_tool} is not a dictionary.")
+                        st.markdown(f"**Description:** {tool.description}")
+                        
+                        # Display the tool's content in a code block
+                        st.markdown("**Content:**")
+                        st.code(tool.content, language="python")
             else:
                 st.warning("No tool data available.")
 
@@ -3852,7 +4089,7 @@ def display_discussion_and_whiteboard():
                             
 
 def display_download_button():
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(RETRY_DELAY)
     with col1:
         st.download_button(
             label="Download Autogen Files",
@@ -3910,7 +4147,7 @@ def display_user_input():
 
 
 def display_reset_and_upload_buttons():
-    col1, col2 = st.columns(2)  
+    col1, col2 = st.columns(RETRY_DELAY)  
     with col1:
         if st.button("Reset", key="reset_button"):
             # Define the keys of session state variables to clear
@@ -4003,12 +4240,12 @@ def extract_json_objects(json_string):
     return parsed_objects
                 
 
-def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
+def get_agents_from_text(text, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):     
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": temperature_value,
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -4075,7 +4312,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": temperature_value,
+                                            "temperature": st.session_state.temperature,
                                             "cache_seed": 42,
                                             "timeout": 600,
                                             "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
@@ -4147,7 +4384,7 @@ def get_agents_from_text(text, api_url, max_retries=MAX_RETRIES, retry_delay=RET
                                                     "description": "OpenAI model configuration"
                                                 }
                                             ],
-                                            "temperature": temperature_value,
+                                            "temperature": st.session_state.temperature,
                                             "timeout": 600,
                                             "cache_seed": 42
                                         },
@@ -4286,7 +4523,7 @@ def handle_user_request(session_state):
             break
 
     if team_of_experts_text:
-        autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text, API_URL)
+        autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text)
 
         print(f"Debug: AutoGen Agents: {autogen_agents}")
         print(f"Debug: CrewAI Agents: {crewai_agents}")
@@ -4340,14 +4577,18 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
     if llm_provider is None:
         # Use the existing functionality for non-CLI calls
         api_key = get_api_key()
-        llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+        try:
+            llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+        except Exception as e:
+            print(f"Error initializing LLM provider: {str(e)}")
+            return None
 
     if max_tokens is None:
         max_tokens = MODEL_TOKEN_LIMITS.get(model, 4096)
 
     llm_request_data = {
         "model": model,
-        "temperature": 0.1,
+        "temperature": st.session_state.temperature,
         "max_tokens": max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -4392,21 +4633,56 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
         return None
 
 
-def save_tool(tool_name, edited_tool):
-    with open(f"{tool_name}.py", "w") as f:
-        f.write(edited_tool)
-    st.success(f"tool {tool_name} saved successfully!")
-
-
 def select_model():
+    provider = st.session_state.get('provider', LLM_PROVIDER)
+    provider_models = MODEL_CHOICES[provider]
+    
+    if 'model' not in st.session_state or st.session_state.model not in provider_models:
+        default_model = next(iter(provider_models))
+    else:
+        default_model = st.session_state.model
+    
     selected_model = st.selectbox(
-            'Select Model',
-            options=list(MODEL_TOKEN_LIMITS.keys()),
-            index=0,
-            key='model_selection'
-        )
+        'Select Model',
+        options=list(provider_models.keys()),
+        index=list(provider_models.keys()).index(default_model),
+        key='model_selection'
+    )
+    
     st.session_state.model = selected_model
-    st.session_state.max_tokens = MODEL_TOKEN_LIMITS[selected_model]
+    st.session_state.max_tokens = provider_models[selected_model]
+    
+    return selected_model
+
+
+def select_provider():
+    selected_provider = st.selectbox(
+        'Select Provider',
+        options=SUPPORTED_PROVIDERS,
+        index=SUPPORTED_PROVIDERS.index(st.session_state.get('provider', LLM_PROVIDER)),
+        key='provider_selection'
+    )
+    
+    if selected_provider != st.session_state.get('provider'):
+        st.session_state.provider = selected_provider
+        update_api_url(selected_provider)
+        
+        # Clear any existing warnings
+        st.session_state.warning_placeholder.empty()
+        
+        # Check for API key and prompt if not found
+        api_key = get_api_key(selected_provider)
+        if api_key is None:
+            display_api_key_input(selected_provider)
+        
+        # Clear the model selection when changing providers
+        if 'model' in st.session_state:
+            del st.session_state.model
+        
+        # Trigger a rerun to update the UI
+        st.experimental_rerun()
+    
+    return selected_provider
 
 
 def set_css():
@@ -4421,14 +4697,22 @@ def set_css():
 
 
 def set_temperature():
-    temperature = st.slider(
-            "Set Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=st.session_state.get('temperature', 0.3),
-            step=0.01,
-            key='temperature'
-        )
+    def update_temperature(value):
+        st.session_state.temperature = value
+
+    temperature_slider = st.slider(
+        "Set Temperature",
+        min_value=0.0,
+        max_value=1.0,
+        value=st.session_state.get('temperature', 0.3),
+        step=0.01,
+        key='temperature_slider',
+        on_change=update_temperature,
+        args=(st.session_state.temperature_slider,)
+    )
+
+    if 'temperature' not in st.session_state:
+        st.session_state.temperature = temperature_slider
 
 
 def show_interfaces():
@@ -4463,7 +4747,7 @@ def trigger_moderator_agent():
     llm_provider = get_llm_provider(api_key=api_key)
     llm_request_data = {
         "model": st.session_state.model,
-        "temperature": st.session_state.get('temperature', 0.3),
+        "temperature": st.session_state.temperature,
         "max_tokens": st.session_state.max_tokens,
         "top_p": 1,
         "stop": "TERMINATE",
@@ -4491,6 +4775,11 @@ def trigger_moderator_agent():
 def trigger_moderator_agent_if_checked():
     if st.session_state.get("auto_moderate", False):
         trigger_moderator_agent()
+
+
+def update_api_url(provider):
+    api_url_key = f"{provider.upper()}_API_URL"
+    st.session_state.api_url = st.session_state.get(api_url_key)
 
 
 def update_discussion_and_whiteboard(agent_name, response, user_input):
@@ -4537,7 +4826,7 @@ def update_user_input():
 import datetime
 import streamlit as st
 
-from config import MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS
 
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text
@@ -4586,7 +4875,7 @@ def get_workflow_from_agents(agents):
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": temperature_value,
+                    "temperature": st.session_state.temperature,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
@@ -4645,7 +4934,7 @@ def get_workflow_from_agents(agents):
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": temperature_value,
+                    "temperature": st.session_state.temperature,
                     "cache_seed": 42,
                     "timeout": 600,
                     "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),

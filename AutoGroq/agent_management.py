@@ -1,12 +1,13 @@
+# agent_management.py
 
 import base64
 import os
 import re
 import streamlit as st
 
-from config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key
 from utils.ui_utils import get_llm_provider, update_discussion_and_whiteboard
 
 

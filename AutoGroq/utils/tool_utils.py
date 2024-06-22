@@ -7,10 +7,10 @@ import sqlite3
 import streamlit as st
 import uuid
 
-from config import FRAMEWORK_DB_PATH
+from configs.config import FRAMEWORK_DB_PATH
 from models.tool_base_model import ToolBaseModel
 from prompts import get_generate_tool_prompt
-from utils.auth_utils import get_api_key
+from utils.api_utils import get_api_key
 from utils.db_utils import sql_to_db
 from utils.file_utils import regenerate_zip_files
 from utils.ui_utils import get_llm_provider
