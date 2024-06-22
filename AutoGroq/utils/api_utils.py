@@ -42,7 +42,7 @@ def get_llm_provider(api_key=None, api_url=None, provider=None):
     provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
     provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
-        api_url = st.session_state.get('api_url')
+        api_url = st.session_state.get(f'{provider.upper()}_API_URL')
     return provider_class(api_url=api_url, api_key=api_key)
 
 

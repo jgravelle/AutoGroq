@@ -8,7 +8,7 @@ import os
 import re
 import streamlit as st
 
-from configs.config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import LLM_PROVIDER, MODEL_TOKEN_LIMITS, SUPPORTED_PROVIDERS
 
 from utils.api_utils import get_api_key
 from utils.ui_utils import get_llm_provider, get_provider_models, update_discussion_and_whiteboard
@@ -119,8 +119,15 @@ def display_agent_edit_form(agent, edit_index):
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            current_provider = st.session_state.get('provider')
-            provider_models = get_provider_models(current_provider)
+            current_provider = agent['config'].get('provider', st.session_state.get('provider'))
+            selected_provider = st.selectbox(
+                "Provider",
+                options=SUPPORTED_PROVIDERS,
+                index=SUPPORTED_PROVIDERS.index(current_provider),
+                key=f"provider_select_{edit_index}"
+            )
+
+            provider_models = get_provider_models(selected_provider)
             current_model = agent['config']['llm_config']['config_list'][0]['model']
             
             if current_model not in provider_models:
@@ -136,6 +143,7 @@ def display_agent_edit_form(agent, edit_index):
         with col2:
             if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}"):
                 for agent in st.session_state.agents:
+                    agent['config']['provider'] = selected_provider
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
                     agent['config']['llm_config']['max_tokens'] = provider_models[selected_model]
                 st.experimental_rerun()
@@ -159,6 +167,7 @@ def display_agent_edit_form(agent, edit_index):
             if st.button("Save", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
                 agent['description'] = agent.get('new_description', new_description)
+                agent['config']['provider'] = selected_provider
                 
                 if selected_model != 'default':
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
@@ -197,13 +206,14 @@ def download_agent_file(expert_name):
 
 
 def process_agent_interaction(agent_index):
+    agent = st.session_state.agents[agent_index]
     agent_name, description = retrieve_agent_information(agent_index)
     user_request = st.session_state.get('user_request', '')
     user_input = st.session_state.get('user_input', '')
     rephrased_request = st.session_state.get('rephrased_request', '')
     reference_url = st.session_state.get('reference_url', '')
+    
     # Execute associated tools for the agent
-    agent = st.session_state.agents[agent_index]
     agent_tools = agent.get("tools", [])
     tool_results = {}
     for tool_name in agent_tools:
@@ -211,15 +221,20 @@ def process_agent_interaction(agent_index):
             tool_function = st.session_state.tool_functions[tool_name]
             tool_result = tool_function()
             tool_results[tool_name] = tool_result
+    
     request = construct_request(agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results)
     print(f"Request: {request}")
-    # Use the dynamic LLM provider to send the request
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
+    
+    # Use the agent-specific provider and model
+    provider = agent['config'].get('provider', st.session_state.get('provider', LLM_PROVIDER))
+    model = agent['config']['llm_config']['config_list'][0]['model']
+    api_key = get_api_key(provider)
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+    
     llm_request_data = {
-        "model": st.session_state.model,
+        "model": model,
         "temperature": st.session_state.temperature,
-        "max_tokens": st.session_state.max_tokens,
+        "max_tokens": agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(model, 4096)),
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [
@@ -229,6 +244,7 @@ def process_agent_interaction(agent_index):
             }
         ]
     }
+    print(f"Sending request to {provider} using model {model}")
     response = llm_provider.send_request(llm_request_data)
     if response.status_code == 200:
         response_data = llm_provider.process_response(response)
@@ -238,6 +254,9 @@ def process_agent_interaction(agent_index):
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
             st.session_state['selected_agent_index'] = agent_index
+    else:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
 
 
 def regenerate_agent_description(agent):
@@ -258,12 +277,16 @@ def regenerate_agent_description(agent):
     """
     print(f"regenerate_agent_description called with agent_name: {agent_name}")
     print(f"regenerate_agent_description called with prompt: {prompt}")
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
+    
+    provider = agent['config'].get('provider', st.session_state.get('provider', LLM_PROVIDER))
+    model = agent['config']['llm_config']['config_list'][0]['model']
+    api_key = get_api_key(provider)
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+    
     llm_request_data = {
-        "model": st.session_state.model,
+        "model": model,
         "temperature": st.session_state.temperature,
-        "max_tokens": st.session_state.max_tokens,
+        "max_tokens": agent['config']['llm_config'].get('max_tokens', MODEL_TOKEN_LIMITS.get(model, 4096)),
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [
@@ -825,6 +848,7 @@ MODEL_CHOICES = {
         "gemma-7b-it": 8192,
     },
     "openai": {
+        "gpt-4o": 4096,
         "gpt-4": 8192,
         "gpt-3.5-turbo": 4096,
     },
@@ -2815,37 +2839,37 @@ def save_webpage_as_text(url, output_filename):
 import datetime
 import streamlit as st
 
-from configs.config import MODEL_TOKEN_LIMITS
+from configs.config import LLM_PROVIDER
 from utils.text_utils import sanitize_text
-
-
 
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
-    description = agent['config'].get('description', agent.get('description', ''))  # Get description from config, default to empty string if missing
+    description = agent['config'].get('description', agent.get('description', ''))
     current_timestamp = datetime.datetime.now().isoformat()
+    provider = agent['config'].get('provider', st.session_state.get('provider', LLM_PROVIDER))
 
     formatted_expert_name = sanitize_text(expert_name)
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
 
     sanitized_description = sanitize_text(description)
-    temperature_value = 0.1  # Default value for temperature
 
     autogen_agent_data = {
         "type": "assistant",
         "config": {
             "name": formatted_expert_name,
+            "provider": provider,
             "llm_config": {
                 "config_list": [
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
                         "model": agent['config']['llm_config']['config_list'][0]['model'],
+                        "provider": provider,
                         "base_url": None,
                         "api_type": None,
                         "api_version": None,
-                        "description": "OpenAI model configuration"
+                        "description": f"{provider.capitalize()} model configuration"
                     }
                 ],
                 "temperature": st.session_state.temperature,
@@ -2938,7 +2962,7 @@ def get_llm_provider(api_key=None, api_url=None, provider=None):
     provider_module = importlib.import_module(f"llm_providers.{provider}_provider")
     provider_class = getattr(provider_module, f"{provider.capitalize()}Provider")
     if api_url is None:
-        api_url = st.session_state.get('api_url')
+        api_url = st.session_state.get(f'{provider.upper()}_API_URL')
     return provider_class(api_url=api_url, api_key=api_key)
 
 
