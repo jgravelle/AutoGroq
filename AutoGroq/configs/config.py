@@ -107,6 +107,7 @@ MODEL_CHOICES = {
         "gemma-7b-it": 8192,
     },
     "openai": {
+        "gpt-4o": 4096,
         "gpt-4": 8192,
         "gpt-3.5-turbo": 4096,
     },

@@ -2,37 +2,37 @@
 import datetime
 import streamlit as st
 
-from configs.config import MODEL_TOKEN_LIMITS
+from configs.config import LLM_PROVIDER
 from utils.text_utils import sanitize_text
-
-
 
 
 def create_agent_data(agent):
     expert_name = agent['config']['name']
-    description = agent['config'].get('description', agent.get('description', ''))  # Get description from config, default to empty string if missing
+    description = agent['config'].get('description', agent.get('description', ''))
     current_timestamp = datetime.datetime.now().isoformat()
+    provider = agent['config'].get('provider', st.session_state.get('provider', LLM_PROVIDER))
 
     formatted_expert_name = sanitize_text(expert_name)
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
 
     sanitized_description = sanitize_text(description)
-    temperature_value = 0.1  # Default value for temperature
 
     autogen_agent_data = {
         "type": "assistant",
         "config": {
             "name": formatted_expert_name,
+            "provider": provider,
             "llm_config": {
                 "config_list": [
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
                         "model": agent['config']['llm_config']['config_list'][0]['model'],
+                        "provider": provider,
                         "base_url": None,
                         "api_type": None,
                         "api_version": None,
-                        "description": "OpenAI model configuration"
+                        "description": f"{provider.capitalize()} model configuration"
                     }
                 ],
                 "temperature": st.session_state.temperature,

@@ -5,7 +5,7 @@ import os
 import re
 import streamlit as st
 
-from configs.config import MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import MODEL_TOKEN_LIMITS, SUPPORTED_PROVIDERS
 
 from utils.api_utils import get_api_key
 from utils.ui_utils import get_llm_provider, get_provider_models, update_discussion_and_whiteboard
@@ -116,8 +116,15 @@ def display_agent_edit_form(agent, edit_index):
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            current_provider = st.session_state.get('provider')
-            provider_models = get_provider_models(current_provider)
+            current_provider = agent['config'].get('provider', st.session_state.get('provider'))
+            selected_provider = st.selectbox(
+                "Provider",
+                options=SUPPORTED_PROVIDERS,
+                index=SUPPORTED_PROVIDERS.index(current_provider),
+                key=f"provider_select_{edit_index}"
+            )
+
+            provider_models = get_provider_models(selected_provider)
             current_model = agent['config']['llm_config']['config_list'][0]['model']
             
             if current_model not in provider_models:
@@ -133,6 +140,7 @@ def display_agent_edit_form(agent, edit_index):
         with col2:
             if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}"):
                 for agent in st.session_state.agents:
+                    agent['config']['provider'] = selected_provider
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
                     agent['config']['llm_config']['max_tokens'] = provider_models[selected_model]
                 st.experimental_rerun()
@@ -156,6 +164,7 @@ def display_agent_edit_form(agent, edit_index):
             if st.button("Save", key=f"save_{edit_index}"):
                 agent['config']['name'] = new_name
                 agent['description'] = agent.get('new_description', new_description)
+                agent['config']['provider'] = selected_provider
                 
                 if selected_model != 'default':
                     agent['config']['llm_config']['config_list'][0]['model'] = selected_model
