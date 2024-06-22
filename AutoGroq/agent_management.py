@@ -56,7 +56,6 @@ def display_agents():
                 st.sidebar.warning("Invalid agent selected for editing.")
     else:
         st.sidebar.warning(f"No agents have yet been created. Please enter a new request.")
-        st.sidebar.warning(f"NOTE: GPT models can only be used locally, not in the online demo.")
         st.sidebar.warning(f"ALSO: If no agents are created, do a hard reset (CTL-F5) and try switching models. LLM results can be unpredictable.")
         st.sidebar.warning(f"SOURCE:  https://github.com/jgravelle/AutoGroq\n\r\n\r https://j.gravelle.us\n\r\n\r DISCORD: https://discord.gg/DXjFPX84gs \n\r\n\r YouTube: https://www.youtube.com/playlist?list=PLPu97iZ5SLTsGX3WWJjQ5GNHy7ZX66ryP")
 
