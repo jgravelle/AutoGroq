@@ -4,6 +4,7 @@ import streamlit as st
 
 from configs.config import MODEL_TOKEN_LIMITS
 
+from tools.fetch_web_content import fetch_web_content_tool
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text
 
@@ -11,6 +12,7 @@ from utils.file_utils import sanitize_text
 def get_workflow_from_agents(agents):
     current_timestamp = datetime.datetime.now().isoformat()
     temperature_value = st.session_state.get('temperature', 0.3)
+    selected_model = st.session_state.get('model')  # Get the selected model from session state
 
     workflow = {
         "name": "AutoGroq Workflow",
@@ -44,17 +46,17 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": current_timestamp,
-                            "model": st.session_state.model,
+                            "model": selected_model,  # Use the selected model
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": st.session_state.temperature,
+                    "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
+                    "max_tokens": MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
@@ -84,14 +86,15 @@ def get_workflow_from_agents(agents):
     }
 
     for index, agent in enumerate(agents):
-        agent_name = agent["config"]["name"]
-        description = agent["description"]
+        agent_dict = agent.to_dict()
+        agent_name = agent_dict["name"]
+        description = agent_dict["description"]
         formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
         sanitized_description = sanitize_text(description)
         
         system_message = f"You are a helpful assistant that can act as {agent_name} who {sanitized_description}."
         if index == 0:
-            other_agent_names = [sanitize_text(a['config']['name']).lower().replace(' ', '_') for a in agents[1:]]
+            other_agent_names = [sanitize_text(a.name).lower().replace(' ', '_') for a in agents[1:]]
             system_message += f" You are the primary coordinator who will receive suggestions or advice from all the other agents ({', '.join(other_agent_names)}). You must ensure that the final response integrates the suggestions from other agents or team members. YOUR FINAL RESPONSE MUST OFFER THE COMPLETE RESOLUTION TO THE USER'S REQUEST. When the user's request has been satisfied and all perspectives are integrated, you can respond with TERMINATE."
 
         agent_config = {
@@ -103,17 +106,17 @@ def get_workflow_from_agents(agents):
                         {
                             "user_id": "default",
                             "timestamp": current_timestamp,
-                            "model": st.session_state.model,
+                            "model": selected_model,  # Use the selected model
                             "base_url": None,
                             "api_type": None,
                             "api_version": None,
                             "description": "OpenAI model configuration"
                         }
                     ],
-                    "temperature": st.session_state.temperature,
+                    "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
+                    "max_tokens": MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
@@ -126,10 +129,18 @@ def get_workflow_from_agents(agents):
             },
             "timestamp": current_timestamp,
             "user_id": "default",
-            "tools": []  # Set tools to null only in the workflow JSON
+            "tools": [],
+            "role": agent_dict["role"],
+            "goal": agent_dict["goal"],
+            "backstory": agent_dict["backstory"]
         }
 
+        if agent.name == "Web Content Retriever":
+            agent_config['tools'] = [fetch_web_content_tool.to_dict()]
+
         workflow["receiver"]["groupchat_config"]["agents"].append(agent_config)
+
+
 
     print("Debug: Workflow agents assigned:")
     for agent in workflow["receiver"]["groupchat_config"]["agents"]:
@@ -137,7 +148,7 @@ def get_workflow_from_agents(agents):
 
     crewai_agents = []
     for agent in agents:
-        _, crewai_agent_data = create_agent_data(agent)
+        _, crewai_agent_data = create_agent_data(agent.to_dict())
         crewai_agents.append(crewai_agent_data)
 
     return workflow, crewai_agents

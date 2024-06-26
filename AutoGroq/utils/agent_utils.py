@@ -3,14 +3,15 @@ import datetime
 import streamlit as st
 
 from configs.config import LLM_PROVIDER
+from models.tool_base_model import ToolBaseModel
 from utils.text_utils import sanitize_text
 
 
 def create_agent_data(agent):
-    expert_name = agent['config']['name']
-    description = agent['config'].get('description', agent.get('description', ''))
+    expert_name = agent['name']
+    description = agent.get('description', '')
     current_timestamp = datetime.datetime.now().isoformat()
-    provider = agent['config'].get('provider', st.session_state.get('provider', LLM_PROVIDER))
+    provider = agent.get('config', {}).get('provider', st.session_state.get('provider', LLM_PROVIDER))
 
     formatted_expert_name = sanitize_text(expert_name)
     formatted_expert_name = formatted_expert_name.lower().replace(' ', '_')
@@ -27,7 +28,7 @@ def create_agent_data(agent):
                     {
                         "user_id": "default",
                         "timestamp": current_timestamp,
-                        "model": agent['config']['llm_config']['config_list'][0]['model'],
+                        "model": agent.get('config', {}).get('llm_config', {}).get('config_list', [{}])[0].get('model', 'default'),
                         "provider": provider,
                         "base_url": None,
                         "api_type": None,
@@ -51,22 +52,11 @@ def create_agent_data(agent):
         },
         "timestamp": current_timestamp,
         "user_id": "default",
-        "tools": []
+        "tools": agent.get('tools', []),
+        "role": agent.get('role', expert_name),
+        "goal": agent.get('goal', f"Assist with tasks related to {sanitized_description}"),
+        "backstory": agent.get('backstory', f"As an AI assistant, I specialize in {sanitized_description}")
     }
-
-    for tool_model in st.session_state.tool_models:
-        tool_name = tool_model.name
-        if agent.get(tool_name, False):
-            tool_json = {
-                "name": tool_model.name,
-                "description": tool_model.description,
-                "title": tool_model.title,
-                "file_name": tool_model.file_name,
-                "content": tool_model.content,
-                "timestamp": tool_model.timestamp,
-                "user_id": tool_model.user_id
-            }
-            autogen_agent_data["tools"].append(tool_json)
 
     crewai_agent_data = {
         "name": expert_name,

@@ -1,12 +1,16 @@
-#  Thanks to MADTANK:  https://github.com/madtank
+# tools/fetch_web_content.py
 
-from typing import Optional
+import inspect
+import json
+import logging
 import requests
-import collections
-collections.Callable = collections.abc.Callable
-from bs4 import BeautifulSoup
 
-def fetch_web_content(url: str) -> Optional[str]:
+from bs4 import BeautifulSoup
+from models.tool_base_model import ToolBaseModel
+from urllib.parse import urlparse, urlunparse
+
+
+def fetch_web_content(url: str) -> str:
     """
     Fetches the text content from a website.
 
@@ -14,29 +18,86 @@ def fetch_web_content(url: str) -> Optional[str]:
         url (str): The URL of the website.
 
     Returns:
-        Optional[str]: The content of the website.
+        str: The content of the website, or an error message if fetching failed.
     """
     try:
-        # Send a GET request to the URL
-        response = requests.get(url)
+        cleaned_url = clean_url(url)
+        logging.info(f"Fetching content from cleaned URL: {cleaned_url}")
+        
+        response = requests.get(cleaned_url, timeout=10)
+        response.raise_for_status()
+        
+        logging.info(f"Response status code: {response.status_code}")
+        logging.info(f"Response headers: {response.headers}")
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        logging.info(f"Parsed HTML structure: {soup.prettify()[:5000]}...")  # Log first 5000 characters of prettified HTML
+        
+        body_content = soup.body
 
-        # Check for successful access to the webpage
-        if response.status_code == 200:
-            # Parse the HTML content of the page using BeautifulSoup
-            soup = BeautifulSoup(response.text, "html.parser")
-
-            # Extract the content of the <body> tag
-            body_content = soup.body
-
-            if body_content:
-                # Return all the text in the body tag, stripping leading/trailing whitespaces
-                return " ".join(body_content.get_text(strip=True).split())
-            else:
-                # Return None if the <body> tag is not found
-                return None
+        if body_content:
+            content = body_content.get_text(strip=True)
+            logging.info(f"Extracted text content (first 5000 chars): {content[:5000]}...")
+            result = json.dumps({
+                "status": "success",
+                "url": cleaned_url,
+                "content": content[:5000]  # Limit to first 5000 characters
+            })
+            print(f"DEBUG: fetch_web_content result: {result[:5000]}...")  # Debug print
+            return result
         else:
-            # Return None if the status code isn't 200 (success)
-            return None
-    except requests.RequestException:
-        # Return None if any request-related exception is caught
-        return None
+            logging.warning(f"No <body> tag found in the content from {cleaned_url}")
+            return json.dumps({
+                "status": "error",
+                "url": cleaned_url,
+                "message": f"No <body> tag found in the content from {cleaned_url}"
+            })
+
+    except requests.RequestException as e:
+        error_message = f"Error fetching content from {cleaned_url}: {str(e)}"
+        logging.error(error_message)
+        return json.dumps({
+            "status": "error",
+            "url": cleaned_url,
+            "message": error_message
+        })
+    except Exception as e:
+        error_message = f"Unexpected error while fetching content from {cleaned_url}: {str(e)}"
+        logging.error(error_message)
+        return json.dumps({
+            "status": "error",
+            "url": cleaned_url,
+            "message": error_message
+        })
+
+# Create the ToolBaseModel instance
+fetch_web_content_tool = ToolBaseModel(
+    name="fetch_web_content",
+    description="Fetches the text content from a website.",
+    title="Fetch Web Content",
+    file_name="fetch_web_content.py",
+    content=inspect.getsource(fetch_web_content),
+    function=fetch_web_content,
+)
+
+# Function to get the tool
+def get_tool():
+    return fetch_web_content_tool
+
+
+def clean_url(url: str) -> str:
+    """
+    Clean and validate the URL.
+    
+    Args:
+        url (str): The URL to clean.
+    
+    Returns:
+        str: The cleaned URL.
+    """
+    url = url.strip().strip("'\"")
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    parsed = urlparse(url)
+    return urlunparse(parsed)

@@ -74,7 +74,7 @@ def create_agent(request, provider, model, temperature, max_tokens, output_file)
             },
             "human_input_mode": "NEVER",
             "max_consecutive_auto_reply": 8,
-            "system_message": f"You are a helpful assistant that can act as {request} who {sanitize_text(agent_description)}.",
+            "system_message": f"You are a helpful assistant that can act as {sanitize_text(agent_description)} who {request}.",
             "is_termination_msg": None,
             "code_execution_config": None,
             "default_auto_reply": "",

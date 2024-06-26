@@ -1,6 +1,9 @@
+# models/agent_base_model.py
+
+import inspect
 
 from models.tool_base_model import ToolBaseModel
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Callable, Optional, Union
 
 
 class AgentBaseModel:
@@ -8,11 +11,13 @@ class AgentBaseModel:
         self,
         name: str,
         description: str,
-        tools: List[Dict],
+        tools: List[Union[Dict, ToolBaseModel]],
         config: Dict,
         role: str,
         goal: str,
         backstory: str,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -37,11 +42,13 @@ class AgentBaseModel:
         self.id = id
         self.name = name
         self.description = description
-        self.tools = [ToolBaseModel(**tool) for tool in tools]
+        self.tools = [tool if isinstance(tool, ToolBaseModel) else ToolBaseModel(**tool) for tool in tools]
         self.config = config
         self.role = role
         self.goal = goal
         self.backstory = backstory
+        self.provider = provider
+        self.model = model
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
@@ -63,12 +70,20 @@ class AgentBaseModel:
         self.cache = cache
 
 
+    def __str__(self):
+        return f"Agent(name={self.name}, description={self.description})"
+
+    def __repr__(self):
+        return self.__str__()
+
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "tools": [tool.to_dict() for tool in self.tools],
+            "provider": self.provider,
+            "model": self.model,
             "config": self.config,
             "role": self.role,
             "goal": self.goal,
@@ -94,18 +109,20 @@ class AgentBaseModel:
             "cache": self.cache
         }
 
-
     @classmethod
     def from_dict(cls, data: Dict):
+        tools = [ToolBaseModel.from_dict(tool) if isinstance(tool, dict) else tool for tool in data.get('tools', [])]
         return cls(
             id=data.get("id"),
             name=data["name"],
             description=data["description"],
-            tools=data["tools"],
+            tools=tools,
             config=data["config"],
             role=data.get("role", ""),
             goal=data.get("goal", ""),
             backstory=data.get("backstory", ""),
+            provider=data.get("provider"),
+            model=data.get("model"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
             user_id=data.get("user_id"),
@@ -127,3 +144,22 @@ class AgentBaseModel:
             cache=data.get("cache", True)
         )
     
+    @classmethod
+    def debug_init(cls):
+        signature = inspect.signature(cls.__init__)
+        params = signature.parameters
+        required_params = [name for name, param in params.items() 
+                           if param.default == inspect.Parameter.empty 
+                           and param.kind != inspect.Parameter.VAR_KEYWORD]
+        optional_params = [name for name, param in params.items() 
+                           if param.default != inspect.Parameter.empty]
+        
+        print(f"Required parameters for {cls.__name__}:")
+        for param in required_params:
+            print(f"  - {param}")
+        
+        print(f"\nOptional parameters for {cls.__name__}:")
+        for param in optional_params:
+            print(f"  - {param}")
+
+        return required_params, optional_params

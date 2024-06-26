@@ -60,7 +60,7 @@ def get_agents_prompt():
             the info for those specific agents. Do not create new agents.
         2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise 
             based upon the provided text. Do not create new agents.
-        3. **Format**: Return the results in JSON format with values labeled as expert_name, and description.
+        3. **Format**: Return the results in JSON format with values labeled as expert_name, description, role, goal, and backstory.
             'expert_name' should be the agent's title, not their given or proper name.
 
         ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, 
@@ -69,6 +69,9 @@ def get_agents_prompt():
             {{
                 "expert_name": "agent_title",
                 "description": "agent_description",
+                "role": "agent_role",
+                "goal": "agent_goal",
+                "backstory": "agent_backstory"
             }}
         ]
         This agent will only have been successful if it has returned the results in the above format 

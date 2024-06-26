@@ -115,23 +115,38 @@ def extract_tool_description(proposed_tool):
 
 
 def load_tool_functions():
-    # Get the parent directory of the current script
+    st.session_state.tool_functions = {}
+    st.session_state.tool_models = []
+
     parent_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    # Define the path to the 'tools' folder in the parent directory
     tools_folder_path = os.path.join(parent_directory, 'tools')
+    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py') and f != '__init__.py']
 
-    # List all files in the 'tools' folder
-    tool_files = [f for f in os.listdir(tools_folder_path) if f.endswith('.py')]
-
-    tool_functions = {}
     for tool_file in tool_files:
         tool_name = os.path.splitext(tool_file)[0]
-        tool_module = importlib.import_module(f"tools.{tool_name}")
-        if hasattr(tool_module, tool_name):
-            tool_functions[tool_name] = getattr(tool_module, tool_name)
+        try:
+            tool_module = importlib.import_module(f"tools.{tool_name}")
+            
+            if hasattr(tool_module, 'get_tool'):
+                tool = tool_module.get_tool()
+                if isinstance(tool, ToolBaseModel):
+                    st.session_state.tool_models.append(tool)
+                    st.session_state.tool_functions[tool.name] = tool.function
+                    print(f"Loaded tool: {tool.name}")
+                else:
+                    print(f"Warning: get_tool() in {tool_file} did not return a ToolBaseModel instance")
+            else:
+                print(f"Warning: {tool_file} does not have a get_tool() function")
+        except Exception as e:
+            print(f"Error loading tool from {tool_file}: {str(e)}")
 
-    st.session_state.tool_functions = tool_functions
+    print(f"Loaded {len(st.session_state.tool_models)} tools.")
+    
+    # Debug: Print loaded tools
+    for tool in st.session_state.tool_models:
+        print(f"Loaded tool model: {tool.name}")
+    for tool_name in st.session_state.tool_functions:
+        print(f"Loaded tool function: {tool_name}")
 
 
 def populate_tool_models():
@@ -276,9 +291,9 @@ def show_tools():
         else:
             st.session_state.selected_tools = selected_tools
 
-        # Update the 'Tools' property of each agent with the selected tools
+        # Update the 'tools' attribute of each agent with the selected tools
         for agent in st.session_state.agents:
-            agent['tools'] = [tool_model.name for tool_model in st.session_state.tool_models if tool_model.name in st.session_state.selected_tools]
+            agent.tools = [tool_model for tool_model in st.session_state.tool_models if tool_model.name in st.session_state.selected_tools]
 
         regenerate_zip_files()
 

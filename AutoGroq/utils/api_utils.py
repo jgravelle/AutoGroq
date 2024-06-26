@@ -16,7 +16,7 @@ def display_api_key_input(provider=None):
     api_key = os.environ.get(api_key_env_var)
     
     if api_key is None:
-        st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key.")
+        st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key, or select a different provider.")
         api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
         if api_key:
             st.session_state[api_key_env_var] = api_key
