@@ -21,7 +21,7 @@ def display_api_key_input(provider=None):
     if api_key:
         st.session_state[api_key_env_var] = api_key
         os.environ[api_key_env_var] = api_key
-        st.success(f"{provider.upper()} API Key entered successfully.")
+        #st.success(f"{provider.upper()} API Key entered successfully.")
         st.session_state.warning_placeholder.empty()
     return api_key
 
