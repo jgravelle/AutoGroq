@@ -727,8 +727,7 @@ def handle_user_request(session_state):
 
 def key_prompt():
     api_key = get_api_key()
-    if api_key is None:
-        api_key = display_api_key_input()
+    api_key = display_api_key_input()
     if api_key is None:
         llm = LLM_PROVIDER.upper()
         st.warning(f"{llm}_API_KEY not found, or select a different provider.")
