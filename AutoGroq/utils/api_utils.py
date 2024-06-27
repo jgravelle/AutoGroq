@@ -17,12 +17,12 @@ def display_api_key_input(provider=None):
     
     if api_key is None:
         st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key, or select a different provider.")
-        api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
-        if api_key:
-            st.session_state[api_key_env_var] = api_key
-            os.environ[api_key_env_var] = api_key
-            st.success(f"{provider.upper()} API Key entered successfully.")
-            st.session_state.warning_placeholder.empty()
+    api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
+    if api_key:
+        st.session_state[api_key_env_var] = api_key
+        os.environ[api_key_env_var] = api_key
+        st.success(f"{provider.upper()} API Key entered successfully.")
+        st.session_state.warning_placeholder.empty()
     return api_key
 
 
