@@ -12,3 +12,7 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def process_response(self, response):
         pass
+
+    @abstractmethod
+    def get_available_models(self):
+        pass

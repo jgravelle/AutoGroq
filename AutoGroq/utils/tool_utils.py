@@ -145,9 +145,9 @@ def load_tool_functions():
     # Debug: Print loaded tools
     for tool in st.session_state.tool_models:
         print(f"Loaded tool model: {tool.name}")
-    for tool_name in st.session_state.tool_functions:
-        print(f"Loaded tool function: {tool_name}")
-
+    for tool_name, tool_function in st.session_state.tool_functions.items():
+        print(f"Loaded tool function: {tool_name} -> {tool_function}")
+        
 
 def populate_tool_models():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

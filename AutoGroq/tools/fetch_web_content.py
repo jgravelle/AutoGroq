@@ -32,19 +32,19 @@ def fetch_web_content(url: str) -> str:
         
         soup = BeautifulSoup(response.text, "html.parser")
         
-        logging.info(f"Parsed HTML structure: {soup.prettify()[:5000]}...")  # Log first 5000 characters of prettified HTML
+        logging.info(f"Parsed HTML structure: {soup.prettify()[:500]}...")  # Log first 500 characters of prettified HTML
         
         body_content = soup.body
 
         if body_content:
             content = body_content.get_text(strip=True)
-            logging.info(f"Extracted text content (first 5000 chars): {content[:5000]}...")
+            logging.info(f"Extracted text content (first 500 chars): {content[:500]}...")
             result = json.dumps({
                 "status": "success",
                 "url": cleaned_url,
-                "content": content[:5000]  # Limit to first 5000 characters
+                "content": content  
             })
-            print(f"DEBUG: fetch_web_content result: {result[:5000]}...")  # Debug print
+            print(f"DEBUG: fetch_web_content result: {result[:500]}...")  # Debug print
             return result
         else:
             logging.warning(f"No <body> tag found in the content from {cleaned_url}")

@@ -3,13 +3,13 @@
 import streamlit as st 
 
 from agent_management import display_agents
-from utils.api_utils import get_api_key
+from utils.api_utils import fetch_available_models, get_api_key
 from utils.auth_utils import display_api_key_input
 from utils.error_handling import setup_logging
 from utils.session_utils import initialize_session_variables
-from utils.tool_utils import load_tool_functions, populate_tool_models, show_tools
+from utils.tool_utils import load_tool_functions
 from utils.ui_utils import (
-    display_goal, display_reset_and_upload_buttons, 
+    display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, 
     select_model, select_provider, set_css, 
     set_temperature, show_interfaces
@@ -24,6 +24,7 @@ def main():
 
     set_css()
     initialize_session_variables()
+    fetch_available_models()
     load_tool_functions()
 
     if st.session_state.get("need_rerun", False):
@@ -32,6 +33,7 @@ def main():
 
     display_api_key_input()
     get_api_key() 
+    
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         select_provider()
@@ -53,15 +55,7 @@ def main():
         
     with st.sidebar:
         display_agents()
-        if "agents" in st.session_state and st.session_state.agents:
-            display_goal()
-            populate_tool_models()
-            show_tools()
-        else:
-            st.empty()  
-
-    
-
+         
 
 if __name__ == "__main__":
     main()

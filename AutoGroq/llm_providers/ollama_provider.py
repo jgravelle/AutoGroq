@@ -1,12 +1,23 @@
+# llm_providers/ollama_provider.py
+
 import json
 import requests
 import streamlit as st
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class OllamaProvider(BaseLLMProvider):
-    def __init__(self, api_url, api_key=None):
-        self.api_url = "http://127.0.0.1:11434/api/generate"
+
+class OllamaProvider:
+    def __init__(self, api_url, api_key):
+        self.api_url = api_url or "http://127.0.0.1:11434/api/generate"
+
+
+    def get_available_models(self):
+        return {
+            "llama3": 8192,
+            # Add other Ollama models here
+        }
+    
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -29,6 +40,7 @@ class OllamaProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'response' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {

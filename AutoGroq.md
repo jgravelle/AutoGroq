@@ -10,14 +10,15 @@ import os
 import re
 import streamlit as st
 
-from configs.config import LLM_PROVIDER, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import BUILT_IN_AGENTS, LLM_PROVIDER, MODEL_CHOICES, MODEL_TOKEN_LIMITS
 
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
 from tools.fetch_web_content import fetch_web_content
 from utils.api_utils import get_api_key
-from utils.error_handling import log_error, log_tool_execution
-from utils.ui_utils import get_llm_provider, get_provider_models, update_discussion_and_whiteboard
+from utils.error_handling import log_error
+from utils.tool_utils import populate_tool_models, show_tools
+from utils.ui_utils import display_goal, get_llm_provider, get_provider_models, trigger_moderator_agent, update_discussion_and_whiteboard
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def agent_button_callback(agent_index):
         # Directly call process_agent_interaction here if appropriate
         process_agent_interaction(agent_index)
     return callback
+
 
 def construct_request(agent, agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results):
     request = f"Act as the {agent_name} who {description}."
@@ -83,38 +85,65 @@ def construct_request(agent, agent_name, description, user_request, user_input, 
 
 
 def display_agents():
-    if "agents" in st.session_state and st.session_state.agents and len(st.session_state.agents) > 0:
-        st.sidebar.title("Your Agents")
-        st.sidebar.subheader("Click to interact")
-        
-        for index, agent in enumerate(st.session_state.agents):
-            agent_name = agent.name
-            col1, col2 = st.sidebar.columns([1, 4])
-            with col1:
-                gear_icon = "⚙️"
-                if st.button(gear_icon, key=f"gear_{index}", help="Edit Agent"):
-                    st.session_state['edit_agent_index'] = index
-                    st.session_state[f'show_edit_{index}'] = not st.session_state.get(f'show_edit_{index}', False)
-            with col2:
-                if "next_agent" in st.session_state and st.session_state.next_agent == agent_name:
-                    button_style = """
-                    <style>
-                    div[data-testid*="stButton"] > button[kind="secondary"] {
-                        background-color: green !important;
-                        color: white !important;
-                    }
-                    </style>
-                    """
-                    st.markdown(button_style, unsafe_allow_html=True)
-                st.button(agent_name, key=f"agent_{index}", on_click=agent_button_callback(index))
-            
-            if st.session_state.get(f'show_edit_{index}', False):
-                display_agent_edit_form(agent, index)
-
-    else:
+    if "agents" in st.session_state and st.session_state.agents and len(st.session_state.agents) == 3:
         st.sidebar.warning(f"No agents have yet been created. Please enter a new request.")
         st.sidebar.warning(f"ALSO: If no agents are created, do a hard reset (CTL-F5) and try switching models. LLM results can be unpredictable.")
         st.sidebar.warning(f"SOURCE:  https://github.com/jgravelle/AutoGroq\n\r\n\r https://j.gravelle.us\n\r\n\r DISCORD: https://discord.gg/DXjFPX84gs \n\r\n\r YouTube: https://www.youtube.com/playlist?list=PLPu97iZ5SLTsGX3WWJjQ5GNHy7ZX66ryP")
+
+    else:
+        st.sidebar.title("Your Agents")
+        st.sidebar.subheader("Click to interact")
+        
+        dynamic_agents_exist = False
+        built_in_agents = []
+
+        # First pass: Identify if there are any dynamic agents and collect built-in agents
+        for index, agent in enumerate(st.session_state.agents):
+            if agent.name not in BUILT_IN_AGENTS:
+                dynamic_agents_exist = True
+            else:
+                built_in_agents.append((agent, index))
+
+        # Display dynamically created agents
+        for index, agent in enumerate(st.session_state.agents):
+            if agent.name not in BUILT_IN_AGENTS:
+                display_agent_button(agent, index)
+
+        # Display built-in agents only if dynamic agents exist
+        if dynamic_agents_exist and built_in_agents:
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("Built-in Agents:")
+            for agent, index in built_in_agents:
+                display_agent_button(agent, index)
+            display_goal()
+            populate_tool_models()
+            show_tools()
+        else:
+            st.empty() 
+
+
+def display_agent_button(agent, index):
+    col1, col2 = st.sidebar.columns([1, 4])
+    with col1:
+        gear_icon = "⚙️"
+        if st.button(gear_icon, key=f"gear_{index}", help="Edit Agent"):
+            st.session_state['edit_agent_index'] = index
+            st.session_state[f'show_edit_{index}'] = not st.session_state.get(f'show_edit_{index}', False)
+    with col2:
+        if "next_agent" in st.session_state and st.session_state.next_agent == agent.name:
+            button_style = """
+            <style>
+            div[data-testid*="stButton"] > button[kind="secondary"] {
+                background-color: green !important;
+                color: white !important;
+            }
+            </style>
+            """
+            st.markdown(button_style, unsafe_allow_html=True)
+        st.button(agent.name, key=f"agent_{index}", on_click=agent_button_callback(index))
+    
+    if st.session_state.get(f'show_edit_{index}', False):
+        display_agent_edit_form(agent, index)
 
 
 def display_agent_buttons(agents):
@@ -242,6 +271,7 @@ def display_agent_edit_form(agent, edit_index):
     # Add a debug print to check the agent's description
     print(f"Agent {agent.name} description: {agent.description}")
 
+
 def download_agent_file(expert_name):
     # Format the expert_name
     formatted_expert_name = re.sub(r'[^a-zA-Z0-9\s]', '', expert_name) # Remove non-alphanumeric characters
@@ -265,6 +295,8 @@ def download_agent_file(expert_name):
 
 def process_agent_interaction(agent_index):
     agent = st.session_state.agents[agent_index]
+    logger.debug(f"Processing interaction for agent: {agent.name}")
+    logger.debug(f"Agent tools: {agent.tools}")
     
     if isinstance(agent, AgentBaseModel):
         agent_name = agent.name
@@ -285,45 +317,36 @@ def process_agent_interaction(agent_index):
     tool_results = {}
     for tool in agent_tools:
         try:
-            logger.debug(f"Executing tool: {tool.name if isinstance(tool, ToolBaseModel) else tool['name']}")
-            if isinstance(tool, ToolBaseModel):
+            logger.debug(f"Executing tool: {tool.name}")
+            if tool.name in st.session_state.tool_functions:
+                tool_function = st.session_state.tool_functions[tool.name]
                 if tool.name == 'fetch_web_content' and reference_url:
-                    tool_result = tool.execute(reference_url)
+                    tool_result = tool_function(reference_url)
+                elif tool.name == 'generate_code':
+                    tool_result = tool_function(user_input or user_request or rephrased_request)
                 else:
-                    tool_result = tool.execute()
+                    tool_result = tool_function(user_input or user_request or rephrased_request)
+                logger.debug(f"Tool result: {tool_result[:500]}...")  # Log first 500 characters of result
             else:
-                # Handle the case where tool is a dictionary
-                if tool['name'] == 'fetch_web_content' and reference_url:
-                    tool_result = fetch_web_content(reference_url)
-                else:
-                    # You might need to implement a way to execute other tools here
-                    tool_result = "Tool execution not implemented for dictionary-based tools"
+                logger.error(f"Tool function not found for {tool.name}")
+                tool_result = f"Error: Tool function not found for {tool.name}"
             
-            tool_name = tool.name if isinstance(tool, ToolBaseModel) else tool['name']
-            tool_results[tool_name] = tool_result
+            tool_results[tool.name] = tool_result
             
-            logger.debug(f"Tool result for {tool_name}: {tool_result[:500]}...")
+            logger.debug(f"Tool result for {tool.name}: {tool_result[:500]}...")
             
-            # Parse the JSON result
-            result_dict = json.loads(tool_result)
-            if result_dict['status'] == 'success':
-                content = f"Successfully fetched content from {result_dict['url']}:\n\n{result_dict['content'][:1000]}..." # Limit to first 1000 characters
-                st.session_state.tool_result_string = content
-            else:
-                content = f"Error fetching content: {result_dict['message']}"
-                st.session_state.tool_result_string = content
-            
-            logger.debug(f"tool_result_string set to: {st.session_state.tool_result_string[:500]}...")
+            # Update the tool_result_string in the session state
+            st.session_state.tool_result_string = tool_result[:1000] + "..."  # Limit to first 1000 characters
             
             # Update the discussion and whiteboard immediately
-            update_discussion_and_whiteboard("Web Content Retriever", content, "")
+            update_discussion_and_whiteboard(tool.name, st.session_state.tool_result_string, "")
             
         except Exception as e:
-            error_message = f"Error executing tool {tool.name if isinstance(tool, ToolBaseModel) else tool['name']}: {str(e)}"
-            logger.error(error_message)
-            tool_results[tool.name if isinstance(tool, ToolBaseModel) else tool['name']] = error_message
+            error_message = f"Error executing tool {tool.name}: {str(e)}"
+            logger.error(error_message, exc_info=True)
+            tool_results[tool.name] = error_message
             st.session_state.tool_result_string = error_message
-            update_discussion_and_whiteboard("Web Content Retriever", error_message, "")
+            update_discussion_and_whiteboard(tool.name, error_message, "")
     
     request = construct_request(agent, agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results)
     
@@ -362,9 +385,6 @@ def process_agent_interaction(agent_index):
         if "choices" in response_data and response_data["choices"]:
             content = response_data["choices"][0]["message"]["content"]
             
-            # Update the most recent response
-            st.session_state.most_recent_response = f"{agent_name}:\n\n{content}\n\n"
-            
             update_discussion_and_whiteboard(agent_name, content, user_input)
             st.session_state['form_agent_name'] = agent_name
             st.session_state['form_agent_description'] = description
@@ -372,8 +392,11 @@ def process_agent_interaction(agent_index):
     else:
         error_message = f"Error: Received status code {response.status_code}"
         log_error(error_message)
-        print(error_message)
-        print(f"Response: {response.text}")
+        logger.error(error_message)
+        logger.error(f"Response: {response.text}")
+
+    # Force a rerun to update the UI and trigger the moderator if necessary
+    st.experimental_rerun()
 
 
 def regenerate_agent_description(agent):
@@ -444,13 +467,13 @@ def send_request(agent_name, request):
 import streamlit as st 
 
 from agent_management import display_agents
-from utils.api_utils import get_api_key
+from utils.api_utils import fetch_available_models, get_api_key
 from utils.auth_utils import display_api_key_input
 from utils.error_handling import setup_logging
 from utils.session_utils import initialize_session_variables
-from utils.tool_utils import load_tool_functions, populate_tool_models, show_tools
+from utils.tool_utils import load_tool_functions
 from utils.ui_utils import (
-    display_goal, display_reset_and_upload_buttons, 
+    display_reset_and_upload_buttons, 
     display_user_request_input, handle_user_request, 
     select_model, select_provider, set_css, 
     set_temperature, show_interfaces
@@ -465,6 +488,7 @@ def main():
 
     set_css()
     initialize_session_variables()
+    fetch_available_models()
     load_tool_functions()
 
     if st.session_state.get("need_rerun", False):
@@ -473,6 +497,7 @@ def main():
 
     display_api_key_input()
     get_api_key() 
+    
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         select_provider()
@@ -494,15 +519,7 @@ def main():
         
     with st.sidebar:
         display_agents()
-        if "agents" in st.session_state and st.session_state.agents:
-            display_goal()
-            populate_tool_models()
-            show_tools()
-        else:
-            st.empty()  
-
-    
-
+         
 
 if __name__ == "__main__":
     main()
@@ -648,19 +665,37 @@ def get_generate_tool_prompt(rephrased_tool_request):
                 '''
 
 
-def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker,team_members_str): 
+def get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str, current_deliverable, current_phase):
     return f"""
-        This agent is our Moderator Bot. It's goal is to mediate the conversation between a team of AI agents 
+        This agent is our Moderator Bot. Its goal is to mediate the conversation between a team of AI agents 
         in a manner that persuades them to act in the most expeditious and thorough manner to accomplish their goal. 
         This will entail considering the user's stated goal, the conversation thus far, the descriptions 
         of all the available agent/experts in the current team, the last speaker, and their remark. 
-        Based upon a holistic analysis of all the facts at hand, use logic and reasoning to decide who should speak next. 
+        Based upon a holistic analysis of all the facts at hand, use logic and reasoning to decide which team member should speak next. 
         Then draft a prompt directed at that agent that persuades them to act in the most expeditious and thorough manner toward helping this team of agents 
-        accomplish their goal.\n\nTheir goal is: {goal}.\nThe last speaker was {last_speaker}, who said: 
-        {last_comment}\nHere is the current conversational discussion history: {discussion_history}\n
-        And here are the team members and their descriptions:\n{team_members_str}\n\n
+        accomplish their goal.
+
+        Their overall goal is: {goal}.
+        The current deliverable they're working on is: {current_deliverable}
+        The current implementation phase is: {current_phase}
+        The last speaker was {last_speaker}, who said: {last_comment}
+
+        Here is the current conversational discussion history: {discussion_history}
+
+        And here are the team members and their descriptions:
+        {team_members_str}
+
+        IMPORTANT: Your response must start with "To [Agent Name]:", where [Agent Name] is one of the valid team members listed above. Do not address tools or non-existent team members.
+
         This agent's response should be JUST the requested prompt addressed to the next agent, and should not contain 
         any introduction, narrative, or any other superfluous text whatsoever.
+
+        If you believe the current phase of the deliverable has been satisfactorily completed, include the exact phrase 
+        "PHASE_COMPLETED" at the beginning of your response, followed by your usual prompt to the next agent focusing on 
+        the next phase or deliverable.
+
+        Remember, we are now in the {current_phase} phase. The agents should focus on actually implementing, coding, 
+        testing, or deploying the solutions as appropriate for the current phase, not just planning.
     """
 
 
@@ -695,6 +730,114 @@ def get_rephrased_user_prompt(user_request):
     """
 
         
+```
+
+# AutoGroq\agents\code_developer.py
+
+```python
+# agents/code_developer.py
+
+import datetime
+import streamlit as st
+
+from configs.config import LLM_PROVIDER
+from models.agent_base_model import AgentBaseModel
+from models.tool_base_model import ToolBaseModel
+from tools.code_generator import code_generator_tool
+
+
+class CodeDeveloperAgent(AgentBaseModel):
+    @classmethod
+    def create_default(cls):
+        current_timestamp = datetime.datetime.now().isoformat()
+        return cls(
+            name="Code Developer",
+            description="An agent specialized in generating code based on feature descriptions.",
+            tools=[code_generator_tool],  # Use the tool object directly, not its dict representation
+            config={
+                "name": "Code Developer",
+                "llm_config": {
+                    "config_list": [
+                        {
+                            "model": st.session_state.get('model', 'default'),
+                            "api_key": None,
+                        }
+                    ],
+                    "temperature": st.session_state.get('temperature', 0.7),
+                },
+                "human_input_mode": "NEVER",
+                "max_consecutive_auto_reply": 10,
+                "system_message": "You are an AI agent designed to generate code based on feature descriptions. Your goal is to produce efficient, clean, and well-documented code."
+            },
+            role="Code Developer",
+            goal="Generate high-quality code based on feature descriptions",
+            backstory="I am an AI agent with extensive knowledge of various programming languages and software development best practices. My purpose is to assist in creating code that meets the specified requirements.",
+            provider=st.session_state.get('provider', LLM_PROVIDER),
+            model=st.session_state.get('model', 'default'),
+            created_at=current_timestamp,
+            updated_at=current_timestamp,
+            user_id="default",
+            timestamp=current_timestamp
+        )
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['tools'] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in self.tools]
+        return data
+```
+
+# AutoGroq\agents\code_tester.py
+
+```python
+# agents/code_tester.py
+
+import datetime
+import streamlit as st
+
+from configs.config import LLM_PROVIDER
+from models.agent_base_model import AgentBaseModel
+from models.tool_base_model import ToolBaseModel
+from tools.code_test import code_test_tool
+
+class CodeTesterAgent(AgentBaseModel):
+    @classmethod
+    def create_default(cls):
+        current_timestamp = datetime.datetime.now().isoformat()
+        return cls(
+            name="Code Tester",
+            description="An agent specialized in testing code and providing feedback on its functionality.",
+            tools=[code_test_tool.to_dict()],
+            config={
+                "name": "Code Tester",
+                "llm_config": {
+                    "config_list": [
+                        {
+                            "model": st.session_state.get('model', 'default'),
+                            "api_key": None,
+                        }
+                    ],
+                    "temperature": st.session_state.get('temperature', 0.7),
+                },
+                "human_input_mode": "NEVER",
+                "max_consecutive_auto_reply": 10,
+                "system_message": "You are an AI agent designed to test code and provide feedback on its functionality. Your goal is to ensure the code meets the specified requirements and works correctly."
+            },
+            role="Code Tester",
+            goal="Test code thoroughly and provide detailed feedback on its functionality",
+            backstory="I am an AI agent with expertise in software testing and quality assurance. My purpose is to rigorously test code and provide comprehensive feedback to ensure its reliability and correctness.",
+            provider=st.session_state.get('provider', LLM_PROVIDER),
+            model=st.session_state.get('model', 'default'),
+            created_at=current_timestamp,
+            updated_at=current_timestamp,
+            user_id="default",
+            timestamp=current_timestamp
+        )
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['tools'] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in self.tools]
+        return data
+    
 ```
 
 # AutoGroq\agents\web_content_retriever.py
@@ -924,6 +1067,9 @@ if __name__ == "__main__":
 
 import os
 
+from typing import Dict
+
+
 # Get user home directory
 home_dir = os.path.expanduser("~")
 default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
@@ -1046,6 +1192,20 @@ MODEL_CHOICES = {
 }
 
 SUPPORTED_PROVIDERS = ["anthropic", "fireworks", "groq", "lmstudio", "ollama", "openai"]    
+
+BUILT_IN_AGENTS = ["Web Content Retriever", "Code Developer", "Code Tester"]
+
+AVAILABLE_MODELS: Dict[str, Dict[str, int]] = {}
+
+def update_available_models(provider: str, models: Dict[str, int]):
+    """
+    Update the available models for a given provider.
+    
+    :param provider: The name of the provider (e.g., 'groq', 'openai')
+    :param models: A dictionary of model names and their token limits
+    """
+    global AVAILABLE_MODELS
+    AVAILABLE_MODELS[provider] = models
 ```
 
 # AutoGroq\configs\config_agent.py
@@ -1181,19 +1341,55 @@ class Current_Project:
     def __init__(self):
         self.deliverables = []
         self.re_engineered_prompt = ""
+        self.implementation_phases = ["Planning", "Development", "Testing", "Deployment"]
+        self.current_phase = "Planning"
+
 
     def add_deliverable(self, deliverable):
-        self.deliverables.append({"text": deliverable, "done": False})
+        self.deliverables.append({
+            "text": deliverable, 
+            "done": False,
+            "phase": {phase: False for phase in self.implementation_phases}
+        })
 
 
-    def mark_deliverable_done(self, index):
+    def get_next_unchecked_deliverable(self):
+        for index, deliverable in enumerate(self.deliverables):
+            if not deliverable["done"]:
+                return index, deliverable["text"]
+        return None, None
+    
+
+    def get_next_uncompleted_phase(self, index):
         if 0 <= index < len(self.deliverables):
-            self.deliverables[index]["done"] = True
+            for phase in self.implementation_phases:
+                if not self.deliverables[index]["phase"][phase]:
+                    return phase
+        return None    
 
+
+    def is_deliverable_complete(self, index):
+        if 0 <= index < len(self.deliverables):
+            return all(self.deliverables[index]["phase"].values())
+        return False
+
+
+    def mark_deliverable_phase_done(self, index, phase):
+        if 0 <= index < len(self.deliverables):
+            self.deliverables[index]["phase"][phase] = True
+            if self.is_deliverable_complete(index):
+                self.deliverables[index]["done"] = True
+                
 
     def mark_deliverable_undone(self, index):
         if 0 <= index < len(self.deliverables):
             self.deliverables[index]["done"] = False
+
+
+    def move_to_next_phase(self):
+        current_index = self.implementation_phases.index(self.current_phase)
+        if current_index < len(self.implementation_phases) - 1:
+            self.current_phase = self.implementation_phases[current_index + 1]            
 
 
     def set_re_engineered_prompt(self, prompt):
@@ -1211,10 +1407,37 @@ import streamlit as st
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class AnthropicProvider(BaseLLMProvider):
-    def __init__(self, api_key, api_url=None):
-        self.client = anthropic.Anthropic(api_key=api_key)
-        self.api_url = api_url 
+class AnthropicProvider:
+    def __init__(self, api_url, api_key):
+        self.api_key = api_key
+        self.api_url = api_url or "https://api.anthropic.com/v1/messages"
+
+
+    def get_available_models(self):
+        return {
+            "claude-3-5-sonnet-20240620": 200000,
+            "claude-3-opus-20240229": 200000,
+            "claude-3-sonnet-20240229": 200000,
+            "claude-3-haiku-20240307": 200000,
+            "claude-2.1": 100000,
+            "claude-2.0": 100000,
+            "claude-instant-1.2": 100000,
+        }
+                
+
+    def process_response(self, response):
+        if response is not None:
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": response.content[0].text
+                        }
+                    }
+                ]
+            }
+        return None
+    
 
     def send_request(self, data):
         try:
@@ -1229,18 +1452,6 @@ class AnthropicProvider(BaseLLMProvider):
             print(f"Anthropic API error: {e}")
             return None
 
-    def process_response(self, response):
-        if response is not None:
-            return {
-                "choices": [
-                    {
-                        "message": {
-                            "content": response.content[0].text
-                        }
-                    }
-                ]
-            }
-        return None
 ```
 
 # AutoGroq\llm_providers\base_provider.py
@@ -1260,6 +1471,10 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     def process_response(self, response):
         pass
+
+    @abstractmethod
+    def get_available_models(self):
+        pass
 ```
 
 # AutoGroq\llm_providers\fireworks_provider.py
@@ -1270,13 +1485,15 @@ import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
-from utils.auth_utils import get_api_key
 
 
 class FireworksProvider(BaseLLMProvider):
-    def __init__(self, api_url):
-        self.api_key = get_api_key()
+    def __init__(self, api_url, api_key):
         self.api_url = api_url
+
+
+    def get_available_models(self):
+        return None
 
 
     def process_response(self, response):
@@ -1310,16 +1527,19 @@ import requests
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class GroqProvider(BaseLLMProvider):
+
+class GroqProvider:
     def __init__(self, api_url, api_key):
         self.api_key = api_key
-        self.api_url = "https://api.groq.com/openai/v1/chat/completions"
+        self.api_url = api_url or "https://api.groq.com/openai/v1/chat/completions"
+
 
     def process_response(self, response):
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {
@@ -1334,20 +1554,42 @@ class GroqProvider(BaseLLMProvider):
         response = requests.post(self.api_url, data=json_data, headers=headers)
         return response
     
+
+    def get_available_models(self):
+        response = requests.get("https://api.groq.com/openai/v1/models", headers={
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        })
+        if response.status_code == 200:
+            models_data = response.json().get("data", [])
+            return {model["id"]: model.get("max_tokens", 4096) for model in models_data}
+        else:
+            raise Exception(f"Failed to retrieve models: {response.status_code}")
 ```
 
 # AutoGroq\llm_providers\lmstudio_provider.py
 
 ```python
+# llm_providers/lmstudio_provider.py
 
 import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class LmstudioProvider(BaseLLMProvider):
-    def __init__(self, api_url, api_key=None):
-        self.api_url = "http://localhost:1234/v1/chat/completions"
+
+class LmstudioProvider:
+    def __init__(self, api_url, api_key):
+        self.api_url = api_url or "http://localhost:1234/v1/chat/completions"
+
+
+    def get_available_models(self):
+        return {
+            "instructlab/granite-7b-lab-GGUF": 2048,
+            "MaziyarPanahi/Codestral-22B-v0.1-GGUF": 32768,
+            # Add other LMStudio models here
+        }
+
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -1367,6 +1609,7 @@ class LmstudioProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'choices' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {
@@ -1396,15 +1639,26 @@ class LmstudioProvider(BaseLLMProvider):
 # AutoGroq\llm_providers\ollama_provider.py
 
 ```python
+# llm_providers/ollama_provider.py
+
 import json
 import requests
 import streamlit as st
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class OllamaProvider(BaseLLMProvider):
-    def __init__(self, api_url, api_key=None):
-        self.api_url = "http://127.0.0.1:11434/api/generate"
+
+class OllamaProvider:
+    def __init__(self, api_url, api_key):
+        self.api_url = api_url or "http://127.0.0.1:11434/api/generate"
+
+
+    def get_available_models(self):
+        return {
+            "llama3": 8192,
+            # Add other Ollama models here
+        }
+    
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -1427,6 +1681,7 @@ class OllamaProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'response' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {
@@ -1460,16 +1715,30 @@ import requests
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class OpenaiProvider(BaseLLMProvider):
+class OpenaiProvider:
     def __init__(self, api_url, api_key):
-        self.api_key = os.environ.get("OPENAI_API_KEY")
-        self.api_url = "https://api.openai.com/v1/chat/completions"
+        self.api_key = api_key
+        self.api_url = api_url or "https://api.openai.com/v1/chat/completions"
+
+
+    def get_available_models(self):
+        response = requests.get("https://api.openai.com/v1/models", headers={
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        })
+        if response.status_code == 200:
+            models_data = response.json().get("data", [])
+            return {model["id"]: model.get("max_tokens", 4096) for model in models_data}
+        else:
+            raise Exception(f"Failed to retrieve models: {response.status_code}")
+    
 
     def process_response(self, response):
         if response.status_code == 200:
             return response.json()
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         print("self.api_url: ", self.api_url)
@@ -2013,6 +2282,149 @@ class WorkflowBaseModel:
         )
 ```
 
+# AutoGroq\tools\code_generator.py
+
+```python
+# tools/code_generator.py
+
+import inspect
+import json
+import logging
+from models.tool_base_model import ToolBaseModel
+from utils.api_utils import get_api_key, get_llm_provider
+import streamlit as st
+
+logger = logging.getLogger(__name__)
+
+def generate_code(request: str, language: str = "Python") -> str:
+    logger.debug(f"Generating code for request: {request}")
+    logger.debug(f"Language: {language}")
+    
+    if not request.strip():
+        return "Error: No specific code generation request provided."
+
+    prompt = f"""
+    You are an advanced AI language model with expertise in software development. Your task is to generate the best possible software solution for the following request:
+    **Request:**
+    {request}
+    **Language:**
+    {language}
+    Please ensure that the code follows best practices for {language}, is optimized for performance and maintainability, and includes comprehensive comments explaining each part of the code. Additionally, provide any necessary context or explanations to help understand the implementation. The solution should be robust, scalable, and adhere to industry standards.
+    If there are multiple ways to solve the problem, choose the most efficient and elegant approach. If any libraries or frameworks are beneficial, include their usage with appropriate explanations.
+    Begin your response with a brief overview of the approach you are taking, and then provide the complete code.
+    Example overview: "To solve the problem of {request}, we will implement a {{specific algorithm/pattern}} using {{specific features/libraries of the language}}. This approach ensures {{benefits of the approach}}."
+    Here is the code:
+    """
+
+    api_key = get_api_key()
+    llm_provider = get_llm_provider(api_key=api_key)
+    
+    llm_request_data = {
+        "model": st.session_state.get('model', 'default'),
+        "temperature": st.session_state.get('temperature', 0.7),
+        "max_tokens": st.session_state.get('max_tokens', 2000),
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an expert code generator."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+
+    try:
+        response = llm_provider.send_request(llm_request_data)
+        logger.debug(f"LLM response status code: {response.status_code}")
+        logger.debug(f"LLM response content: {response.text[:500]}...")  # Log first 500 characters of response
+        
+        if response.status_code == 200:
+            response_data = llm_provider.process_response(response)
+            if "choices" in response_data and response_data["choices"]:
+                generated_code = response_data["choices"][0]["message"]["content"]
+                return generated_code.strip()
+            else:
+                return "Error: Unexpected response format from the language model."
+        else:
+            return f"Error: Received status code {response.status_code} from the language model API."
+    except Exception as e:
+        logger.error(f"Error generating code: {str(e)}", exc_info=True)
+        return f"Error generating code: {str(e)}"
+
+code_generator_tool = ToolBaseModel(
+    name="generate_code",
+    description="Generates code for a specified feature in a given programming language.",
+    title="Code Generator",
+    file_name="code_generator.py",
+    content=inspect.getsource(generate_code),
+    function=generate_code,
+)
+
+def get_tool():
+    return code_generator_tool
+```
+
+# AutoGroq\tools\code_test.py
+
+```python
+# tools/code_test.py
+
+import inspect
+import subprocess
+import tempfile
+from models.tool_base_model import ToolBaseModel
+
+def test_code(language: str, code: str, test_cases: str) -> str:
+    """
+    Tests the given code with provided test cases.
+
+    Args:
+        language (str): The programming language of the code (e.g., "Python", "JavaScript").
+        code (str): The code to be tested.
+        test_cases (str): A string containing test cases, each on a new line.
+
+    Returns:
+        str: The test results as a string.
+    """
+    if language.lower() != "python":
+        return f"Testing for {language} is not supported yet."
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
+        temp_file.write(code)
+        temp_file.write("\n\n# Test cases\n")
+        temp_file.write(test_cases)
+        temp_file_name = temp_file.name
+
+    try:
+        result = subprocess.run(['python', temp_file_name], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return f"Tests passed successfully.\nOutput:\n{result.stdout}"
+        else:
+            return f"Tests failed.\nError:\n{result.stderr}"
+    except subprocess.TimeoutExpired:
+        return "Test execution timed out."
+    except Exception as e:
+        return f"An error occurred during testing: {str(e)}"
+
+code_test_tool = ToolBaseModel(
+    name="test_code",
+    description="Tests the given code with provided test cases.",
+    title="Code Tester",
+    file_name="code_test.py",
+    content=inspect.getsource(test_code),
+    function=test_code,
+)
+
+def get_tool():
+    return code_test_tool
+
+```
+
 # AutoGroq\tools\fetch_web_content.py
 
 ```python
@@ -2217,14 +2629,28 @@ def display_api_key_input(provider=None):
     
     if api_key is None:
         st.session_state.warning_placeholder.warning(f"{provider.upper()} API Key not found. Please enter your API key, or select a different provider.")
-        api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
-        if api_key:
-            st.session_state[api_key_env_var] = api_key
-            os.environ[api_key_env_var] = api_key
-            st.success(f"{provider.upper()} API Key entered successfully.")
-            st.session_state.warning_placeholder.empty()
+    api_key = st.text_input(f"Enter your {provider.upper()} API Key:", type="password", key=f"api_key_input_{provider}")
+    if api_key:
+        st.session_state[api_key_env_var] = api_key
+        os.environ[api_key_env_var] = api_key
+        # st.success(f"{provider.upper()} API Key entered successfully.")
+        st.session_state.warning_placeholder.empty()
     return api_key
 
+
+def fetch_available_models(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key = get_api_key(provider)
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+    try:
+        models = llm_provider.get_available_models()
+        st.session_state.available_models = models
+        return models
+    except Exception as e:
+        st.error(f"Failed to fetch available models: {str(e)}")
+        return {}
+    
 
 def get_api_key(provider=None):
     if provider is None:
@@ -2722,6 +3148,9 @@ def execute_in_sandbox(tool_name, *args):
 
 import streamlit as st
 
+from agents.code_developer import CodeDeveloperAgent
+from agents.code_tester import CodeTesterAgent
+from agents.web_content_retriever import WebContentRetrieverAgent
 from configs.config import LLM_PROVIDER, SUPPORTED_PROVIDERS
 from configs.config_sessions import DEFAULT_AGENT_CONFIG
 from configs.current_project import Current_Project
@@ -2746,6 +3175,18 @@ def initialize_session_variables():
 
     if "agents" not in st.session_state:
         st.session_state.agents = []
+
+    # Ensure built-in agents are always present
+    built_in_agents = [
+        WebContentRetrieverAgent.create_default(),
+        CodeDeveloperAgent.create_default(),
+        CodeTesterAgent.create_default()
+    ]
+
+    # Add built-in agents if they're not already in the list
+    for built_in_agent in built_in_agents:
+        if not any(agent.name == built_in_agent.name for agent in st.session_state.agents):
+            st.session_state.agents.append(built_in_agent)
 
     if "api_key" not in st.session_state:
         st.session_state.api_key = ""
@@ -2904,29 +3345,35 @@ def sanitize_text(text):
 # utils/tool_execution.py
 
 import inspect
+import logging
 
 from utils.sandbox import execute_in_sandbox
 
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
 def execute_tool(tool_name, function_map, *args, **kwargs):
+    logger.debug(f"Attempting to execute tool: {tool_name}")
+    logger.debug(f"Available tools: {list(function_map.keys())}")
+    logger.debug(f"Args: {args}")
+    logger.debug(f"Kwargs: {kwargs}")
+    
     if tool_name not in function_map:
         raise ValueError(f"Tool '{tool_name}' not found in function map")
     
-    return execute_in_sandbox(tool_name, *args)
-
-
-# def execute_tool(tool_name, function_map, *args, **kwargs):
-#     if tool_name not in function_map:
-#         raise ValueError(f"Tool '{tool_name}' not found in function map")
+    tool_function = function_map[tool_name]
+    logger.debug(f"Tool function: {tool_function}")
     
-#     tool_function = function_map[tool_name]
-    
-#     # Check if the function is a method that requires 'self'
-#     if inspect.ismethod(tool_function):
-#         # If it's a method, we need to pass 'self' as the first argument
-#         return tool_function(*args, **kwargs)
-#     else:
-#         # If it's a regular function, we can call it directly
-#         return tool_function(*args, **kwargs)
+    try:
+        result = tool_function(*args, **kwargs)
+        logger.debug(f"Tool execution result: {result[:500]}...")  # Log first 500 characters of result
+        return result
+    except Exception as e:
+        logger.error(f"Error executing tool {tool_name}: {str(e)}", exc_info=True)
+        raise
+
 
 def get_tool_signature(tool_name, function_map):
     if tool_name not in function_map:
@@ -3086,9 +3533,9 @@ def load_tool_functions():
     # Debug: Print loaded tools
     for tool in st.session_state.tool_models:
         print(f"Loaded tool model: {tool.name}")
-    for tool_name in st.session_state.tool_functions:
-        print(f"Loaded tool function: {tool_name}")
-
+    for tool_name, tool_function in st.session_state.tool_functions.items():
+        print(f"Loaded tool function: {tool_name} -> {tool_function}")
+        
 
 def populate_tool_models():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -3291,7 +3738,7 @@ from models.workflow_base_model import WorkflowBaseModel
 from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt, get_moderator_prompt  
 from tools.fetch_web_content import fetch_web_content
 from typing import Any, List, Dict, Tuple
-from utils.api_utils import get_api_key, get_llm_provider
+from utils.api_utils import fetch_available_models, get_api_key, get_llm_provider
 from utils.auth_utils import display_api_key_input
 from utils.db_utils import export_to_autogen
 from utils.file_utils import zip_files_in_memory
@@ -3368,12 +3815,21 @@ def display_discussion_and_whiteboard():
             for index, deliverable in enumerate(current_project.deliverables):
                 if deliverable["text"].strip():  # Check if the deliverable text is not empty
                     checkbox_key = f"deliverable_{index}"
-                    done = st.checkbox(deliverable["text"], value=deliverable["done"], key=checkbox_key)
+                    done = st.checkbox(
+                        deliverable["text"], 
+                        value=current_project.is_deliverable_complete(index),
+                        key=checkbox_key,
+                        on_change=update_deliverable_status,
+                        args=(index,)
+                    )
                     if done != deliverable["done"]:
                         if done:
-                            current_project.mark_deliverable_done(index)
+                            current_project.mark_deliverable_phase_done(index, current_project.current_phase)
                         else:
-                            current_project.mark_deliverable_undone(index)
+                            current_project.deliverables[index]["done"] = False
+                            for phase in current_project.implementation_phases:
+                                current_project.deliverables[index]["phase"][phase] = False
+
 
     with tabs[4]:
         display_download_button() 
@@ -3995,8 +4451,7 @@ def handle_user_request(session_state):
 
 def key_prompt():
     api_key = get_api_key()
-    if api_key is None:
-        api_key = display_api_key_input()
+    api_key = display_api_key_input()
     if api_key is None:
         llm = LLM_PROVIDER.upper()
         st.warning(f"{llm}_API_KEY not found, or select a different provider.")
@@ -4069,8 +4524,16 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
 
 def select_model():
     provider = st.session_state.get('provider', LLM_PROVIDER)
-    provider_models = MODEL_CHOICES[provider]
     
+    if 'available_models' not in st.session_state or not st.session_state.available_models:
+        fetch_available_models(provider)
+    
+    provider_models = st.session_state.available_models
+    
+    if not provider_models:
+        st.warning(f"No models available for {provider}. Please check your API key and connection.")
+        return None
+
     if 'model' not in st.session_state or st.session_state.model not in provider_models:
         default_model = next(iter(provider_models))
     else:
@@ -4108,6 +4571,9 @@ def select_provider():
         api_key = get_api_key(selected_provider)
         if api_key is None:
             display_api_key_input(selected_provider)
+        else:
+            # Fetch available models for the selected provider
+            fetch_available_models(selected_provider)
         
         # Clear the model selection when changing providers
         if 'model' in st.session_state:
@@ -4156,68 +4622,146 @@ def show_interfaces():
     
     st.markdown('<div class="user-input">', unsafe_allow_html=True)
     auto_moderate = st.checkbox("Auto-moderate (slow, eats tokens, but very cool)", key="auto_moderate", on_change=trigger_moderator_agent_if_checked)
-    if auto_moderate and not st.session_state.get("user_input"):
-        moderator_response = trigger_moderator_agent()
+    if auto_moderate:
+        with st.spinner("Auto-moderating..."):
+            moderator_response = trigger_moderator_agent()
         if moderator_response:
-            st.session_state.user_input = moderator_response
-    user_input, reference_url = display_user_input()
+            if st.session_state.next_agent:
+                st.session_state.user_input = f"To {st.session_state.next_agent}: {moderator_response}"
+            else:
+                st.session_state.user_input = moderator_response
+            st.success("Auto-moderation complete. New input has been generated.")
+        else:
+            st.warning("Auto-moderation failed due to rate limiting. Please wait a moment and try again, or proceed manually.")
+    
+    user_input = st.text_area("Additional Input:", value=st.session_state.user_input, height=200, key="user_input_widget")
+    reference_url = st.text_input("URL:", key="reference_url_widget")
+    
     st.markdown('</div>', unsafe_allow_html=True)
+
+    return user_input, reference_url
 
 
 def trigger_moderator_agent():
-    goal = st.session_state.current_project.re_engineered_prompt
+    current_project = st.session_state.current_project
+    goal = current_project.re_engineered_prompt
     last_speaker = st.session_state.last_agent
     last_comment = st.session_state.last_comment
     discussion_history = st.session_state.discussion_history
 
+    deliverable_index, current_deliverable = current_project.get_next_unchecked_deliverable()
+    
+    if current_deliverable is None:
+        if current_project.current_phase != "Deployment":
+            current_project.move_to_next_phase()
+            st.success(f"Moving to {current_project.current_phase} phase!")
+            deliverable_index, current_deliverable = current_project.get_next_unchecked_deliverable()
+        else:
+            st.success("All deliverables have been completed and deployed!")
+            return None
+
+    current_phase = current_project.get_next_uncompleted_phase(deliverable_index)
+    
     team_members = []
     for agent in st.session_state.agents:
         if isinstance(agent, AgentBaseModel):
             team_members.append(f"{agent.config['name']}: {agent.description}")
         else:
-            # Fallback for dictionary-like structure
             team_members.append(f"{agent.get('config', {}).get('name', 'Unknown')}: {agent.get('description', 'No description')}")
     team_members_str = "\n".join(team_members)
 
-    moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str)
+    moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str, current_deliverable, current_phase)
 
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": st.session_state.temperature,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": moderator_prompt
-            }
-        ]
-    }
-    # wait for RETRY_DELAY seconds
-    retry_delay = RETRY_DELAY
-    time.sleep(retry_delay)
-    response = llm_provider.send_request(llm_request_data)
+    for attempt in range(MAX_RETRIES):
+        api_key = get_api_key()
+        llm_provider = get_llm_provider(api_key=api_key)
+        llm_request_data = {
+            "model": st.session_state.model,
+            "temperature": st.session_state.temperature,
+            "max_tokens": st.session_state.max_tokens,
+            "top_p": 1,
+            "stop": "TERMINATE",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": moderator_prompt
+                }
+            ]
+        }
+        retry_delay = RETRY_DELAY
+        time.sleep(retry_delay)
+        response = llm_provider.send_request(llm_request_data)
 
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        if "choices" in response_data and response_data["choices"]:
-            content = response_data["choices"][0]["message"]["content"]
-            return content.strip()
+        if response.status_code == 200:
+            response_data = llm_provider.process_response(response)
+            if "choices" in response_data and response_data["choices"]:
+                content = response_data["choices"][0]["message"]["content"]
+                
+                # Extract the agent name from the content
+                agent_name_match = re.match(r"To (\w+( \w+)*):", content)
+                if agent_name_match:
+                    next_agent = agent_name_match.group(1)
+                    # Check if the extracted name is a valid agent and not a tool
+                    if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
+                        st.session_state.next_agent = next_agent
+                        # Remove the "To [Agent Name]:" prefix from the content
+                        content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
+                    else:
+                        st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
+                        st.session_state.next_agent = None
+                else:
+                    st.session_state.next_agent = None
+                
+                if "PHASE_COMPLETED" in content:
+                    current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
+                    content = content.replace("PHASE_COMPLETED", "").strip()
+                    st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
+                
+                if "DELIVERABLE_COMPLETED" in content:
+                    current_project.mark_deliverable_done(deliverable_index)
+                    content = content.replace("DELIVERABLE_COMPLETED", "").strip()
+                    st.success(f"Deliverable completed: {current_deliverable}")
+                
+                return content.strip()
+        elif response.status_code == 429:
+            logger.warning(f"Rate limit hit. Retrying in {RETRY_DELAY} seconds...")
+            time.sleep(RETRY_DELAY)
+        else:
+            logger.error(f"Unexpected status code: {response.status_code}")
+            break
 
+    logger.error("All retry attempts failed.")
     return None
 
 
 def trigger_moderator_agent_if_checked():
     if st.session_state.get("auto_moderate", False):
-        trigger_moderator_agent()
+        with st.spinner("Auto-moderating..."):
+            moderator_response = trigger_moderator_agent()
+        if moderator_response:
+            st.session_state.user_input = moderator_response
+            st.success("Auto-moderation complete. New input has been generated.")
+        else:
+            st.warning("Auto-moderation did not produce a response. Please try again or proceed manually.")
+    st.experimental_rerun()
 
 
 def update_api_url(provider):
     api_url_key = f"{provider.upper()}_API_URL"
     st.session_state.api_url = st.session_state.get(api_url_key)
+
+
+def update_deliverable_status(index):
+    current_project = st.session_state.current_project
+    is_checked = st.session_state[f"deliverable_{index}"]
+    if is_checked:
+        for phase in current_project.implementation_phases:
+            current_project.mark_deliverable_phase_done(index, phase)
+    else:
+        current_project.deliverables[index]["done"] = False
+        for phase in current_project.implementation_phases:
+            current_project.deliverables[index]["phase"][phase] = False
+    st.experimental_rerun()
 
 
 def update_discussion_and_whiteboard(agent_name, response, user_input):

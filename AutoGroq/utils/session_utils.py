@@ -1,6 +1,9 @@
 
 import streamlit as st
 
+from agents.code_developer import CodeDeveloperAgent
+from agents.code_tester import CodeTesterAgent
+from agents.web_content_retriever import WebContentRetrieverAgent
 from configs.config import LLM_PROVIDER, SUPPORTED_PROVIDERS
 from configs.config_sessions import DEFAULT_AGENT_CONFIG
 from configs.current_project import Current_Project
@@ -25,6 +28,18 @@ def initialize_session_variables():
 
     if "agents" not in st.session_state:
         st.session_state.agents = []
+
+    # Ensure built-in agents are always present
+    built_in_agents = [
+        WebContentRetrieverAgent.create_default(),
+        CodeDeveloperAgent.create_default(),
+        CodeTesterAgent.create_default()
+    ]
+
+    # Add built-in agents if they're not already in the list
+    for built_in_agent in built_in_agents:
+        if not any(agent.name == built_in_agent.name for agent in st.session_state.agents):
+            st.session_state.agents.append(built_in_agent)
 
     if "api_key" not in st.session_state:
         st.session_state.api_key = ""

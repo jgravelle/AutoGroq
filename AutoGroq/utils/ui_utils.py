@@ -23,7 +23,7 @@ from models.workflow_base_model import WorkflowBaseModel
 from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt, get_moderator_prompt  
 from tools.fetch_web_content import fetch_web_content
 from typing import Any, List, Dict, Tuple
-from utils.api_utils import get_api_key, get_llm_provider
+from utils.api_utils import fetch_available_models, get_api_key, get_llm_provider
 from utils.auth_utils import display_api_key_input
 from utils.db_utils import export_to_autogen
 from utils.file_utils import zip_files_in_memory
@@ -100,12 +100,21 @@ def display_discussion_and_whiteboard():
             for index, deliverable in enumerate(current_project.deliverables):
                 if deliverable["text"].strip():  # Check if the deliverable text is not empty
                     checkbox_key = f"deliverable_{index}"
-                    done = st.checkbox(deliverable["text"], value=deliverable["done"], key=checkbox_key)
+                    done = st.checkbox(
+                        deliverable["text"], 
+                        value=current_project.is_deliverable_complete(index),
+                        key=checkbox_key,
+                        on_change=update_deliverable_status,
+                        args=(index,)
+                    )
                     if done != deliverable["done"]:
                         if done:
-                            current_project.mark_deliverable_done(index)
+                            current_project.mark_deliverable_phase_done(index, current_project.current_phase)
                         else:
-                            current_project.mark_deliverable_undone(index)
+                            current_project.deliverables[index]["done"] = False
+                            for phase in current_project.implementation_phases:
+                                current_project.deliverables[index]["phase"][phase] = False
+
 
     with tabs[4]:
         display_download_button() 
@@ -727,8 +736,7 @@ def handle_user_request(session_state):
 
 def key_prompt():
     api_key = get_api_key()
-    if api_key is None:
-        api_key = display_api_key_input()
+    api_key = display_api_key_input()
     if api_key is None:
         llm = LLM_PROVIDER.upper()
         st.warning(f"{llm}_API_KEY not found, or select a different provider.")
@@ -801,8 +809,16 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
 
 def select_model():
     provider = st.session_state.get('provider', LLM_PROVIDER)
-    provider_models = MODEL_CHOICES[provider]
     
+    if 'available_models' not in st.session_state or not st.session_state.available_models:
+        fetch_available_models(provider)
+    
+    provider_models = st.session_state.available_models
+    
+    if not provider_models:
+        st.warning(f"No models available for {provider}. Please check your API key and connection.")
+        return None
+
     if 'model' not in st.session_state or st.session_state.model not in provider_models:
         default_model = next(iter(provider_models))
     else:
@@ -840,6 +856,9 @@ def select_provider():
         api_key = get_api_key(selected_provider)
         if api_key is None:
             display_api_key_input(selected_provider)
+        else:
+            # Fetch available models for the selected provider
+            fetch_available_models(selected_provider)
         
         # Clear the model selection when changing providers
         if 'model' in st.session_state:
@@ -888,68 +907,146 @@ def show_interfaces():
     
     st.markdown('<div class="user-input">', unsafe_allow_html=True)
     auto_moderate = st.checkbox("Auto-moderate (slow, eats tokens, but very cool)", key="auto_moderate", on_change=trigger_moderator_agent_if_checked)
-    if auto_moderate and not st.session_state.get("user_input"):
-        moderator_response = trigger_moderator_agent()
+    if auto_moderate:
+        with st.spinner("Auto-moderating..."):
+            moderator_response = trigger_moderator_agent()
         if moderator_response:
-            st.session_state.user_input = moderator_response
-    user_input, reference_url = display_user_input()
+            if st.session_state.next_agent:
+                st.session_state.user_input = f"To {st.session_state.next_agent}: {moderator_response}"
+            else:
+                st.session_state.user_input = moderator_response
+            st.success("Auto-moderation complete. New input has been generated.")
+        else:
+            st.warning("Auto-moderation failed due to rate limiting. Please wait a moment and try again, or proceed manually.")
+    
+    user_input = st.text_area("Additional Input:", value=st.session_state.user_input, height=200, key="user_input_widget")
+    reference_url = st.text_input("URL:", key="reference_url_widget")
+    
     st.markdown('</div>', unsafe_allow_html=True)
+
+    return user_input, reference_url
 
 
 def trigger_moderator_agent():
-    goal = st.session_state.current_project.re_engineered_prompt
+    current_project = st.session_state.current_project
+    goal = current_project.re_engineered_prompt
     last_speaker = st.session_state.last_agent
     last_comment = st.session_state.last_comment
     discussion_history = st.session_state.discussion_history
 
+    deliverable_index, current_deliverable = current_project.get_next_unchecked_deliverable()
+    
+    if current_deliverable is None:
+        if current_project.current_phase != "Deployment":
+            current_project.move_to_next_phase()
+            st.success(f"Moving to {current_project.current_phase} phase!")
+            deliverable_index, current_deliverable = current_project.get_next_unchecked_deliverable()
+        else:
+            st.success("All deliverables have been completed and deployed!")
+            return None
+
+    current_phase = current_project.get_next_uncompleted_phase(deliverable_index)
+    
     team_members = []
     for agent in st.session_state.agents:
         if isinstance(agent, AgentBaseModel):
             team_members.append(f"{agent.config['name']}: {agent.description}")
         else:
-            # Fallback for dictionary-like structure
             team_members.append(f"{agent.get('config', {}).get('name', 'Unknown')}: {agent.get('description', 'No description')}")
     team_members_str = "\n".join(team_members)
 
-    moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str)
+    moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str, current_deliverable, current_phase)
 
-    api_key = get_api_key()
-    llm_provider = get_llm_provider(api_key=api_key)
-    llm_request_data = {
-        "model": st.session_state.model,
-        "temperature": st.session_state.temperature,
-        "max_tokens": st.session_state.max_tokens,
-        "top_p": 1,
-        "stop": "TERMINATE",
-        "messages": [
-            {
-                "role": "user",
-                "content": moderator_prompt
-            }
-        ]
-    }
-    # wait for RETRY_DELAY seconds
-    retry_delay = RETRY_DELAY
-    time.sleep(retry_delay)
-    response = llm_provider.send_request(llm_request_data)
+    for attempt in range(MAX_RETRIES):
+        api_key = get_api_key()
+        llm_provider = get_llm_provider(api_key=api_key)
+        llm_request_data = {
+            "model": st.session_state.model,
+            "temperature": st.session_state.temperature,
+            "max_tokens": st.session_state.max_tokens,
+            "top_p": 1,
+            "stop": "TERMINATE",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": moderator_prompt
+                }
+            ]
+        }
+        retry_delay = RETRY_DELAY
+        time.sleep(retry_delay)
+        response = llm_provider.send_request(llm_request_data)
 
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        if "choices" in response_data and response_data["choices"]:
-            content = response_data["choices"][0]["message"]["content"]
-            return content.strip()
+        if response.status_code == 200:
+            response_data = llm_provider.process_response(response)
+            if "choices" in response_data and response_data["choices"]:
+                content = response_data["choices"][0]["message"]["content"]
+                
+                # Extract the agent name from the content
+                agent_name_match = re.match(r"To (\w+( \w+)*):", content)
+                if agent_name_match:
+                    next_agent = agent_name_match.group(1)
+                    # Check if the extracted name is a valid agent and not a tool
+                    if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
+                        st.session_state.next_agent = next_agent
+                        # Remove the "To [Agent Name]:" prefix from the content
+                        content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
+                    else:
+                        st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
+                        st.session_state.next_agent = None
+                else:
+                    st.session_state.next_agent = None
+                
+                if "PHASE_COMPLETED" in content:
+                    current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
+                    content = content.replace("PHASE_COMPLETED", "").strip()
+                    st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
+                
+                if "DELIVERABLE_COMPLETED" in content:
+                    current_project.mark_deliverable_done(deliverable_index)
+                    content = content.replace("DELIVERABLE_COMPLETED", "").strip()
+                    st.success(f"Deliverable completed: {current_deliverable}")
+                
+                return content.strip()
+        elif response.status_code == 429:
+            logger.warning(f"Rate limit hit. Retrying in {RETRY_DELAY} seconds...")
+            time.sleep(RETRY_DELAY)
+        else:
+            logger.error(f"Unexpected status code: {response.status_code}")
+            break
 
+    logger.error("All retry attempts failed.")
     return None
 
 
 def trigger_moderator_agent_if_checked():
     if st.session_state.get("auto_moderate", False):
-        trigger_moderator_agent()
+        with st.spinner("Auto-moderating..."):
+            moderator_response = trigger_moderator_agent()
+        if moderator_response:
+            st.session_state.user_input = moderator_response
+            st.success("Auto-moderation complete. New input has been generated.")
+        else:
+            st.warning("Auto-moderation did not produce a response. Please try again or proceed manually.")
+    st.experimental_rerun()
 
 
 def update_api_url(provider):
     api_url_key = f"{provider.upper()}_API_URL"
     st.session_state.api_url = st.session_state.get(api_url_key)
+
+
+def update_deliverable_status(index):
+    current_project = st.session_state.current_project
+    is_checked = st.session_state[f"deliverable_{index}"]
+    if is_checked:
+        for phase in current_project.implementation_phases:
+            current_project.mark_deliverable_phase_done(index, phase)
+    else:
+        current_project.deliverables[index]["done"] = False
+        for phase in current_project.implementation_phases:
+            current_project.deliverables[index]["phase"][phase] = False
+    st.experimental_rerun()
 
 
 def update_discussion_and_whiteboard(agent_name, response, user_input):

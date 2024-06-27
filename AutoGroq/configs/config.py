@@ -2,6 +2,9 @@
 
 import os
 
+from typing import Dict
+
+
 # Get user home directory
 home_dir = os.path.expanduser("~")
 default_db_path = f'{home_dir}/.autogenstudio/database.sqlite'
@@ -124,3 +127,17 @@ MODEL_CHOICES = {
 }
 
 SUPPORTED_PROVIDERS = ["anthropic", "fireworks", "groq", "lmstudio", "ollama", "openai"]    
+
+BUILT_IN_AGENTS = ["Web Content Retriever", "Code Developer", "Code Tester"]
+
+AVAILABLE_MODELS: Dict[str, Dict[str, int]] = {}
+
+def update_available_models(provider: str, models: Dict[str, int]):
+    """
+    Update the available models for a given provider.
+    
+    :param provider: The name of the provider (e.g., 'groq', 'openai')
+    :param models: A dictionary of model names and their token limits
+    """
+    global AVAILABLE_MODELS
+    AVAILABLE_MODELS[provider] = models

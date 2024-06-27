@@ -3,13 +3,15 @@ import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
-from utils.auth_utils import get_api_key
 
 
 class FireworksProvider(BaseLLMProvider):
-    def __init__(self, api_url):
-        self.api_key = get_api_key()
+    def __init__(self, api_url, api_key):
         self.api_url = api_url
+
+
+    def get_available_models(self):
+        return None
 
 
     def process_response(self, response):

@@ -1,12 +1,23 @@
+# llm_providers/lmstudio_provider.py
 
 import json
 import requests
 
 from llm_providers.base_provider import BaseLLMProvider
 
-class LmstudioProvider(BaseLLMProvider):
-    def __init__(self, api_url, api_key=None):
-        self.api_url = "http://localhost:1234/v1/chat/completions"
+
+class LmstudioProvider:
+    def __init__(self, api_url, api_key):
+        self.api_url = api_url or "http://localhost:1234/v1/chat/completions"
+
+
+    def get_available_models(self):
+        return {
+            "instructlab/granite-7b-lab-GGUF": 2048,
+            "MaziyarPanahi/Codestral-22B-v0.1-GGUF": 32768,
+            # Add other LMStudio models here
+        }
+
 
     def process_response(self, response):
         if response.status_code == 200:
@@ -26,6 +37,7 @@ class LmstudioProvider(BaseLLMProvider):
                 raise Exception("Unexpected response format. 'choices' field missing.")
         else:
             raise Exception(f"Request failed with status code {response.status_code}")
+
 
     def send_request(self, data):
         headers = {
