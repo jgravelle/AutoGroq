@@ -475,8 +475,6 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                         autogen_agents = []
                         crewai_agents = []
                         for index, agent_data in enumerate(json_data, start=1):
-                            print(f"Processing agent data: {agent_data}")
-                            
                             expert_name = agent_data.get('expert_name', '')
                             description = agent_data.get('description', '')
                             role = agent_data.get('role', expert_name)
@@ -491,42 +489,23 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                             current_timestamp = datetime.datetime.now().isoformat()
                             
                             autogen_agent_data = {
-                                "id": index,
                                 "name": expert_name,
                                 "description": description,
-                                "type": "assistant",
+                                "tools": agent_tools,
                                 "config": {
                                     "name": expert_name,
                                     "llm_config": {
                                         "config_list": [
                                             {
-                                                "user_id": "default",
-                                                "timestamp": current_timestamp,
                                                 "model": st.session_state.model,
-                                                "base_url": None,
-                                                "api_type": None,
-                                                "api_version": None,
-                                                "description": "OpenAI model configuration"
+                                                "api_key": None
                                             }
                                         ],
-                                        "temperature": st.session_state.temperature,
-                                        "cache_seed": 42,
-                                        "timeout": 600,
-                                        "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
-                                        "extra_body": None
+                                        "temperature": st.session_state.temperature
                                     },
                                     "human_input_mode": "NEVER",
-                                    "max_consecutive_auto_reply": 8,
-                                    "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
+                                    "max_consecutive_auto_reply": 10
                                 },
-                                "tools": agent_tools,
-                                "created_at": current_timestamp,
-                                "updated_at": current_timestamp,
-                                "user_id": "default",
-                                "models": [model for model in MODEL_CHOICES if model != "default"],
-                                "verbose": False,
-                                "allow_delegation": False,
-                                "timestamp": current_timestamp,
                                 "role": role,
                                 "goal": goal,
                                 "backstory": backstory,
@@ -543,26 +522,13 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                                 print(f"Agent data: {autogen_agent_data}")
                                 continue
 
-                            crewai_agent_data = {
+                            crewai_agents.append({
                                 "name": expert_name,
                                 "description": description,
                                 "tools": [tool['name'] if isinstance(tool, dict) else tool.name for tool in agent_tools],
                                 "verbose": True,
                                 "allow_delegation": True
-                            }
-                            crewai_agents.append(crewai_agent_data)
-
-                        web_retriever_agent = WebContentRetrieverAgent.create_default()
-                        autogen_agent_data = web_retriever_agent.to_dict()
-                        autogen_agent_data['id'] = len(autogen_agents) + 1
-                        autogen_agents.append(AgentBaseModel(**autogen_agent_data))
-                        crewai_agents.append({
-                            "name": web_retriever_agent.name,
-                            "description": web_retriever_agent.description,
-                            "tools": [tool['name'] for tool in web_retriever_agent.tools],
-                            "verbose": True,
-                            "allow_delegation": True
-                        })
+                            })
 
                         print(f"AutoGen Agents: {autogen_agents}")
                         print(f"CrewAI Agents: {crewai_agents}")
@@ -950,9 +916,12 @@ def trigger_moderator_agent():
     team_members = []
     for agent in st.session_state.agents:
         if isinstance(agent, AgentBaseModel):
-            team_members.append(f"{agent.config['name']}: {agent.description}")
+            team_members.append(f"{agent.name}: {agent.description}")
         else:
-            team_members.append(f"{agent.get('config', {}).get('name', 'Unknown')}: {agent.get('description', 'No description')}")
+            # Fallback for dictionary-like structure
+            agent_name = agent.get('config', {}).get('name', agent.get('name', 'Unknown'))
+            agent_description = agent.get('description', 'No description')
+            team_members.append(f"{agent_name}: {agent_description}")
     team_members_str = "\n".join(team_members)
 
     moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str, current_deliverable, current_phase)

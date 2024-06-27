@@ -1,25 +1,18 @@
+# db_utils.py
 
 import datetime
 import json
-import os
 import sqlite3
 import streamlit as st
+import traceback
 import uuid
 
-from configs.config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
-
+from configs.config import FRAMEWORK_DB_PATH
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
-
 def export_to_autogen():
-    # Check if the app is running on Streamlit Sharing
-    url_params = st.query_params
-    if "streamlit.app" in url_params.get("url", ""):
-        st.warning("Exporting to Autogen is only possible with a locally running copy of AutoGroq™.")
-        return
-
     db_path = FRAMEWORK_DB_PATH
     print(f"Database path: {db_path}")
     if db_path:
@@ -37,68 +30,88 @@ def export_data(db_path):
             cursor = conn.cursor()
             print("Connected to the database successfully.")
 
-            # Access agents from st.session_state
             agents = st.session_state.agents
             print(f"Number of agents: {len(agents)}")
 
-            # Keep track of inserted skills to avoid duplicates
-            inserted_skills = set()
+            for index, agent in enumerate(agents):
+                try:
+                    print(f"Processing agent {index + 1}: {agent.name if hasattr(agent, 'name') else 'Unknown'}")
+                    
+                    if not isinstance(agent, dict):
+                        agent_dict = agent.to_dict()
+                    else:
+                        agent_dict = agent
 
-            for agent in agents:
-                agent_name = agent['config']['name']
-                formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-                autogen_agent_data, _ = create_agent_data(agent)
-                
-                # Update the model and max_tokens in the autogen_agent_data
-                autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
-                autogen_agent_data['config']['llm_config']['max_tokens'] = MODEL_CHOICES.get(agent['config']['llm_config']['config_list'][0]['model'], MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
-                
-                agent_data = (
-                    str(uuid.uuid4()), # Generate a unique ID for the agent
-                    'default',
-                    datetime.datetime.now().isoformat(),
-                    json.dumps(autogen_agent_data['config']),
-                    autogen_agent_data['type'],
-                    json.dumps(autogen_agent_data['tools'])
-                )
-                cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
-                print(f"Inserted agent: {formatted_agent_name}")
+                    agent_name = agent_dict.get('name', f"Agent_{index}")
+                    formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
+                    
+                    autogen_agent_data, _ = create_agent_data(agent_dict)
+                    
+                    # Enhance the config with additional required fields
+                    enhanced_config = autogen_agent_data['config']
+                    enhanced_config.update({
+                        "admin_name": "Admin",
+                        "messages": [],
+                        "max_round": 100,
+                        "speaker_selection_method": "auto",
+                        "allow_repeat_speaker": True
+                    })
+                    
+                    # Enhance the system message
+                    system_message = f"You are a helpful assistant that can act as {agent_name} who {agent_dict.get('description', '')}. {enhanced_config.get('system_message', '')}"
+                    
+                    agent_data = (
+                        None,  # id is INTEGER, let SQLite auto-increment
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # created_at
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # updated_at
+                        'guestuser@gmail.com',  # user_id (use a consistent user ID)
+                        '0.0.1',  # version (match existing entries)
+                        autogen_agent_data.get('type', 'assistant')[:9],  # type VARCHAR(9)
+                        json.dumps(enhanced_config),
+                        system_message
+                    )
+                    
+                    print(f"Inserting agent data: {agent_data}")
+                    
+                    cursor.execute("""
+                        INSERT INTO agent (id, created_at, updated_at, user_id, version, type, config, task_instruction) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, agent_data)
+                    
+                    print(f"Inserted agent: {formatted_agent_name}")
 
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            skill_folder = os.path.join(project_root, "tools")
-            for tool_name in st.session_state.selected_tools:
-                if tool_name not in inserted_skills:
-                    skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
-                    with open(skill_file_path, 'r') as file:
-                        skill_data = file.read()
-                        skill_json = st.session_state.tool
-                        skill_data = (
-                            str(uuid.uuid4()),  # Generate a unique ID for the skill
-                            'default',  # Set the user ID to 'default'
-                            datetime.datetime.now().isoformat(),
-                            skill_data,
-                            skill_json['title'],
-                            skill_json['file_name']
-                        )
-                        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
-                        print(f"Inserted skill: {skill_json['title']}")
-                        inserted_skills.add(tool_name)  # Add the inserted skill to the set
+                    agent_id = cursor.lastrowid
 
-            # Access agents from st.session_state for workflow
-            workflow_data = get_workflow_from_agents(st.session_state.agents)[0]
-            workflow_data = (
-                str(uuid.uuid4()),  # Generate a unique ID for the workflow
-                'default',
-                datetime.datetime.now().isoformat(),
-                json.dumps(workflow_data['sender']),
-                json.dumps(workflow_data['receiver']),
-                workflow_data['type'],
-                workflow_data['name'],
-                workflow_data['description'],
-                workflow_data['summary_method']
-            )
-            cursor.execute("INSERT INTO workflows (id, user_id, timestamp, sender, receiver, type, name, description, summary_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", workflow_data)
-            print("Inserted workflow data.")
+                    # Insert agent-skill links
+                    for tool in autogen_agent_data.get('tools', []):
+                        skill_id = insert_or_get_skill(cursor, tool)
+                        cursor.execute("INSERT INTO agentskilllink (agent_id, skill_id) VALUES (?, ?)", (agent_id, skill_id))
+
+                    # Insert agent-model links
+                    model_config = autogen_agent_data['config']['llm_config']['config_list'][0]
+                    model_id = insert_or_get_model(cursor, model_config)
+                    cursor.execute("INSERT INTO agentmodellink (agent_id, model_id) VALUES (?, ?)", (agent_id, model_id))
+
+                except Exception as e:
+                    print(f"Error processing agent {index + 1}: {str(e)}")
+                    print(f"Agent data: {agent_dict}")
+                    traceback.print_exc()
+
+            # Insert workflow data
+            try:
+                workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+                workflow_id = insert_workflow(cursor, workflow_data)
+
+                # Insert workflow-agent links
+                for idx, agent in enumerate(st.session_state.agents):
+                    agent_dict = agent.to_dict() if not isinstance(agent, dict) else agent
+                    cursor.execute("""
+                        INSERT INTO workflowagentlink (workflow_id, agent_id, agent_type, sequence_id) 
+                        VALUES (?, ?, ?, ?)
+                    """, (workflow_id, agent_dict.get('id', str(uuid.uuid4())), agent_dict.get('type', 'assistant'), idx))
+            except Exception as e:
+                print(f"Error processing workflow: {str(e)}")
+                traceback.print_exc()
 
             conn.commit()
             print("Changes committed to the database.")
@@ -110,7 +123,80 @@ def export_data(db_path):
         except sqlite3.Error as e:
             st.error(f"Error exporting data to Autogen: {str(e)}")
             print(f"Error exporting data to Autogen: {str(e)}")
+            traceback.print_exc()
+        except Exception as e:
+            st.error(f"Unexpected error: {str(e)}")
+            print(f"Unexpected error: {str(e)}")
+            traceback.print_exc()
 
+
+def insert_or_get_skill(cursor, tool):
+    cursor.execute("SELECT id FROM skill WHERE name = ?", (tool['name'],))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        skill_data = (
+            str(uuid.uuid4()),
+            datetime.datetime.now().isoformat(),
+            datetime.datetime.now().isoformat(),
+            'default',
+            '1.0',
+            tool['name'],
+            tool['content'],
+            tool.get('description', ''),
+            json.dumps(tool.get('secrets', {})),
+            json.dumps(tool.get('libraries', []))
+        )
+        cursor.execute("""
+            INSERT INTO skill (id, created_at, updated_at, user_id, version, name, content, description, secrets, libraries) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, skill_data)
+        return cursor.lastrowid
+
+def insert_or_get_model(cursor, model_config):
+    cursor.execute("SELECT id FROM model WHERE model = ?", (model_config['model'],))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        model_data = (
+            str(uuid.uuid4()),
+            datetime.datetime.now().isoformat(),
+            datetime.datetime.now().isoformat(),
+            'default',
+            '1.0',
+            model_config['model'],
+            model_config.get('api_key'),
+            model_config.get('base_url'),
+            model_config.get('api_type'),
+            model_config.get('api_version'),
+            model_config.get('description', '')
+        )
+        cursor.execute("""
+            INSERT INTO model (id, created_at, updated_at, user_id, version, model, api_key, base_url, api_type, api_version, description) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, model_data)
+        return cursor.lastrowid
+
+def insert_workflow(cursor, workflow_data):
+    workflow_insert_data = (
+        str(uuid.uuid4()),
+        datetime.datetime.now().isoformat(),
+        datetime.datetime.now().isoformat(),
+        'default',
+        '1.0',
+        workflow_data['name'],
+        workflow_data['description'],
+        workflow_data['type'],
+        workflow_data['summary_method'],
+        json.dumps(workflow_data.get('sample_tasks', []))
+    )
+    cursor.execute("""
+        INSERT INTO workflow (id, created_at, updated_at, user_id, version, name, description, type, summary_method, sample_tasks) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, workflow_insert_data)
+    return cursor.lastrowid
 
 def sql_to_db(sql: str, params: tuple = None):
     try:
@@ -130,8 +216,6 @@ def sql_to_db(sql: str, params: tuple = None):
         if conn:
             conn.close()
             print("Database connection closed.")
-
-
 
 
 #FUTURE functions for exporting to new Autogen Studio schema:

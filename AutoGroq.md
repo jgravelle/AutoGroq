@@ -4,7 +4,6 @@
 # agent_management.py
 
 import base64
-import json
 import logging
 import os
 import re
@@ -14,11 +13,10 @@ from configs.config import BUILT_IN_AGENTS, LLM_PROVIDER, MODEL_CHOICES, MODEL_T
 
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
-from tools.fetch_web_content import fetch_web_content
 from utils.api_utils import get_api_key
 from utils.error_handling import log_error
 from utils.tool_utils import populate_tool_models, show_tools
-from utils.ui_utils import display_goal, get_llm_provider, get_provider_models, trigger_moderator_agent, update_discussion_and_whiteboard
+from utils.ui_utils import display_goal, get_llm_provider, get_provider_models, update_discussion_and_whiteboard
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -119,7 +117,7 @@ def display_agents():
             populate_tool_models()
             show_tools()
         else:
-            st.empty() 
+            st.empty()
 
 
 def display_agent_button(agent, index):
@@ -739,50 +737,40 @@ def get_rephrased_user_prompt(user_request):
 
 import datetime
 import streamlit as st
-
 from configs.config import LLM_PROVIDER
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
 from tools.code_generator import code_generator_tool
 
-
 class CodeDeveloperAgent(AgentBaseModel):
-    @classmethod
-    def create_default(cls):
+    def __init__(self, name, description, tools, config, role, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        return cls(
-            name="Code Developer",
-            description="An agent specialized in generating code based on feature descriptions.",
-            tools=[code_generator_tool],  # Use the tool object directly, not its dict representation
-            config={
-                "name": "Code Developer",
-                "llm_config": {
-                    "config_list": [
-                        {
-                            "model": st.session_state.get('model', 'default'),
-                            "api_key": None,
-                        }
-                    ],
-                    "temperature": st.session_state.get('temperature', 0.7),
-                },
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 10,
-                "system_message": "You are an AI agent designed to generate code based on feature descriptions. Your goal is to produce efficient, clean, and well-documented code."
-            },
-            role="Code Developer",
-            goal="Generate high-quality code based on feature descriptions",
-            backstory="I am an AI agent with extensive knowledge of various programming languages and software development best practices. My purpose is to assist in creating code that meets the specified requirements.",
-            provider=st.session_state.get('provider', LLM_PROVIDER),
-            model=st.session_state.get('model', 'default'),
-            created_at=current_timestamp,
-            updated_at=current_timestamp,
-            user_id="default",
-            timestamp=current_timestamp
-        )
+        super().__init__(name=name, description=description, tools=tools, config=config)
+        self.role = role
+        self.backstory = backstory
+        self.provider = provider
+        self.model = model
+        self.created_at = current_timestamp
+        self.updated_at = current_timestamp
+        self.user_id = "default"
+        self.timestamp = current_timestamp
+
+    @classmethod
+    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
+        return cls(name=name or "Code Developer",
+                   description=description or "An agent specialized in generating code based on feature descriptions.",
+                   tools=tools or [code_generator_tool],
+                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
+                   role=role or "Code Developer",
+                   backstory=backstory or "I am an AI agent with extensive knowledge of various programming languages and software development best practices. My purpose is to assist in creating code that meets the specified requirements.",
+                   provider=st.session_state.get('provider', LLM_PROVIDER),
+                   model=st.session_state.get('model', 'default'))
 
     def to_dict(self):
-        data = super().to_dict()
-        data['tools'] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in self.tools]
+        data = self.__dict__
+        for key, value in data.items():
+            if isinstance(value, ToolBaseModel):
+                data[key] = value.to_dict()
         return data
 ```
 
@@ -793,51 +781,41 @@ class CodeDeveloperAgent(AgentBaseModel):
 
 import datetime
 import streamlit as st
-
 from configs.config import LLM_PROVIDER
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
 from tools.code_test import code_test_tool
 
 class CodeTesterAgent(AgentBaseModel):
-    @classmethod
-    def create_default(cls):
+    def __init__(self, name, description, tools, config, role, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        return cls(
-            name="Code Tester",
-            description="An agent specialized in testing code and providing feedback on its functionality.",
-            tools=[code_test_tool.to_dict()],
-            config={
-                "name": "Code Tester",
-                "llm_config": {
-                    "config_list": [
-                        {
-                            "model": st.session_state.get('model', 'default'),
-                            "api_key": None,
-                        }
-                    ],
-                    "temperature": st.session_state.get('temperature', 0.7),
-                },
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 10,
-                "system_message": "You are an AI agent designed to test code and provide feedback on its functionality. Your goal is to ensure the code meets the specified requirements and works correctly."
-            },
-            role="Code Tester",
-            goal="Test code thoroughly and provide detailed feedback on its functionality",
-            backstory="I am an AI agent with expertise in software testing and quality assurance. My purpose is to rigorously test code and provide comprehensive feedback to ensure its reliability and correctness.",
-            provider=st.session_state.get('provider', LLM_PROVIDER),
-            model=st.session_state.get('model', 'default'),
-            created_at=current_timestamp,
-            updated_at=current_timestamp,
-            user_id="default",
-            timestamp=current_timestamp
-        )
+        super().__init__(name=name, description=description, tools=tools, config=config)
+        self.role = role
+        self.backstory = backstory
+        self.provider = provider
+        self.model = model
+        self.created_at = current_timestamp
+        self.updated_at = current_timestamp
+        self.user_id = "default"
+        self.timestamp = current_timestamp
+
+    @classmethod
+    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
+        return cls(name=name or "Code Tester",
+                   description=description or "An agent specialized in testing code and providing feedback on its functionality.",
+                   tools=tools or [code_test_tool],
+                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
+                   role=role or "Code Tester",
+                   backstory=backstory or "I am an AI agent with expertise in software testing and quality assurance. My purpose is to rigorously test code and provide comprehensive feedback to ensure its reliability and correctness.",
+                   provider=st.session_state.get('provider', LLM_PROVIDER),
+                   model=st.session_state.get('model', 'default'))
 
     def to_dict(self):
-        data = super().to_dict()
-        data['tools'] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in self.tools]
+        data = self.__dict__
+        for key, value in data.items():
+            if isinstance(value, ToolBaseModel):
+                data[key] = value.to_dict()
         return data
-    
 ```
 
 # AutoGroq\agents\web_content_retriever.py
@@ -847,50 +825,40 @@ class CodeTesterAgent(AgentBaseModel):
 
 import datetime
 import streamlit as st
-
 from configs.config import LLM_PROVIDER
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
 from tools.fetch_web_content import fetch_web_content_tool
 
-
 class WebContentRetrieverAgent(AgentBaseModel):
-    @classmethod
-    def create_default(cls):
+    def __init__(self, name, description, tools, config, role, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        return cls(
-            name="Web Content Retriever",
-            description="An agent specialized in retrieving and processing web content.",
-            tools=[fetch_web_content_tool.to_dict()],  # Convert ToolBaseModel to dictionary
-            config={
-                "name": "Web Content Retriever",
-                "llm_config": {
-                    "config_list": [
-                        {
-                            "model": st.session_state.get('model', 'default'),
-                            "api_key": None,
-                        }
-                    ],
-                    "temperature": st.session_state.get('temperature', 0.7),
-                },
-                "human_input_mode": "NEVER",
-                "max_consecutive_auto_reply": 10,
-                "system_message": "You are an AI agent designed to fetch and analyze web content, providing valuable insights and information from various online sources."
-            },
-            role="Web Content Specialist",
-            goal="Retrieve and process web content efficiently",
-            backstory="I am an AI agent designed to fetch and analyze web content, providing valuable insights and information from various online sources.",
-            provider=st.session_state.get('provider', LLM_PROVIDER),
-            model=st.session_state.get('model', 'default'),
-            created_at=current_timestamp,
-            updated_at=current_timestamp,
-            user_id="default",
-            timestamp=current_timestamp
-        )
+        super().__init__(name=name, description=description, tools=tools, config=config)
+        self.role = role
+        self.backstory = backstory
+        self.provider = provider
+        self.model = model
+        self.created_at = current_timestamp
+        self.updated_at = current_timestamp
+        self.user_id = "default"
+        self.timestamp = current_timestamp
+
+    @classmethod
+    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
+        return cls(name=name or "Web Content Retriever",
+                   description=description or "An agent specialized in retrieving and processing web content.",
+                   tools=tools or [fetch_web_content_tool],
+                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
+                   role=role or "Web Content Specialist",
+                   backstory=backstory or "I am an AI agent designed to fetch and analyze web content, providing valuable insights and information from various online sources.",
+                   provider=st.session_state.get('provider', LLM_PROVIDER),
+                   model=st.session_state.get('model', 'default'))
 
     def to_dict(self):
-        data = super().to_dict()
-        data['tools'] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in self.tools]
+        data = self.__dict__
+        for key, value in data.items():
+            if isinstance(value, ToolBaseModel):
+                data[key] = value.to_dict()
         return data
 ```
 
@@ -1928,6 +1896,16 @@ class AgentBaseModel:
             print(f"  - {param}")
 
         return required_params, optional_params
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
 ```
 
 # AutoGroq\models\project_base_model.py
@@ -2462,19 +2440,19 @@ def fetch_web_content(url: str) -> str:
         
         soup = BeautifulSoup(response.text, "html.parser")
         
-        logging.info(f"Parsed HTML structure: {soup.prettify()[:5000]}...")  # Log first 5000 characters of prettified HTML
+        logging.info(f"Parsed HTML structure: {soup.prettify()[:500]}...")  # Log first 500 characters of prettified HTML
         
         body_content = soup.body
 
         if body_content:
             content = body_content.get_text(strip=True)
-            logging.info(f"Extracted text content (first 5000 chars): {content[:5000]}...")
+            logging.info(f"Extracted text content (first 500 chars): {content[:500]}...")
             result = json.dumps({
                 "status": "success",
                 "url": cleaned_url,
-                "content": content[:5000]  # Limit to first 5000 characters
+                "content": content  
             })
-            print(f"DEBUG: fetch_web_content result: {result[:5000]}...")  # Debug print
+            print(f"DEBUG: fetch_web_content result: {result[:500]}...")  # Debug print
             return result
         else:
             logging.warning(f"No <body> tag found in the content from {cleaned_url}")
@@ -2637,6 +2615,20 @@ def display_api_key_input(provider=None):
         st.session_state.warning_placeholder.empty()
     return api_key
 
+
+def fetch_available_models(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key = get_api_key(provider)
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+    try:
+        models = llm_provider.get_available_models()
+        st.session_state.available_models = models
+        return models
+    except Exception as e:
+        st.error(f"Failed to fetch available models: {str(e)}")
+        return {}
+    
 
 def fetch_available_models(provider=None):
     if provider is None:
