@@ -40,6 +40,20 @@ def fetch_available_models(provider=None):
         return {}
     
 
+def fetch_available_models(provider=None):
+    if provider is None:
+        provider = st.session_state.get('provider', LLM_PROVIDER)
+    api_key = get_api_key(provider)
+    llm_provider = get_llm_provider(api_key=api_key, provider=provider)
+    try:
+        models = llm_provider.get_available_models()
+        st.session_state.available_models = models
+        return models
+    except Exception as e:
+        st.error(f"Failed to fetch available models: {str(e)}")
+        return {}
+    
+
 def get_api_key(provider=None):
     if provider is None:
         provider = st.session_state.get('provider', LLM_PROVIDER)
