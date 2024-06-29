@@ -29,7 +29,7 @@ class ToolBaseModel:
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
-        self.secrets = secrets if secrets is not None else {}
+        self.secrets = secrets if secrets is not None else []
         self.libraries = libraries if libraries is not None else []
         self.timestamp = timestamp
 
