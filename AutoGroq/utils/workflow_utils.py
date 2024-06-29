@@ -1,4 +1,4 @@
-
+# utils/workflow_utils.py
 import datetime
 import streamlit as st
 
@@ -6,7 +6,7 @@ from configs.config import MODEL_TOKEN_LIMITS
 
 from tools.fetch_web_content import fetch_web_content_tool
 from utils.agent_utils import create_agent_data
-from utils.file_utils import sanitize_text
+from utils.text_utils import sanitize_text
 
 
 def get_workflow_from_agents(agents):
@@ -79,10 +79,11 @@ def get_workflow_from_agents(agents):
             "user_id": "default",
             "tools": []
         },
-        "type": "groupchat",
+        "type": "autonomous",
         "user_id": "default",
         "timestamp": current_timestamp,
-        "summary_method": "last"
+        "summary_method": "last",
+        "sample_tasks": [],
     }
 
     for index, agent in enumerate(agents):

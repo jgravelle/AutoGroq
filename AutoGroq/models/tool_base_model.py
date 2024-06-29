@@ -10,7 +10,7 @@ class ToolBaseModel:
         title: str,
         file_name: str,
         content: str,
-        function: Optional[Callable] = None,  # Add this line
+        function: Optional[Callable] = None,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -25,12 +25,12 @@ class ToolBaseModel:
         self.title = title
         self.file_name = file_name
         self.content = content
-        self.function = function  # Add this line
+        self.function = function
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
-        self.secrets = secrets
-        self.libraries = libraries
+        self.secrets = secrets if secrets is not None else {}
+        self.libraries = libraries if libraries is not None else []
         self.timestamp = timestamp
 
     def execute(self, *args, **kwargs):

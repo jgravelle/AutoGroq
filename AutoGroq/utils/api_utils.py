@@ -6,7 +6,7 @@ import requests
 import streamlit as st
 import time
 
-from configs.config import API_URL, LLM_PROVIDER, RETRY_DELAY, RETRY_TOKEN_LIMIT, SUPPORTED_PROVIDERS
+from configs.config import LLM_PROVIDER, RETRY_DELAY, RETRY_TOKEN_LIMIT
 
 
 def display_api_key_input(provider=None):

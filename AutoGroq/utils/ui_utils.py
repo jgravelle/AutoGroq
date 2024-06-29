@@ -12,17 +12,16 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-from configs.config import (API_URL, DEBUG, LLM_PROVIDER, MAX_RETRIES, 
+from configs.config import (DEBUG, LLM_PROVIDER, MAX_RETRIES, 
         MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY, SUPPORTED_PROVIDERS)
 
-from agents.web_content_retriever import WebContentRetrieverAgent
-from models.tool_base_model import ToolBaseModel
 from configs.current_project import Current_Project
 from models.agent_base_model import AgentBaseModel
 from models.workflow_base_model import WorkflowBaseModel
 from prompts import create_project_manager_prompt, get_agents_prompt, get_rephrased_user_prompt, get_moderator_prompt  
 from tools.fetch_web_content import fetch_web_content
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict
+from utils.agent_utils import create_agent_data
 from utils.api_utils import fetch_available_models, get_api_key, get_llm_provider
 from utils.auth_utils import display_api_key_input
 from utils.db_utils import export_to_autogen
@@ -427,7 +426,7 @@ def extract_json_objects(text: str) -> List[Dict]:
     return parsed_objects
 
 
-def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) -> tuple[List[AgentBaseModel], List[Dict]]:
+def get_agents_from_text(text):
     print("Getting agents from text...")
     temperature_value = st.session_state.get('temperature', 0.5)
     llm_request_data = {
@@ -449,106 +448,80 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
     }
     api_key = get_api_key()
     llm_provider = get_llm_provider(api_key=api_key)
-    retry_count = 0
-    while retry_count < max_retries:
-        try:
-            response = llm_provider.send_request(llm_request_data)
-            print(f"Response received. Status Code: {response.status_code}")
-            if response.status_code == 200:
-                print("Request successful. Parsing response...")
-                response_data = llm_provider.process_response(response)
-                print(f"Response Data: {json.dumps(response_data, indent=2)}")
-                if "choices" in response_data and response_data["choices"]:
-                    content = response_data["choices"][0]["message"]["content"]
+    
+    try:
+        response = llm_provider.send_request(llm_request_data)
+        print(f"Response received. Status Code: {response.status_code}")
+        if response.status_code == 200:
+            print("Request successful. Parsing response...")
+            response_data = llm_provider.process_response(response)
+            print(f"Response Data: {json.dumps(response_data, indent=2)}")
+            if "choices" in response_data and response_data["choices"]:
+                content = response_data["choices"][0]["message"]["content"]
+                print(f"Content: {content}")
+
+                content = content.replace("\\n", "\n").replace('\\"', '"')
+
+                try:
+                    json_data = json.loads(content)
+                except json.JSONDecodeError as e:
+                    print(f"Error parsing JSON: {e}")
                     print(f"Content: {content}")
+                    json_data = extract_json_objects(content)
 
-                    content = content.replace("\\n", "\n").replace('\\"', '"')
-
-                    try:
-                        json_data = json.loads(content)
-                    except json.JSONDecodeError as e:
-                        print(f"Error parsing JSON: {e}")
-                        print(f"Content: {content}")
-                        json_data = extract_json_objects(content)
-
-                    if json_data and isinstance(json_data, list):
-                        autogen_agents = []
-                        crewai_agents = []
-                        for index, agent_data in enumerate(json_data, start=1):
-                            expert_name = agent_data.get('expert_name', '')
-                            description = agent_data.get('description', '')
-                            role = agent_data.get('role', expert_name)
-                            goal = agent_data.get('goal', f"Assist with tasks related to {description}")
-                            backstory = agent_data.get('backstory', f"As an AI assistant specializing in {expert_name}, I am equipped with extensive knowledge and expertise in {description}")
-                            
-                            if not expert_name:
-                                print("Missing agent name. Skipping...")
-                                continue
-
-                            agent_tools = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool for tool in st.session_state.selected_tools]
-                            current_timestamp = datetime.datetime.now().isoformat()
-                            
-                            autogen_agent_data = {
-                                "name": expert_name,
-                                "description": description,
-                                "tools": agent_tools,
-                                "config": {
-                                    "name": expert_name,
-                                    "llm_config": {
-                                        "config_list": [
-                                            {
-                                                "model": st.session_state.model,
-                                                "api_key": None
-                                            }
-                                        ],
-                                        "temperature": st.session_state.temperature
-                                    },
-                                    "human_input_mode": "NEVER",
-                                    "max_consecutive_auto_reply": 10
-                                },
-                                "role": role,
-                                "goal": goal,
-                                "backstory": backstory,
-                                "provider": st.session_state.get('provider'),
-                                "model": st.session_state.get('model')
-                            }
-                            
-                            try:
-                                agent_model = AgentBaseModel(**autogen_agent_data)
-                                print(f"Created agent: {agent_model.name} with description: {agent_model.description}")
-                                autogen_agents.append(agent_model)
-                            except Exception as e:
-                                print(f"Error creating agent {expert_name}: {str(e)}")
-                                print(f"Agent data: {autogen_agent_data}")
-                                continue
-
-                            crewai_agents.append({
-                                "name": expert_name,
-                                "description": description,
-                                "tools": [tool['name'] if isinstance(tool, dict) else tool.name for tool in agent_tools],
-                                "verbose": True,
-                                "allow_delegation": True
-                            })
-
-                        print(f"AutoGen Agents: {autogen_agents}")
-                        print(f"CrewAI Agents: {crewai_agents}")
+                if json_data and isinstance(json_data, list):
+                    autogen_agents = []
+                    crewai_agents = []
+                    for index, agent_data in enumerate(json_data, start=1):
+                        expert_name = agent_data.get('expert_name', '')
+                        description = agent_data.get('description', '')
                         
-                        st.session_state.workflow.agents = autogen_agents
-                        return autogen_agents, crewai_agents
-                    else:
-                        print("Invalid JSON format or empty list. Expected a list of agents.")
-                        return [], []
-                else:
-                    print("No agents data found in response")
-            else:
-                print(f"API request failed with status code {response.status_code}: {response.text}")
-        except Exception as e:
-            print(f"Error making API request: {e}")
-            retry_count += 1
-            time.sleep(retry_delay)
-    print(f"Maximum retries ({max_retries}) exceeded. Failed to retrieve valid agent names.")
-    return [], []
+                        if not expert_name:
+                            print("Missing agent name. Skipping...")
+                            continue
 
+                        autogen_agent_data, crewai_agent_data = create_agent_data({
+                            "name": expert_name,
+                            "description": description,
+                            "role": agent_data.get('role', expert_name),
+                            "goal": agent_data.get('goal', f"Assist with tasks related to {description}"),
+                            "backstory": agent_data.get('backstory', f"As an AI assistant, I specialize in {description}")
+                        })
+                        
+                        try:
+                            agent_model = AgentBaseModel(
+                                name=autogen_agent_data['name'],
+                                description=autogen_agent_data['description'],
+                                tools=autogen_agent_data['tools'],
+                                config=autogen_agent_data['config'],
+                                role=autogen_agent_data['role'],
+                                goal=autogen_agent_data['goal'],
+                                backstory=autogen_agent_data['backstory'],
+                                provider=autogen_agent_data['provider'],
+                                model=autogen_agent_data['model']
+                            )
+                            print(f"Created agent: {agent_model.name} with description: {agent_model.description}")
+                            autogen_agents.append(agent_model)
+                            crewai_agents.append(crewai_agent_data)
+                        except Exception as e:
+                            print(f"Error creating agent {expert_name}: {str(e)}")
+                            print(f"Agent data: {autogen_agent_data}")
+                            continue
+
+                    return autogen_agents, crewai_agents
+                else:
+                    print("Invalid JSON format or empty list. Expected a list of agents.")
+                    return [], []
+            else:
+                print("No agents data found in response")
+                return [], []
+        else:
+            print(f"API request failed with status code {response.status_code}: {response.text}")
+            return [], []
+    except Exception as e:
+        print(f"Error making API request: {e}")
+        return [], []
+    
 
 def get_discussion_history():
     return st.session_state.discussion_history
@@ -650,13 +623,7 @@ def handle_user_request(session_state):
             break
 
     if team_of_experts_text:
-        required_params, optional_params = AgentBaseModel.debug_init()
-        print(f"Required params: {required_params}")
-        print(f"Optional params: {optional_params}")
         autogen_agents, crewai_agents = get_agents_from_text(team_of_experts_text)
-
-        print(f"Debug: AutoGen Agents: {autogen_agents}")
-        print(f"Debug: CrewAI Agents: {crewai_agents}")
 
         if not autogen_agents:
             print("Error: No agents created.")
@@ -665,7 +632,6 @@ def handle_user_request(session_state):
 
         session_state.agents = autogen_agents
         session_state.workflow.agents = session_state.agents
-        print(f"Debug: session_state.workflow.agents: {session_state.workflow.agents}")
 
         # Generate the workflow data
         workflow_data, _ = get_workflow_from_agents(autogen_agents)
@@ -687,10 +653,6 @@ def handle_user_request(session_state):
         print("Debug: Agents in session state project workflow:")
         for agent in workflow_data["receiver"]["groupchat_config"]["agents"]:
             print(agent)
-
-        autogen_zip_buffer, crewai_zip_buffer = zip_files_in_memory(workflow_data)
-        session_state.autogen_zip_buffer = autogen_zip_buffer
-        session_state.crewai_zip_buffer = crewai_zip_buffer
 
         # Indicate that a rerun is needed
         session_state.need_rerun = True

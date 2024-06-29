@@ -224,6 +224,10 @@ def display_agent_edit_form(agent, edit_index):
             if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}_{agent.name}"):
                 for agent in st.session_state.agents:
                     agent.config['provider'] = selected_provider
+                    if 'llm_config' not in agent.config:
+                        agent.config['llm_config'] = {'config_list': [{}]}
+                    if not agent.config['llm_config']['config_list']:
+                        agent.config['llm_config']['config_list'] = [{}]
                     agent.config['llm_config']['config_list'][0]['model'] = selected_model
                     agent.config['llm_config']['max_tokens'] = provider_models[selected_model]
                 st.experimental_rerun()
@@ -253,6 +257,10 @@ def display_agent_edit_form(agent, edit_index):
                 
                 # Update the config as well
                 agent.config['provider'] = selected_provider
+                if 'llm_config' not in agent.config:
+                    agent.config['llm_config'] = {'config_list': [{}]}
+                if not agent.config['llm_config']['config_list']:
+                    agent.config['llm_config']['config_list'] = [{}]
                 agent.config['llm_config']['config_list'][0]['model'] = selected_model
                 agent.config['llm_config']['max_tokens'] = provider_models[selected_model]
                 

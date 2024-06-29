@@ -18,6 +18,7 @@ from utils.ui_utils import handle_user_request
 def create_default_agent():
     return AgentBaseModel(**DEFAULT_AGENT_CONFIG)
 
+
 def initialize_session_variables():
 
     if "agent_model" not in st.session_state:

@@ -81,7 +81,7 @@ class AgentBaseModel:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "tools": [tool.to_dict() for tool in self.tools],
+            'tools': [tool.to_dict() if hasattr(tool, 'to_dict') else tool for tool in self.tools],
             "provider": self.provider,
             "model": self.model,
             "config": self.config,

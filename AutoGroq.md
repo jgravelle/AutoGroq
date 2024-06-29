@@ -743,11 +743,10 @@ from models.tool_base_model import ToolBaseModel
 from tools.code_generator import code_generator_tool
 
 class CodeDeveloperAgent(AgentBaseModel):
-    def __init__(self, name, description, tools, config, role, backstory, provider, model):
+    def __init__(self, name, description, tools, config, role, goal, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        super().__init__(name=name, description=description, tools=tools, config=config)
-        self.role = role
-        self.backstory = backstory
+        super().__init__(name=name, description=description, tools=tools, config=config,
+                         role=role, goal=goal, backstory=backstory)
         self.provider = provider
         self.model = model
         self.created_at = current_timestamp
@@ -756,15 +755,26 @@ class CodeDeveloperAgent(AgentBaseModel):
         self.timestamp = current_timestamp
 
     @classmethod
-    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
-        return cls(name=name or "Code Developer",
-                   description=description or "An agent specialized in generating code based on feature descriptions.",
-                   tools=tools or [code_generator_tool],
-                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
-                   role=role or "Code Developer",
-                   backstory=backstory or "I am an AI agent with extensive knowledge of various programming languages and software development best practices. My purpose is to assist in creating code that meets the specified requirements.",
-                   provider=st.session_state.get('provider', LLM_PROVIDER),
-                   model=st.session_state.get('model', 'default'))
+    def create_default(cls):
+        return cls(
+            name="Code Developer",
+            description="An agent specialized in generating code based on feature descriptions.",
+            tools=[code_generator_tool],
+            config={
+                "llm_config": {
+                    "config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}],
+                    "temperature": st.session_state.get('temperature', 0.7)
+                },
+                "human_input_mode": "NEVER",
+                "max_consecutive_auto_reply": 10
+            },
+            role="Code Developer",
+            goal="To create efficient and effective code solutions based on given requirements.",
+            backstory="I am an AI agent with extensive knowledge of various programming languages and software development best practices. My purpose is to assist in creating code that meets the specified requirements.",
+            provider=st.session_state.get('provider', LLM_PROVIDER),
+            model=st.session_state.get('model', 'default')
+        )
+    
 
     def to_dict(self):
         data = self.__dict__
@@ -787,11 +797,10 @@ from models.tool_base_model import ToolBaseModel
 from tools.code_test import code_test_tool
 
 class CodeTesterAgent(AgentBaseModel):
-    def __init__(self, name, description, tools, config, role, backstory, provider, model):
+    def __init__(self, name, description, tools, config, role, goal, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        super().__init__(name=name, description=description, tools=tools, config=config)
-        self.role = role
-        self.backstory = backstory
+        super().__init__(name=name, description=description, tools=tools, config=config,
+                         role=role, goal=goal, backstory=backstory)
         self.provider = provider
         self.model = model
         self.created_at = current_timestamp
@@ -800,15 +809,25 @@ class CodeTesterAgent(AgentBaseModel):
         self.timestamp = current_timestamp
 
     @classmethod
-    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
-        return cls(name=name or "Code Tester",
-                   description=description or "An agent specialized in testing code and providing feedback on its functionality.",
-                   tools=tools or [code_test_tool],
-                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
-                   role=role or "Code Tester",
-                   backstory=backstory or "I am an AI agent with expertise in software testing and quality assurance. My purpose is to rigorously test code and provide comprehensive feedback to ensure its reliability and correctness.",
-                   provider=st.session_state.get('provider', LLM_PROVIDER),
-                   model=st.session_state.get('model', 'default'))
+    def create_default(cls):
+        return cls(
+            name="Code Tester",
+            description="An agent specialized in testing code and providing feedback on its functionality.",
+            tools=[code_test_tool],
+            config={
+                "llm_config": {
+                    "config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}],
+                    "temperature": st.session_state.get('temperature', 0.7)
+                },
+                "human_input_mode": "NEVER",
+                "max_consecutive_auto_reply": 10
+            },
+            role="Code Tester",
+            goal="To thoroughly test code and provide comprehensive feedback to ensure its reliability and correctness.",
+            backstory="I am an AI agent with expertise in software testing and quality assurance. My purpose is to rigorously test code and provide comprehensive feedback to ensure its reliability and correctness.",
+            provider=st.session_state.get('provider', LLM_PROVIDER),
+            model=st.session_state.get('model', 'default')
+        )
 
     def to_dict(self):
         data = self.__dict__
@@ -831,11 +850,10 @@ from models.tool_base_model import ToolBaseModel
 from tools.fetch_web_content import fetch_web_content_tool
 
 class WebContentRetrieverAgent(AgentBaseModel):
-    def __init__(self, name, description, tools, config, role, backstory, provider, model):
+    def __init__(self, name, description, tools, config, role, goal, backstory, provider, model):
         current_timestamp = datetime.datetime.now().isoformat()
-        super().__init__(name=name, description=description, tools=tools, config=config)
-        self.role = role
-        self.backstory = backstory
+        super().__init__(name=name, description=description, tools=tools, config=config,
+                         role=role, goal=goal, backstory=backstory)
         self.provider = provider
         self.model = model
         self.created_at = current_timestamp
@@ -844,15 +862,25 @@ class WebContentRetrieverAgent(AgentBaseModel):
         self.timestamp = current_timestamp
 
     @classmethod
-    def create(cls, name=None, description=None, tools=None, config=None, role=None, backstory=None):
-        return cls(name=name or "Web Content Retriever",
-                   description=description or "An agent specialized in retrieving and processing web content.",
-                   tools=tools or [fetch_web_content_tool],
-                   config=config or {"llm_config": {"config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}], "temperature": st.session_state.get('temperature', 0.7)}, "human_input_mode": "NEVER", "max_consecutive_auto_reply": 10},
-                   role=role or "Web Content Specialist",
-                   backstory=backstory or "I am an AI agent designed to fetch and analyze web content, providing valuable insights and information from various online sources.",
-                   provider=st.session_state.get('provider', LLM_PROVIDER),
-                   model=st.session_state.get('model', 'default'))
+    def create_default(cls):
+        return cls(
+            name="Web Content Retriever",
+            description="An agent specialized in retrieving and processing web content.",
+            tools=[fetch_web_content_tool],
+            config={
+                "llm_config": {
+                    "config_list": [{"model": st.session_state.get('model', 'default'), "api_key": None}],
+                    "temperature": st.session_state.get('temperature', 0.7)
+                },
+                "human_input_mode": "NEVER",
+                "max_consecutive_auto_reply": 10
+            },
+            role="Web Content Specialist",
+            goal="To retrieve and analyze web content efficiently and accurately.",
+            backstory="I am an AI agent designed to fetch and analyze web content, providing valuable insights and information from various online sources.",
+            provider=st.session_state.get('provider', LLM_PROVIDER),
+            model=st.session_state.get('model', 'default')
+        )
 
     def to_dict(self):
         data = self.__dict__
@@ -1542,6 +1570,7 @@ class GroqProvider:
 
 import json
 import requests
+import streamlit as st
 
 from llm_providers.base_provider import BaseLLMProvider
 
@@ -1814,7 +1843,7 @@ class AgentBaseModel:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "tools": [tool.to_dict() for tool in self.tools],
+            'tools': [tool.to_dict() if hasattr(tool, 'to_dict') else tool for tool in self.tools],
             "provider": self.provider,
             "model": self.model,
             "config": self.config,
@@ -2029,7 +2058,7 @@ class ToolBaseModel:
         title: str,
         file_name: str,
         content: str,
-        function: Optional[Callable] = None,  # Add this line
+        function: Optional[Callable] = None,
         id: Optional[int] = None,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
@@ -2044,12 +2073,12 @@ class ToolBaseModel:
         self.title = title
         self.file_name = file_name
         self.content = content
-        self.function = function  # Add this line
+        self.function = function
         self.created_at = created_at
         self.updated_at = updated_at
         self.user_id = user_id
-        self.secrets = secrets
-        self.libraries = libraries
+        self.secrets = secrets if secrets is not None else {}
+        self.libraries = libraries if libraries is not None else []
         self.timestamp = timestamp
 
     def execute(self, *args, **kwargs):
@@ -2769,28 +2798,22 @@ def get_api_url():
 # AutoGroq\utils\db_utils.py
 
 ```python
+# db_utils.py
 
 import datetime
 import json
-import os
+import re
 import sqlite3
 import streamlit as st
+import traceback
 import uuid
 
-from configs.config import FRAMEWORK_DB_PATH, MODEL_CHOICES, MODEL_TOKEN_LIMITS
-
+from configs.config import FRAMEWORK_DB_PATH
 from utils.agent_utils import create_agent_data
 from utils.file_utils import sanitize_text
 from utils.workflow_utils import get_workflow_from_agents
 
-
 def export_to_autogen():
-    # Check if the app is running on Streamlit Sharing
-    url_params = st.query_params
-    if "streamlit.app" in url_params.get("url", ""):
-        st.warning("Exporting to Autogen is only possible with a locally running copy of AutoGroq™.")
-        return
-
     db_path = FRAMEWORK_DB_PATH
     print(f"Database path: {db_path}")
     if db_path:
@@ -2808,68 +2831,101 @@ def export_data(db_path):
             cursor = conn.cursor()
             print("Connected to the database successfully.")
 
-            # Access agents from st.session_state
             agents = st.session_state.agents
             print(f"Number of agents: {len(agents)}")
 
-            # Keep track of inserted skills to avoid duplicates
-            inserted_skills = set()
+            for index, agent in enumerate(agents):
+                try:
+                    print(f"Processing agent {index + 1}: {agent.name}")
+                    
+                    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # Normalize agent type
+                    agent_type = 'assistant'
+                    if hasattr(agent, 'type') and agent.type is not None:
+                        agent_type = str(agent.type)[:9]  # Ensure it's a string and truncate to 9 characters
+                    
+                    # Normalize the config
+                    config = agent.config if hasattr(agent, 'config') else {}
+                    normalized_config = normalize_config(config, agent.name)
+                    
+                    # Normalize task instruction (system message in this case)
+                    task_instruction = normalized_config.get('system_message', '')
+                    
+                    agent_data = (
+                        None,  # id (AUTO INCREMENT)
+                        current_time,  # created_at
+                        current_time,  # updated_at
+                        'guestuser@gmail.com',  # user_id
+                        '0.0.1',  # version
+                        agent_type,  # type (VARCHAR(9))
+                        json.dumps(normalized_config),  # config (JSON)
+                        task_instruction  # task_instruction
+                    )
+                    
+                    print(f"Inserting agent data: {agent_data}")
+                    
+                    cursor.execute("""
+                        INSERT INTO agent (id, created_at, updated_at, user_id, version, type, config, task_instruction) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, agent_data)
+                    
+                    print(f"Inserted agent: {agent.name}")
 
-            for agent in agents:
-                agent_name = agent['config']['name']
-                formatted_agent_name = sanitize_text(agent_name).lower().replace(' ', '_')
-                autogen_agent_data, _ = create_agent_data(agent)
-                
-                # Update the model and max_tokens in the autogen_agent_data
-                autogen_agent_data['config']['llm_config']['config_list'][0]['model'] = agent['config']['llm_config']['config_list'][0]['model']
-                autogen_agent_data['config']['llm_config']['max_tokens'] = MODEL_CHOICES.get(agent['config']['llm_config']['config_list'][0]['model'], MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096))
-                
-                agent_data = (
-                    str(uuid.uuid4()), # Generate a unique ID for the agent
-                    'default',
-                    datetime.datetime.now().isoformat(),
-                    json.dumps(autogen_agent_data['config']),
-                    autogen_agent_data['type'],
-                    json.dumps(autogen_agent_data['tools'])
+                except Exception as e:
+                    print(f"Error processing agent {index + 1}: {str(e)}")
+                    print(f"Agent data: {agent.__dict__}")
+                    traceback.print_exc()
+
+            # Handle skills/tools
+            for tool in st.session_state.tool_models:
+                try:
+                    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    skill_data = (
+                        None,  # id (AUTO INCREMENT)
+                        current_time,  # created_at
+                        current_time,  # updated_at
+                        'guestuser@gmail.com',  # user_id
+                        '0.0.1',  # version
+                        tool.name,
+                        tool.content,
+                        tool.description,
+                        json.dumps(tool.secrets) if hasattr(tool, 'secrets') else '{}',
+                        json.dumps(tool.libraries) if hasattr(tool, 'libraries') else '[]'
+                    )
+                    cursor.execute("""
+                        INSERT INTO skill (id, created_at, updated_at, user_id, version, name, content, description, secrets, libraries)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, skill_data)
+                    print(f"Inserted skill: {tool.name}")
+                except Exception as e:
+                    print(f"Error inserting skill {tool.name}: {str(e)}")
+                    traceback.print_exc()
+
+            # Handle the workflow
+            try:
+                workflow_data, _ = get_workflow_from_agents(st.session_state.agents)
+                current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                workflow_insert_data = (
+                    None,  # id (AUTO INCREMENT)
+                    current_time,  # created_at
+                    current_time,  # updated_at
+                    'guestuser@gmail.com',  # user_id
+                    '0.0.1',  # version
+                    workflow_data.get('name', 'AutoGroq Workflow'),
+                    workflow_data.get('description', 'Workflow auto-generated by AutoGroq.'),
+                    workflow_data.get('type', 'autonomous'),  # Default to 'autonomous' if not specified
+                    workflow_data.get('summary_method', 'last')[:4],  # VARCHAR(4)
+                    json.dumps(workflow_data.get('sample_tasks', []))
                 )
-                cursor.execute("INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)", agent_data)
-                print(f"Inserted agent: {formatted_agent_name}")
-
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            skill_folder = os.path.join(project_root, "tools")
-            for tool_name in st.session_state.selected_tools:
-                if tool_name not in inserted_skills:
-                    skill_file_path = os.path.join(skill_folder, f"{tool_name}.py")
-                    with open(skill_file_path, 'r') as file:
-                        skill_data = file.read()
-                        skill_json = st.session_state.tool
-                        skill_data = (
-                            str(uuid.uuid4()),  # Generate a unique ID for the skill
-                            'default',  # Set the user ID to 'default'
-                            datetime.datetime.now().isoformat(),
-                            skill_data,
-                            skill_json['title'],
-                            skill_json['file_name']
-                        )
-                        cursor.execute("INSERT INTO skills (id, user_id, timestamp, content, title, file_name) VALUES (?, ?, ?, ?, ?, ?)", skill_data)
-                        print(f"Inserted skill: {skill_json['title']}")
-                        inserted_skills.add(tool_name)  # Add the inserted skill to the set
-
-            # Access agents from st.session_state for workflow
-            workflow_data = get_workflow_from_agents(st.session_state.agents)[0]
-            workflow_data = (
-                str(uuid.uuid4()),  # Generate a unique ID for the workflow
-                'default',
-                datetime.datetime.now().isoformat(),
-                json.dumps(workflow_data['sender']),
-                json.dumps(workflow_data['receiver']),
-                workflow_data['type'],
-                workflow_data['name'],
-                workflow_data['description'],
-                workflow_data['summary_method']
-            )
-            cursor.execute("INSERT INTO workflows (id, user_id, timestamp, sender, receiver, type, name, description, summary_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", workflow_data)
-            print("Inserted workflow data.")
+                cursor.execute("""
+                    INSERT INTO workflow (id, created_at, updated_at, user_id, version, name, description, type, summary_method, sample_tasks)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, workflow_insert_data)
+                print("Inserted workflow data.")
+            except Exception as e:
+                print(f"Error inserting workflow: {str(e)}")
+                traceback.print_exc()
 
             conn.commit()
             print("Changes committed to the database.")
@@ -2881,6 +2937,148 @@ def export_data(db_path):
         except sqlite3.Error as e:
             st.error(f"Error exporting data to Autogen: {str(e)}")
             print(f"Error exporting data to Autogen: {str(e)}")
+            traceback.print_exc()
+
+
+def insert_or_get_skill(cursor, tool):
+    tool_name = tool.name if hasattr(tool, 'name') else tool.get('name', '')
+    cursor.execute("SELECT id FROM skill WHERE name = ?", (tool_name,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        print(f"Inserting new skill: {tool}")
+        
+        skill_data = (
+            None,  # id is INTEGER PRIMARY KEY, let SQLite auto-increment
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # created_at
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # updated_at
+            'default',  # user_id
+            '0.0.1',  # version
+            str(tool_name),
+            str(tool.content if hasattr(tool, 'content') else tool.get('content', '')),
+            str(tool.description if hasattr(tool, 'description') else tool.get('description', '')),
+            json.dumps(tool.secrets if hasattr(tool, 'secrets') else tool.get('secrets', {})),
+            json.dumps(tool.libraries if hasattr(tool, 'libraries') else tool.get('libraries', []))
+        )
+        
+        print(f"Skill data to be inserted: {skill_data}")
+        
+        try:
+            cursor.execute("""
+                INSERT INTO skill (id, created_at, updated_at, user_id, version, name, content, description, secrets, libraries) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, skill_data)
+            return cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"SQLite error: {e}")
+            print("Data types:")
+            for i, item in enumerate(skill_data):
+                print(f"  {i}: {type(item)}")
+            raise
+    
+
+def insert_or_get_model(cursor, model_config):
+    cursor.execute("SELECT id FROM model WHERE model = ?", (model_config['model'],))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        model_data = (
+            str(uuid.uuid4()),  # id
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # created_at
+            datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # updated_at
+            'guestuser@gmail.com',  # user_id
+            '0.0.1',  # version
+            model_config['model'],
+            model_config.get('api_key'),
+            model_config.get('base_url'),
+            model_config.get('api_type', '')[:6],  # VARCHAR(6)
+            model_config.get('api_version'),
+            model_config.get('description', '')
+        )
+        cursor.execute("""
+            INSERT INTO model (id, created_at, updated_at, user_id, version, model, api_key, base_url, api_type, api_version, description) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, model_data)
+        return cursor.lastrowid
+    
+
+def insert_workflow(cursor, workflow_data):
+    workflow_insert_data = (
+        None,  # id is INTEGER PRIMARY KEY, let SQLite auto-increment
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # created_at
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # updated_at
+        'guestuser@gmail.com',  # user_id (matching existing entries)
+        '0.0.1',  # version
+        workflow_data.get('name', 'AutoGroq Workflow'),
+        workflow_data.get('description', 'Workflow auto-generated by AutoGroq.'),
+        workflow_data.get('type', 'groupchat')[:10],  # VARCHAR(10)
+        workflow_data.get('summary_method', 'last')[:4],  # VARCHAR(4)
+        json.dumps(workflow_data.get('sample_tasks', []))
+    )
+    print(f"Inserting workflow data: {workflow_insert_data}")
+    try:
+        cursor.execute("""
+            INSERT INTO workflow (id, created_at, updated_at, user_id, version, name, description, type, summary_method, sample_tasks) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, workflow_insert_data)
+        return cursor.lastrowid
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        print("Data types:")
+        for i, item in enumerate(workflow_insert_data):
+            print(f"  {i}: {type(item)}")
+        raise
+
+
+def normalize_config(config, agent_name):
+    """Normalize the config dictionary to match the format of default entries."""
+    normalized = {
+        "name": normalize_name(config.get('name', agent_name)),
+        "human_input_mode": "NEVER",
+        "max_consecutive_auto_reply": 25,
+        "system_message": "",
+        "is_termination_msg": None,
+        "code_execution_config": "none",
+        "default_auto_reply": "",
+        "description": "",
+        "llm_config": {
+            "config_list": [],
+            "temperature": 0.3,
+            "cache_seed": None,
+            "timeout": None,
+            "max_tokens": 2048,
+            "extra_body": None
+        },
+        "admin_name": "Admin",
+        "messages": [],
+        "max_round": 100,
+        "speaker_selection_method": "auto",
+        "allow_repeat_speaker": True
+    }
+    
+    # Update with existing config values
+    for key, value in config.items():
+        if key in normalized:
+            normalized[key] = value
+    
+    # Ensure llm_config is properly structured
+    if 'llm_config' in config and isinstance(config['llm_config'], dict):
+        for key, value in config['llm_config'].items():
+            normalized['llm_config'][key] = value
+    
+    # Ensure config_list in llm_config
+    if not normalized['llm_config']['config_list']:
+        normalized['llm_config']['config_list'] = [{"model": "llama3-8b-8192", "api_key": None}]
+    
+    return normalized
+
+
+def normalize_name(name):
+    """Convert name to lowercase and replace spaces with underscores."""
+    return re.sub(r'\s+', '_', name.lower().strip())
+
 
 
 def sql_to_db(sql: str, params: tuple = None):
@@ -2901,8 +3099,6 @@ def sql_to_db(sql: str, params: tuple = None):
         if conn:
             conn.close()
             print("Database connection closed.")
-
-
 
 
 #FUTURE functions for exporting to new Autogen Studio schema:
@@ -4182,8 +4378,6 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                         autogen_agents = []
                         crewai_agents = []
                         for index, agent_data in enumerate(json_data, start=1):
-                            print(f"Processing agent data: {agent_data}")
-                            
                             expert_name = agent_data.get('expert_name', '')
                             description = agent_data.get('description', '')
                             role = agent_data.get('role', expert_name)
@@ -4198,42 +4392,23 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                             current_timestamp = datetime.datetime.now().isoformat()
                             
                             autogen_agent_data = {
-                                "id": index,
                                 "name": expert_name,
                                 "description": description,
-                                "type": "assistant",
+                                "tools": agent_tools,
                                 "config": {
                                     "name": expert_name,
                                     "llm_config": {
                                         "config_list": [
                                             {
-                                                "user_id": "default",
-                                                "timestamp": current_timestamp,
                                                 "model": st.session_state.model,
-                                                "base_url": None,
-                                                "api_type": None,
-                                                "api_version": None,
-                                                "description": "OpenAI model configuration"
+                                                "api_key": None
                                             }
                                         ],
-                                        "temperature": st.session_state.temperature,
-                                        "cache_seed": 42,
-                                        "timeout": 600,
-                                        "max_tokens": MODEL_TOKEN_LIMITS.get(st.session_state.model, 4096),
-                                        "extra_body": None
+                                        "temperature": st.session_state.temperature
                                     },
                                     "human_input_mode": "NEVER",
-                                    "max_consecutive_auto_reply": 8,
-                                    "system_message": f"You are a helpful assistant that can act as {expert_name} who {description}."
+                                    "max_consecutive_auto_reply": 10
                                 },
-                                "tools": agent_tools,
-                                "created_at": current_timestamp,
-                                "updated_at": current_timestamp,
-                                "user_id": "default",
-                                "models": [model for model in MODEL_CHOICES if model != "default"],
-                                "verbose": False,
-                                "allow_delegation": False,
-                                "timestamp": current_timestamp,
                                 "role": role,
                                 "goal": goal,
                                 "backstory": backstory,
@@ -4250,26 +4425,13 @@ def get_agents_from_text(text: str, max_retries: int = 3, retry_delay: int = 2) 
                                 print(f"Agent data: {autogen_agent_data}")
                                 continue
 
-                            crewai_agent_data = {
+                            crewai_agents.append({
                                 "name": expert_name,
                                 "description": description,
                                 "tools": [tool['name'] if isinstance(tool, dict) else tool.name for tool in agent_tools],
                                 "verbose": True,
                                 "allow_delegation": True
-                            }
-                            crewai_agents.append(crewai_agent_data)
-
-                        web_retriever_agent = WebContentRetrieverAgent.create_default()
-                        autogen_agent_data = web_retriever_agent.to_dict()
-                        autogen_agent_data['id'] = len(autogen_agents) + 1
-                        autogen_agents.append(AgentBaseModel(**autogen_agent_data))
-                        crewai_agents.append({
-                            "name": web_retriever_agent.name,
-                            "description": web_retriever_agent.description,
-                            "tools": [tool['name'] for tool in web_retriever_agent.tools],
-                            "verbose": True,
-                            "allow_delegation": True
-                        })
+                            })
 
                         print(f"AutoGen Agents: {autogen_agents}")
                         print(f"CrewAI Agents: {crewai_agents}")
@@ -4657,9 +4819,12 @@ def trigger_moderator_agent():
     team_members = []
     for agent in st.session_state.agents:
         if isinstance(agent, AgentBaseModel):
-            team_members.append(f"{agent.config['name']}: {agent.description}")
+            team_members.append(f"{agent.name}: {agent.description}")
         else:
-            team_members.append(f"{agent.get('config', {}).get('name', 'Unknown')}: {agent.get('description', 'No description')}")
+            # Fallback for dictionary-like structure
+            agent_name = agent.get('config', {}).get('name', agent.get('name', 'Unknown'))
+            agent_description = agent.get('description', 'No description')
+            team_members.append(f"{agent_name}: {agent_description}")
     team_members_str = "\n".join(team_members)
 
     moderator_prompt = get_moderator_prompt(discussion_history, goal, last_comment, last_speaker, team_members_str, current_deliverable, current_phase)
@@ -4867,10 +5032,11 @@ def get_workflow_from_agents(agents):
             "user_id": "default",
             "tools": []
         },
-        "type": "groupchat",
+        "type": "autonomous",
         "user_id": "default",
         "timestamp": current_timestamp,
-        "summary_method": "last"
+        "summary_method": "last",
+        "sample_tasks": [],
     }
 
     for index, agent in enumerate(agents):
