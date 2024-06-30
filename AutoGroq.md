@@ -4,9 +4,11 @@
 # agent_management.py
 
 import base64
+import json
 import logging
 import os
 import re
+import requests
 import streamlit as st
 
 from configs.config import BUILT_IN_AGENTS, LLM_PROVIDER, MODEL_CHOICES, MODEL_TOKEN_LIMITS
@@ -299,6 +301,25 @@ def download_agent_file(expert_name):
         st.error(f"File not found: {json_file}")
 
 
+def extract_content(response):
+    if isinstance(response, dict) and 'choices' in response:
+        # Handle response from providers like Groq
+        return response['choices'][0]['message']['content']
+    elif hasattr(response, 'content') and isinstance(response.content, list):
+        # Handle Anthropic-style response
+        return response.content[0].text
+    elif isinstance(response, requests.models.Response):
+        # Handle response from providers using requests.Response
+        try:
+            json_response = response.json()
+            if 'choices' in json_response and json_response['choices']:
+                return json_response['choices'][0]['message']['content']
+        except json.JSONDecodeError:
+            logger.error("Failed to decode JSON from response")
+    logger.error(f"Unexpected response format: {type(response)}")
+    return None
+
+
 def process_agent_interaction(agent_index):
     agent = st.session_state.agents[agent_index]
     logger.debug(f"Processing interaction for agent: {agent.name}")
@@ -386,20 +407,16 @@ def process_agent_interaction(agent_index):
     logger.debug(f"Sending request to {provider} using model {model}")
     response = llm_provider.send_request(llm_request_data)
     
-    if response.status_code == 200:
-        response_data = llm_provider.process_response(response)
-        if "choices" in response_data and response_data["choices"]:
-            content = response_data["choices"][0]["message"]["content"]
-            
-            update_discussion_and_whiteboard(agent_name, content, user_input)
-            st.session_state['form_agent_name'] = agent_name
-            st.session_state['form_agent_description'] = description
-            st.session_state['selected_agent_index'] = agent_index
+    content = extract_content(response)
+    if content:
+        update_discussion_and_whiteboard(agent_name, content, user_input)
+        st.session_state['form_agent_name'] = agent_name
+        st.session_state['form_agent_description'] = description
+        st.session_state['selected_agent_index'] = agent_index
     else:
-        error_message = f"Error: Received status code {response.status_code}"
+        error_message = f"Error: Failed to extract content from response"
         log_error(error_message)
         logger.error(error_message)
-        logger.error(f"Response: {response.text}")
 
     # Force a rerun to update the UI and trigger the moderator if necessary
     st.experimental_rerun()
@@ -4762,43 +4779,43 @@ def trigger_moderator_agent():
         time.sleep(retry_delay)
         response = llm_provider.send_request(llm_request_data)
 
-        if response.status_code == 200:
-            response_data = llm_provider.process_response(response)
-            if "choices" in response_data and response_data["choices"]:
-                content = response_data["choices"][0]["message"]["content"]
-                
-                # Extract the agent name from the content
-                agent_name_match = re.match(r"To (\w+( \w+)*):", content)
-                if agent_name_match:
-                    next_agent = agent_name_match.group(1)
-                    # Check if the extracted name is a valid agent and not a tool
-                    if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
-                        st.session_state.next_agent = next_agent
-                        # Remove the "To [Agent Name]:" prefix from the content
-                        content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
-                    else:
-                        st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
-                        st.session_state.next_agent = None
-                else:
-                    st.session_state.next_agent = None
-                
-                if "PHASE_COMPLETED" in content:
-                    current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
-                    content = content.replace("PHASE_COMPLETED", "").strip()
-                    st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
-                
-                if "DELIVERABLE_COMPLETED" in content:
-                    current_project.mark_deliverable_done(deliverable_index)
-                    content = content.replace("DELIVERABLE_COMPLETED", "").strip()
-                    st.success(f"Deliverable completed: {current_deliverable}")
-                
-                return content.strip()
-        elif response.status_code == 429:
-            logger.warning(f"Rate limit hit. Retrying in {RETRY_DELAY} seconds...")
-            time.sleep(RETRY_DELAY)
+        if isinstance(response, dict) and 'choices' in response:
+            # Handle response from providers like Groq
+            content = response['choices'][0]['message']['content']
+        elif hasattr(response, 'content') and isinstance(response.content, list):
+            # Handle Anthropic-style response
+            content = response.content[0].text
         else:
-            logger.error(f"Unexpected status code: {response.status_code}")
-            break
+            print(f"Unexpected response format: {type(response)}")
+            continue
+
+        if content:
+            # Extract the agent name from the content
+            agent_name_match = re.match(r"To (\w+( \w+)*):", content)
+            if agent_name_match:
+                next_agent = agent_name_match.group(1)
+                # Check if the extracted name is a valid agent and not a tool
+                if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
+                    st.session_state.next_agent = next_agent
+                    # Remove the "To [Agent Name]:" prefix from the content
+                    content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
+                else:
+                    st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
+                    st.session_state.next_agent = None
+            else:
+                st.session_state.next_agent = None
+            
+            if "PHASE_COMPLETED" in content:
+                current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
+                content = content.replace("PHASE_COMPLETED", "").strip()
+                st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
+            
+            if "DELIVERABLE_COMPLETED" in content:
+                current_project.mark_deliverable_done(deliverable_index)
+                content = content.replace("DELIVERABLE_COMPLETED", "").strip()
+                st.success(f"Deliverable completed: {current_deliverable}")
+            
+            return content.strip()
 
     logger.error("All retry attempts failed.")
     return None
