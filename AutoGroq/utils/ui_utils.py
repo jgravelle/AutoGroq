@@ -925,43 +925,43 @@ def trigger_moderator_agent():
         time.sleep(retry_delay)
         response = llm_provider.send_request(llm_request_data)
 
-        if response.status_code == 200:
-            response_data = llm_provider.process_response(response)
-            if "choices" in response_data and response_data["choices"]:
-                content = response_data["choices"][0]["message"]["content"]
-                
-                # Extract the agent name from the content
-                agent_name_match = re.match(r"To (\w+( \w+)*):", content)
-                if agent_name_match:
-                    next_agent = agent_name_match.group(1)
-                    # Check if the extracted name is a valid agent and not a tool
-                    if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
-                        st.session_state.next_agent = next_agent
-                        # Remove the "To [Agent Name]:" prefix from the content
-                        content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
-                    else:
-                        st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
-                        st.session_state.next_agent = None
-                else:
-                    st.session_state.next_agent = None
-                
-                if "PHASE_COMPLETED" in content:
-                    current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
-                    content = content.replace("PHASE_COMPLETED", "").strip()
-                    st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
-                
-                if "DELIVERABLE_COMPLETED" in content:
-                    current_project.mark_deliverable_done(deliverable_index)
-                    content = content.replace("DELIVERABLE_COMPLETED", "").strip()
-                    st.success(f"Deliverable completed: {current_deliverable}")
-                
-                return content.strip()
-        elif response.status_code == 429:
-            logger.warning(f"Rate limit hit. Retrying in {RETRY_DELAY} seconds...")
-            time.sleep(RETRY_DELAY)
+        if isinstance(response, dict) and 'choices' in response:
+            # Handle response from providers like Groq
+            content = response['choices'][0]['message']['content']
+        elif hasattr(response, 'content') and isinstance(response.content, list):
+            # Handle Anthropic-style response
+            content = response.content[0].text
         else:
-            logger.error(f"Unexpected status code: {response.status_code}")
-            break
+            print(f"Unexpected response format: {type(response)}")
+            continue
+
+        if content:
+            # Extract the agent name from the content
+            agent_name_match = re.match(r"To (\w+( \w+)*):", content)
+            if agent_name_match:
+                next_agent = agent_name_match.group(1)
+                # Check if the extracted name is a valid agent and not a tool
+                if any(agent.name.lower() == next_agent.lower() for agent in st.session_state.agents):
+                    st.session_state.next_agent = next_agent
+                    # Remove the "To [Agent Name]:" prefix from the content
+                    content = re.sub(r"^To \w+( \w+)*:\s*", "", content).strip()
+                else:
+                    st.warning(f"'{next_agent}' is not a valid agent. Please select a valid agent.")
+                    st.session_state.next_agent = None
+            else:
+                st.session_state.next_agent = None
+            
+            if "PHASE_COMPLETED" in content:
+                current_project.mark_deliverable_phase_done(deliverable_index, current_phase)
+                content = content.replace("PHASE_COMPLETED", "").strip()
+                st.success(f"Phase {current_phase} completed for deliverable: {current_deliverable}")
+            
+            if "DELIVERABLE_COMPLETED" in content:
+                current_project.mark_deliverable_done(deliverable_index)
+                content = content.replace("DELIVERABLE_COMPLETED", "").strip()
+                st.success(f"Deliverable completed: {current_deliverable}")
+            
+            return content.strip()
 
     logger.error("All retry attempts failed.")
     return None
