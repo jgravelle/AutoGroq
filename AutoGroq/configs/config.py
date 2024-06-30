@@ -78,10 +78,10 @@ elif LLM_PROVIDER == "ollama":
 elif LLM_PROVIDER == "anthropic":
     API_URL = ANTHROPIC_API_URL
     MODEL_TOKEN_LIMITS = {
-        "claude-3-5-sonnet-20240620": 200000, 
-        "claude-3-opus-20240229": 200000,
-        "claude-3-sonnet-20240229": 200000,
-        "claude-3-haiku-20240307": 200000,
+        "claude-3-5-sonnet-20240620": 4096,
+        "claude-3-opus-20240229": 4096,
+        "claude-3-sonnet-20240229": 4096,
+        "claude-3-haiku-20240307": 4096,
         "claude-2.1": 100000,
         "claude-2.0": 100000,
         "claude-instant-1.2": 100000,
@@ -95,13 +95,13 @@ FRAMEWORK_DB_PATH = os.environ.get('FRAMEWORK_DB_PATH', default_db_path)
 
 MODEL_CHOICES = {
     "anthropic": {
-        "claude-3-5-sonnet-20240620": 200000,
-        "claude-3-opus-20240229": 200000,
-        "claude-3-sonnet-20240229": 200000,
-        "claude-3-haiku-20240307": 200000,
-        "claude-2.1": 100000,
-        "claude-2.0": 100000,
-        "claude-instant-1.2": 100000,
+    "claude-3-5-sonnet-20240620": 4096,
+    "claude-3-opus-20240229": 4096,
+    "claude-3-sonnet-20240229": 4096,
+    "claude-3-haiku-20240307": 4096,
+    "claude-2.1": 100000,
+    "claude-2.0": 100000,
+    "claude-instant-1.2": 100000,
     },
     "groq": {
         "mixtral-8x7b-32768": 32768,

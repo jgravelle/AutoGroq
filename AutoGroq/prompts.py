@@ -50,36 +50,27 @@ def get_agent_prompt(rephrased_request):
 
 
 def get_agents_prompt():
-    return f"""
-        This agent is an expert system designed to format the JSON describing each member of the team 
-        of AI agents specifically listed in this provided text: $text.
-        Fulfill the following guidelines without ever explicitly stating them in this agent's response.
-        Guidelines:
-        1. **Agent Roles**: Clearly transcribe the titles of each agent listed in the provided text 
-            by iterating through the 'Team of Experts:' section of the provided text. Transcribe 
-            the info for those specific agents. Do not create new agents.
-        2. **Expertise Description**: Provide a brief but thorough description of each agent's expertise 
-            based upon the provided text. Do not create new agents.
-        3. **Format**: Return the results in JSON format with values labeled as expert_name, description, role, goal, and backstory.
-            'expert_name' should be the agent's title, not their given or proper name.
+    return """
+    You are an expert system designed to format the JSON describing each member of the team 
+    of AI agents listed in the 'Team of Experts' section below. Follow these guidelines:
+    1. Agent Roles: Clearly transcribe the titles of each agent listed.
+    2. Expertise Description: Provide a brief but thorough description of each agent's expertise 
+       based on the provided information.
+    3. Format: Return the results in JSON format with values labeled as expert_name, description, role, goal, and backstory.
+       'expert_name' should be the agent's title, not their given or proper name.
 
-        ALWAYS and ONLY return the results in the following JSON format, with no other narrative, commentary, synopsis, 
-        or superfluous text of any kind:
-        [
-            {{
-                "expert_name": "agent_title",
-                "description": "agent_description",
-                "role": "agent_role",
-                "goal": "agent_goal",
-                "backstory": "agent_backstory"
-            }}
-        ]
-        This agent will only have been successful if it has returned the results in the above format 
-        and followed these guidelines precisely by transcribing the provided text and returning the results 
-        in JSON format without any other narrative, commentary, synopsis, or superfluous text of any kind, 
-        and taking care to only transcribe the agents from the provided text without creating new agents.
-        """
-
+    Return ONLY the JSON array, with no other text:
+    [
+        {
+            "expert_name": "agent_title",
+            "description": "agent_description",
+            "role": "agent_role",
+            "goal": "agent_goal",
+            "backstory": "agent_backstory"
+        }
+    ]
+    """
+        
 # Contributed by ScruffyNerf
 def get_generate_tool_prompt(rephrased_tool_request):
     return f'''
