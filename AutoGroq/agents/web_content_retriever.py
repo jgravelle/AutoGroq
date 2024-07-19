@@ -46,3 +46,20 @@ class WebContentRetrieverAgent(AgentBaseModel):
             if isinstance(value, ToolBaseModel):
                 data[key] = value.to_dict()
         return data
+
+    def retrieve_web_content(self, reference_url):
+        """
+        Retrieve web content from the given reference URL.
+        
+        Args:
+            reference_url (str): The URL to fetch content from.
+        
+        Returns:
+            dict: A dictionary containing the status, URL, and content (or error message).
+        """
+        fetch_tool = next((tool for tool in self.tools if tool.name == "fetch_web_content"), None)
+        if fetch_tool is None:
+            return {"status": "error", "message": "fetch_web_content tool not found"}
+        
+        result = fetch_tool.function(reference_url)
+        return result

@@ -10,7 +10,7 @@ from models.tool_base_model import ToolBaseModel
 from urllib.parse import urlparse, urlunparse
 
 
-def fetch_web_content(url: str) -> str:
+def fetch_web_content(url: str) -> dict:
     """
     Fetches the text content from a website.
 
@@ -18,7 +18,7 @@ def fetch_web_content(url: str) -> str:
         url (str): The URL of the website.
 
     Returns:
-        str: The content of the website, or an error message if fetching failed.
+        dict: A dictionary containing the status, URL, and content (or error message).
     """
     try:
         cleaned_url = clean_url(url)
@@ -39,37 +39,37 @@ def fetch_web_content(url: str) -> str:
         if body_content:
             content = body_content.get_text(strip=True)
             logging.info(f"Extracted text content (first 500 chars): {content[:500]}...")
-            result = json.dumps({
+            result = {
                 "status": "success",
                 "url": cleaned_url,
                 "content": content  
-            })
-            print(f"DEBUG: fetch_web_content result: {result[:500]}...")  # Debug print
+            }
+            print(f"DEBUG: fetch_web_content result: {str(result)[:500]}...")  # Debug print
             return result
         else:
             logging.warning(f"No <body> tag found in the content from {cleaned_url}")
-            return json.dumps({
+            return {
                 "status": "error",
                 "url": cleaned_url,
                 "message": f"No <body> tag found in the content from {cleaned_url}"
-            })
+            }
 
     except requests.RequestException as e:
         error_message = f"Error fetching content from {cleaned_url}: {str(e)}"
         logging.error(error_message)
-        return json.dumps({
+        return {
             "status": "error",
             "url": cleaned_url,
             "message": error_message
-        })
+        }
     except Exception as e:
         error_message = f"Unexpected error while fetching content from {cleaned_url}: {str(e)}"
         logging.error(error_message)
-        return json.dumps({
+        return {
             "status": "error",
             "url": cleaned_url,
             "message": error_message
-        })
+        }
 
 # Create the ToolBaseModel instance
 fetch_web_content_tool = ToolBaseModel(
