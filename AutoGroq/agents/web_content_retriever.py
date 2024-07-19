@@ -18,6 +18,8 @@ class WebContentRetrieverAgent(AgentBaseModel):
         self.updated_at = current_timestamp
         self.user_id = "default"
         self.timestamp = current_timestamp
+        self.reference_url = None
+        self.web_content = None
 
     @classmethod
     def create_default(cls):
@@ -49,7 +51,7 @@ class WebContentRetrieverAgent(AgentBaseModel):
 
     def retrieve_web_content(self, reference_url):
         """
-        Retrieve web content from the given reference URL.
+        Retrieve web content from the given reference URL and store it in the agent's memory.
         
         Args:
             reference_url (str): The URL to fetch content from.
@@ -57,9 +59,30 @@ class WebContentRetrieverAgent(AgentBaseModel):
         Returns:
             dict: A dictionary containing the status, URL, and content (or error message).
         """
+        self.reference_url = reference_url
         fetch_tool = next((tool for tool in self.tools if tool.name == "fetch_web_content"), None)
         if fetch_tool is None:
             return {"status": "error", "message": "fetch_web_content tool not found"}
         
         result = fetch_tool.function(reference_url)
+        if result["status"] == "success":
+            self.web_content = result["content"]
         return result
+
+    def get_web_content(self):
+        """
+        Get the stored web content.
+        
+        Returns:
+            str: The stored web content or None if not available.
+        """
+        return self.web_content
+
+    def get_reference_url(self):
+        """
+        Get the stored reference URL.
+        
+        Returns:
+            str: The stored reference URL or None if not available.
+        """
+        return self.reference_url

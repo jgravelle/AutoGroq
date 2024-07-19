@@ -24,7 +24,10 @@ def fetch_web_content(url: str) -> dict:
         cleaned_url = clean_url(url)
         logging.info(f"Fetching content from cleaned URL: {cleaned_url}")
         
-        response = requests.get(cleaned_url, timeout=10)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(cleaned_url, headers=headers, timeout=10)
         response.raise_for_status()
         
         logging.info(f"Response status code: {response.status_code}")
@@ -34,25 +37,26 @@ def fetch_web_content(url: str) -> dict:
         
         logging.info(f"Parsed HTML structure: {soup.prettify()[:500]}...")  # Log first 500 characters of prettified HTML
         
-        body_content = soup.body
-
-        if body_content:
-            content = body_content.get_text(strip=True)
-            logging.info(f"Extracted text content (first 500 chars): {content[:500]}...")
-            result = {
-                "status": "success",
-                "url": cleaned_url,
-                "content": content  
-            }
-            print(f"DEBUG: fetch_web_content result: {str(result)[:500]}...")  # Debug print
-            return result
+        # Try to get content from article tags first
+        article_content = soup.find('article')
+        if article_content:
+            content = article_content.get_text(strip=True)
         else:
-            logging.warning(f"No <body> tag found in the content from {cleaned_url}")
-            return {
-                "status": "error",
-                "url": cleaned_url,
-                "message": f"No <body> tag found in the content from {cleaned_url}"
-            }
+            # If no article tag, fall back to body content
+            body_content = soup.body
+            if body_content:
+                content = body_content.get_text(strip=True)
+            else:
+                raise ValueError("No content found in the webpage")
+
+        logging.info(f"Extracted text content (first 500 chars): {content[:500]}...")
+        result = {
+            "status": "success",
+            "url": cleaned_url,
+            "content": content  
+        }
+        print(f"DEBUG: fetch_web_content result: {str(result)[:500]}...")  # Debug print
+        return result
 
     except requests.RequestException as e:
         error_message = f"Error fetching content from {cleaned_url}: {str(e)}"
