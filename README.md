@@ -1,48 +1,6 @@
-(Stuff's happenin'...)
+## Star History
 
-## NOTE: NEW AUTOGEN IS NOT (YET) COMPATABLE WITH AutoGroq™
-
-You'll need to install the *PREVIOUS* Autogen with:
-
-pip install autogenstudio==0.0.56
-
-                                      (h/t - Scruff)
-P.S. -
-Having an issue with AutogenStudio?  If you installed the newest version (0.1.1), it won't work. Don't even try.
-
-example of the Problem: Console error: "Error while getting items: Workflow 'groupchat' is not among the defined enum values. Enum name: workflowtype. Possible values: autonomous, sequential"
-
-Steps to fix:
-- Go to your conda environment and uninstall the new version of autogen - pip uninstall autogenstudio
-- Navigate to your .autogenstudio folder (should usually be in your home dir) and delete the database.sqlite file (it's already been ruined with adding new tables over the existing ones, so back it up if you had any good data in there and upgraded... and maybe you can salvage it manually, I dunno)
-- Install the older version - pip install autogenstudio==0.0.56
-- Run autogenstudio again, problem should be fixed
-
-thanks to Luis2k
-= = = = = = = = = 
-
-*Our next-generation sandbox is online at:* https://autogrok.streamlit.app/
-
-It works something like this:
-![image](https://github.com/jgravelle/AutoGroq/assets/3400540/5739542f-3e28-45e0-8e24-3a49c81f554e)
-
-
-## UNDER CONSTRUCTION!
-
-If things are wonky, that's why.  Do this:
-1) Set the DEBUG flag to 'True'
-2) Run it locally; and
-3) Watch the explanation:
-https://www.youtube.com/watch?v=5cHhvIlUS9Q
-
-![image](https://github.com/jgravelle/AutoGroq/assets/3400540/0fff6681-49d2-415a-9548-81c3c459fd94)
-
-  
-## NEW:  Py2Md!
-
-Users wanted the entire code available as markup (versus PDF)  
-Here's the new utility we use to do it:  https://github.com/jgravelle/Py2md  
-It's the easiest way to get your code into ChatGPT, Claude, etc.  
+[![Star History Chart](https://api.star-history.com/svg?repos=jgravelle/AutoGroq&type=Timeline)](https://star-history.com/#jgravelle/AutoGroq&Timeline)
 
 # AutoGroq™
 
