@@ -9,7 +9,7 @@ import sys
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from configs.config import MODEL_TOKEN_LIMITS
+from configs.config import FALLBACK_MODEL_TOKEN_LIMITS
 from prompts import get_agent_prompt
 from utils.api_utils import get_llm_provider
 from utils.agent_utils import create_agent_data
@@ -25,7 +25,7 @@ def create_agent(request, provider, model, temperature, max_tokens, output_file)
     prompt = get_agent_prompt(request)
 
     # Adjust the token limit based on the selected model
-    max_tokens = MODEL_TOKEN_LIMITS.get(provider, {}).get(model, 4096)
+    max_tokens = FALLBACK_MODEL_TOKEN_LIMITS.get(provider, {}).get(model, 4096)
 
     # Make the request to the LLM API
     llm_request_data = {

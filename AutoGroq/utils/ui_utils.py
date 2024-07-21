@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 from configs.config import (DEBUG, LLM_PROVIDER, MAX_RETRIES, 
-        MODEL_CHOICES, MODEL_TOKEN_LIMITS, RETRY_DELAY, SUPPORTED_PROVIDERS)
+        FALLBACK_MODEL_TOKEN_LIMITS, RETRY_DELAY, SUPPORTED_PROVIDERS)
 
 from anthropic.types import Message
 from configs.current_project import Current_Project
@@ -534,10 +534,11 @@ def get_discussion_history():
     return st.session_state.discussion_history
 
 
+@st.cache_data(ttl=3600)  # Cache the result for 1 hour
 def get_provider_models(provider=None):
     if provider is None:
         provider = st.session_state.get('provider', LLM_PROVIDER)
-    return MODEL_CHOICES.get(provider, {})
+    return st.session_state.get('available_models') or FALLBACK_MODEL_TOKEN_LIMITS.get(provider, {})
 
 
 def handle_user_request(session_state):
@@ -834,7 +835,6 @@ def set_temperature():
         "Set Temperature",
         min_value=0.0,
         max_value=1.0,
-        value=st.session_state.get('temperature', 0.3),
         step=0.01,
         key='temperature_slider',
         on_change=update_temperature,

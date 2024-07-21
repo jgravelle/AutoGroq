@@ -3,19 +3,19 @@
 import base64
 import json
 import logging
-import os
+import os   
 import re
 import requests
 import streamlit as st
 
-from configs.config import BUILT_IN_AGENTS, LLM_PROVIDER, MODEL_CHOICES, MODEL_TOKEN_LIMITS
+from configs.config import BUILT_IN_AGENTS, LLM_PROVIDER, FALLBACK_MODEL_TOKEN_LIMITS, SUPPORTED_PROVIDERS
 
 from models.agent_base_model import AgentBaseModel
 from models.tool_base_model import ToolBaseModel
-from utils.api_utils import get_api_key
+from utils.api_utils import fetch_available_models, get_api_key
 from utils.error_handling import log_error
 from utils.tool_utils import populate_tool_models, show_tools
-from utils.ui_utils import display_goal, get_llm_provider, get_provider_models, update_discussion_and_whiteboard
+from utils.ui_utils import display_goal, get_llm_provider, update_discussion_and_whiteboard
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -204,24 +204,36 @@ def display_agent_edit_form(agent, edit_index):
             current_provider = agent.provider or st.session_state.get('provider')
             selected_provider = st.selectbox(
                 "Provider",
-                options=MODEL_CHOICES.keys(),
-                index=list(MODEL_CHOICES.keys()).index(current_provider),
+                options=SUPPORTED_PROVIDERS,
+                index=SUPPORTED_PROVIDERS.index(current_provider),
                 key=f"provider_select_{edit_index}_{agent.name}"
             )
 
-            provider_models = get_provider_models(selected_provider)
-            current_model = agent.model or st.session_state.get('model')
+            # Fetch available models for the selected provider
+            with st.spinner(f"Fetching models for {selected_provider}..."):
+                provider_models = fetch_available_models(selected_provider)
+            
+            if not provider_models:
+                st.warning(f"No models available for {selected_provider}. Using fallback list.")
+                provider_models = FALLBACK_MODEL_TOKEN_LIMITS.get(selected_provider, {})
+
+            current_model = agent.model or st.session_state.get('model', 'default')
             
             if current_model not in provider_models:
-                st.warning(f"Current model '{current_model}' is not available for the selected provider. Please select a new model.")
-                current_model = next(iter(provider_models))  # Set to first available model
+                st.warning(f"Current model '{current_model}' is not available for {selected_provider}. Please select a new model.")
+                current_model = next(iter(provider_models)) if provider_models else None
             
-            selected_model = st.selectbox(
-                "Model", 
-                options=list(provider_models.keys()),
-                index=list(provider_models.keys()).index(current_model),
-                key=f"model_select_{edit_index}_{agent.name}"
-            )
+            if provider_models:
+                selected_model = st.selectbox(
+                    "Model", 
+                    options=list(provider_models.keys()),
+                    index=list(provider_models.keys()).index(current_model) if current_model in provider_models else 0,
+                    key=f"model_select_{edit_index}_{agent.name}"
+                )
+            else:
+                st.error(f"No models available for {selected_provider}.")
+                selected_model = None
+
         with col2:
             if st.button("Set for ALL agents", key=f"set_all_agents_{edit_index}_{agent.name}"):
                 for agent in st.session_state.agents:
@@ -231,7 +243,7 @@ def display_agent_edit_form(agent, edit_index):
                     if not agent.config['llm_config']['config_list']:
                         agent.config['llm_config']['config_list'] = [{}]
                     agent.config['llm_config']['config_list'][0]['model'] = selected_model
-                    agent.config['llm_config']['max_tokens'] = provider_models[selected_model]
+                    agent.config['llm_config']['max_tokens'] = provider_models.get(selected_model, 4096)
                 st.experimental_rerun()
         
         # Display the description in a text area
@@ -264,10 +276,10 @@ def display_agent_edit_form(agent, edit_index):
                 if not agent.config['llm_config']['config_list']:
                     agent.config['llm_config']['config_list'] = [{}]
                 agent.config['llm_config']['config_list'][0]['model'] = selected_model
-                agent.config['llm_config']['max_tokens'] = provider_models[selected_model]
+                agent.config['llm_config']['max_tokens'] = provider_models.get(selected_model, 4096)
                 
                 st.session_state[f'show_edit_{edit_index}'] = False
-           
+            
                 if 'edit_agent_index' in st.session_state:
                     del st.session_state['edit_agent_index']
                 st.session_state.agents[edit_index] = agent
@@ -391,7 +403,7 @@ def process_agent_interaction(agent_index):
     llm_request_data = {
         "model": model,
         "temperature": st.session_state.temperature,
-        "max_tokens": MODEL_TOKEN_LIMITS.get(model, 4096),
+        "max_tokens": FALLBACK_MODEL_TOKEN_LIMITS.get(model, 4096),
         "top_p": 1,
         "stop": "TERMINATE",
         "messages": [

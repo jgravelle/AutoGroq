@@ -6,7 +6,7 @@ import sys
 # Add the root directory to the Python module search path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from configs.config import MODEL_TOKEN_LIMITS, LLM_PROVIDER
+from configs.config import FALLBACK_MODEL_TOKEN_LIMITS, LLM_PROVIDER
 from utils.api_utils import get_llm_provider
 from utils.auth_utils import get_api_key
 from utils.ui_utils import rephrase_prompt
@@ -21,7 +21,7 @@ def rephrase_prompt_cli(prompt, provider, model, temperature, max_tokens):
 
     # Override the model and max_tokens if specified in the command-line arguments
     model_to_use = model if model else provider
-    max_tokens_to_use = MODEL_TOKEN_LIMITS.get(model_to_use, max_tokens)
+    max_tokens_to_use = FALLBACK_MODEL_TOKEN_LIMITS.get(model_to_use, max_tokens)
 
     rephrased_prompt = rephrase_prompt(prompt, model_to_use, max_tokens_to_use, llm_provider=llm_provider, provider=provider)
 

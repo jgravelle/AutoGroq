@@ -2,7 +2,7 @@
 import datetime
 import streamlit as st
 
-from configs.config import MODEL_TOKEN_LIMITS
+from configs.config import FALLBACK_MODEL_TOKEN_LIMITS
 
 from tools.fetch_web_content import fetch_web_content_tool
 from utils.agent_utils import create_agent_data
@@ -56,7 +56,7 @@ def get_workflow_from_agents(agents):
                     "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
+                    "max_tokens": FALLBACK_MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
@@ -117,7 +117,7 @@ def get_workflow_from_agents(agents):
                     "temperature": temperature_value,
                     "cache_seed": 42,
                     "timeout": 600,
-                    "max_tokens": MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
+                    "max_tokens": FALLBACK_MODEL_TOKEN_LIMITS.get(selected_model, 4096),  # Use the selected model
                     "extra_body": None
                 },
                 "human_input_mode": "NEVER",
