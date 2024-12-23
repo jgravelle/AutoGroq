@@ -755,11 +755,7 @@ def rephrase_prompt(user_request, model, max_tokens=None, llm_provider=None, pro
 
 def select_model():
     provider = st.session_state.get('provider', LLM_PROVIDER)
-    
-    if 'available_models' not in st.session_state or not st.session_state.available_models:
-        fetch_available_models(provider)
-    
-    provider_models = st.session_state.available_models
+    provider_models = get_provider_models(provider)
     
     if not provider_models:
         st.warning(f"No models available for {provider}. Please check your API key and connection.")
@@ -796,7 +792,8 @@ def select_provider():
         update_api_url(selected_provider)
         
         # Clear any existing warnings
-        st.session_state.warning_placeholder.empty()
+        if 'warning_placeholder' in st.session_state:
+            st.session_state.warning_placeholder.empty()
         
         # Check for API key and prompt if not found
         api_key = get_api_key(selected_provider)
@@ -846,28 +843,26 @@ def set_temperature():
 
 
 def show_interfaces():
-    st.markdown('<div class="discussion-whiteboard">', unsafe_allow_html=True)
-    display_discussion_and_whiteboard()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="user-input">', unsafe_allow_html=True)
-    auto_moderate = st.checkbox("Auto-moderate (slow, eats tokens, but very cool)", key="auto_moderate", on_change=trigger_moderator_agent_if_checked)
-    if auto_moderate:
-        with st.spinner("Auto-moderating..."):
-            moderator_response = trigger_moderator_agent()
-        if moderator_response:
-            if st.session_state.next_agent:
-                st.session_state.user_input = f"To {st.session_state.next_agent}: {moderator_response}"
-            else:
-                st.session_state.user_input = moderator_response
-            st.success("Auto-moderation complete. New input has been generated.")
-        else:
-            st.warning("Auto-moderation failed due to rate limiting. Please wait a moment and try again, or proceed manually.")
-    
-    user_input = st.text_area("Additional Input:", value=st.session_state.user_input, height=200, key="user_input_widget")
-    reference_url = st.text_input("URL:", key="reference_url_widget")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container():
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            display_discussion_and_whiteboard()
+        with col2:
+            auto_moderate = st.checkbox("Auto-moderate (slow, eats tokens, but very cool)", key="auto_moderate", on_change=trigger_moderator_agent_if_checked)
+            if auto_moderate:
+                with st.spinner("Auto-moderating..."):
+                    moderator_response = trigger_moderator_agent()
+                if moderator_response:
+                    if st.session_state.next_agent:
+                        st.session_state.user_input = f"To {st.session_state.next_agent}: {moderator_response}"
+                    else:
+                        st.session_state.user_input = moderator_response
+                    st.success("Auto-moderation complete. New input has been generated.")
+                else:
+                    st.warning("Auto-moderation failed due to rate limiting. Please wait a moment and try again, or proceed manually.")
+            
+            user_input = st.text_area("Additional Input:", value=st.session_state.user_input, height=200, key="user_input_widget")
+            reference_url = st.text_input("URL:", key="reference_url_widget")
 
     return user_input, reference_url
 
