@@ -115,6 +115,11 @@ class ParallelCallerTests(unittest.TestCase):
         self.assertEqual(self.calls(app)[-1]["arguments"]["session_id"], original)
         next(item for item in app.button if item.label == "Reset").click().run()
         self.assertEqual(app.session_state["selected_tools"], ["parallel_search"])
+        self.assertEqual(next(item for item in app.text_area if item.label == "Additional Input:").value, "")
+        self.assertEqual(next(item for item in app.text_input if item.label == "URL:").value, "")
+        prior_call_count = len(self.calls(app))
+        self.run_agent(app, query="")
+        self.assertEqual(len(self.calls(app)), prior_call_count)
         self.run_agent(app)
         self.assertNotEqual(self.calls(app)[-1]["arguments"]["session_id"], original)
 

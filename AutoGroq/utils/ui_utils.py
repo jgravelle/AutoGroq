@@ -379,7 +379,8 @@ def display_reset_and_upload_buttons():
                 "user_input", "agents", "zip_buffer", "crewai_zip_buffer",
                 "autogen_zip_buffer", "uploaded_file_content", "discussion_history",
                 "last_comment", "user_api_key", "reference_url",
-                "parallel_search_session_id"
+                "parallel_search_session_id", "user_input_widget",
+                "reference_url_widget"
             ]
             # Reset each specified key
             for key in keys_to_reset:
