@@ -4,6 +4,9 @@
 
 # AutoGroq™
 
+Modified from the original AutoGroq by J. Gravelle: this version adds Parallel
+Search MCP tools and lets agents consume tool results before the UI reruns.
+
 AutoGroq is a groundbreaking tool that revolutionizes the way users interact with AI assistants. By dynamically generating tailored teams of AI agents based on your project requirements, AutoGroq eliminates the need for manual configuration and allows you to tackle any question, problem, or project with ease and efficiency.
 
 ## NEW THIS WEEK:  SKILL GENERATION!
@@ -58,6 +61,29 @@ To customize the configurations for your local environment, follow these steps:
 Note: The `config_local.py` file is not tracked by Git, so your customizations will not be overwritten when pulling updates from the repository.  
   
 ## How It Works
+
+### Web search and page excerpts
+
+Fresh sessions select `parallel_search` in **Tools**. When you click an agent,
+AutoGroq searches for your Additional Input (or original request) and includes
+source URLs and excerpts in the agent's prompt. [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+provides free web search in Fast mode without an account or API key. Existing
+tool selections, including an empty selection, are preserved.
+
+Queries are sent to Parallel when the selected tool runs. Uncheck
+`parallel_search` in **Tools** to disable search. To read a specific page, select
+`parallel_fetch` and enter an HTTP or HTTPS address in **URL**. The existing
+`fetch_web_content` tool remains available. These tools run in AutoGroq's own
+conversation UI; this setup does not add MCP support to exported workflows.
+
+Search and fetch share a random conversation identifier across follow-up turns.
+**Reset** clears that identifier while keeping your tool selections. Service
+errors and quotas are shown to the agent without automatic retries or a fallback
+provider. Requests time out after 5 seconds to connect or 20 seconds without
+response data. Search excerpts are external data and should be checked against
+their sources.
+
+### Conversation
 
 1. **Initiation**: Begin by entering your query or request in the designated input area.
 2. **Engagement**: Click the "Begin" button to initiate the interaction. AutoGroq will rephrase your request and generate the appropriate expert agents.
