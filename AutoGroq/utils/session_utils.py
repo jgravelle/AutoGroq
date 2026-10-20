@@ -1,4 +1,5 @@
 
+# Modified from AutoGroq by J. Gravelle: fresh-session search default.
 import streamlit as st
 
 from agents.code_developer import CodeDeveloperAgent
@@ -100,7 +101,7 @@ def initialize_session_variables():
         st.session_state.show_edit = False        
 
     if "selected_tools" not in st.session_state:
-        st.session_state.selected_tools = []
+        st.session_state.selected_tools = ["parallel_search"]
 
     if "show_request_input" not in st.session_state:
         st.session_state.show_request_input = True

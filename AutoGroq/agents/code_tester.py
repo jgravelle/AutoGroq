@@ -1,3 +1,4 @@
+# Modified from AutoGroq by J. Gravelle: serialize selected tools without mutating agents.
 # agents/code_tester.py
 
 import datetime
@@ -41,7 +42,9 @@ class CodeTesterAgent(AgentBaseModel):
         )
 
     def to_dict(self):
-        data = self.__dict__
+        data = self.__dict__.copy()
+        data["tools"] = [tool.to_dict() if isinstance(tool, ToolBaseModel) else tool
+                         for tool in self.tools]
         for key, value in data.items():
             if isinstance(value, ToolBaseModel):
                 data[key] = value.to_dict()

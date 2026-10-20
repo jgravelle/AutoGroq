@@ -1,4 +1,5 @@
 # agent_management.py
+# Modified from AutoGroq by J. Gravelle: consume search results before rerunning.
 
 import base64
 import json
@@ -345,9 +346,9 @@ def process_agent_interaction(agent_index):
         agent_tools = agent.get("tools", [])
     
     user_request = st.session_state.get('user_request', '')
-    user_input = st.session_state.get('user_input', '')
+    user_input = st.session_state.get('user_input_widget', st.session_state.get('user_input', ''))
     rephrased_request = st.session_state.get('rephrased_request', '')
-    reference_url = st.session_state.get('reference_url', '')
+    reference_url = st.session_state.get('reference_url_widget', st.session_state.get('reference_url', ''))
     
     # Execute associated tools for the agent
     tool_results = {}
@@ -356,12 +357,16 @@ def process_agent_interaction(agent_index):
             logger.debug(f"Executing tool: {tool.name}")
             if tool.name in st.session_state.tool_functions:
                 tool_function = st.session_state.tool_functions[tool.name]
-                if tool.name == 'fetch_web_content' and reference_url:
+                if tool.name == 'parallel_fetch':
+                    tool_result = tool_function(reference_url)
+                elif tool.name == 'fetch_web_content' and reference_url:
                     tool_result = tool_function(reference_url)
                 elif tool.name == 'generate_code':
                     tool_result = tool_function(user_input or user_request or rephrased_request)
                 else:
                     tool_result = tool_function(user_input or user_request or rephrased_request)
+                if not isinstance(tool_result, str):
+                    tool_result = json.dumps(tool_result, ensure_ascii=False)
                 logger.debug(f"Tool result: {tool_result[:500]}...")  # Log first 500 characters of result
             else:
                 logger.error(f"Tool function not found for {tool.name}")
@@ -375,14 +380,14 @@ def process_agent_interaction(agent_index):
             st.session_state.tool_result_string = tool_result[:1000] + "..."  # Limit to first 1000 characters
             
             # Update the discussion and whiteboard immediately
-            update_discussion_and_whiteboard(tool.name, st.session_state.tool_result_string, "")
+            update_discussion_and_whiteboard(tool.name, st.session_state.tool_result_string, "", rerun=False)
             
         except Exception as e:
             error_message = f"Error executing tool {tool.name}: {str(e)}"
             logger.error(error_message, exc_info=True)
             tool_results[tool.name] = error_message
             st.session_state.tool_result_string = error_message
-            update_discussion_and_whiteboard(tool.name, error_message, "")
+            update_discussion_and_whiteboard(tool.name, error_message, "", rerun=False)
     
     request = construct_request(agent, agent_name, description, user_request, user_input, rephrased_request, reference_url, tool_results)
     

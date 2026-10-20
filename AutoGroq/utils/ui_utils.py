@@ -1,3 +1,4 @@
+# Modified from AutoGroq by J. Gravelle: search reset and tool-result consumption.
 import datetime
 import json
 import os
@@ -377,7 +378,9 @@ def display_reset_and_upload_buttons():
                 "rephrased_request", "discussion", "whiteboard", "user_request",
                 "user_input", "agents", "zip_buffer", "crewai_zip_buffer",
                 "autogen_zip_buffer", "uploaded_file_content", "discussion_history",
-                "last_comment", "user_api_key", "reference_url"
+                "last_comment", "user_api_key", "reference_url",
+                "parallel_search_session_id", "user_input_widget",
+                "reference_url_widget"
             ]
             # Reset each specified key
             for key in keys_to_reset:
@@ -992,7 +995,7 @@ def update_deliverable_status(index):
     st.experimental_rerun()
 
 
-def update_discussion_and_whiteboard(agent_name, response, user_input):
+def update_discussion_and_whiteboard(agent_name, response, user_input, rerun=True):
     # Update the full discussion history
     if user_input:
         user_input_text = f"\n\nUser: {user_input}\n\n"
@@ -1008,7 +1011,8 @@ def update_discussion_and_whiteboard(agent_name, response, user_input):
     st.session_state.last_comment = response
 
     # Force a rerun to update the UI
-    st.experimental_rerun()
+    if rerun:
+        st.experimental_rerun()
 
 
 def update_user_input():
